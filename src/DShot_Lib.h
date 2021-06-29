@@ -19,8 +19,8 @@ constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
-constexpr auto DSHOT_PAUSE = (DSHOT_PACKET_LENGTH * 21); // ...21bit is recommended
-constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PACKET_LENGTH;
+constexpr auto DSHOT_PAUSE = 65; // ...25µs break between dshot packets
+constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PAUSE; // ...same
 constexpr auto DSHOT_PAUSE_BIT = 16;
 
 constexpr auto F_CPU_RMT = 80000000L;

@@ -1,11 +1,11 @@
 /*
- Name:		DShot_Lib.cpp
+ Name:		DShotRMT.cpp
  Created:	29.06.2021 19:41:44
  Author:	derdoktor667
  Editor:	http://www.visualmicro.com
 */
 
-#include "DShot_Lib.h"
+#include "DShotRMT.h"
 
 DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel) {
 	dshot_config.gpio_num = gpio;

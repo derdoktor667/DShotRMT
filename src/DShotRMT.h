@@ -1,5 +1,5 @@
 /*
- Name:		DShot_Lib.h
+ Name:		DShotRMT.h
  Created:	29.06.2021 19:41:44
  Author:	derdoktor667
 */

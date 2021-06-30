@@ -12,6 +12,7 @@ constexpr auto USB_SERIAL_BAUD = 115200;
 DShotRMT dshot_01(GPIO_NUM_4, RMT_CHANNEL_0);
 
 volatile uint16_t throttle_value = 0x30; // ...sending "48", the first throttle value
+constexpr auto FAILSAVE_THROTTLE = 0x3E7;
 
 void setup() {
     // ...always start the onboard usb support
@@ -19,20 +20,24 @@ void setup() {
 
     // ...start the dshot generation
     dshot_01.begin(DSHOT300);
-
-    // ...stabilize settings
-    vTaskDelay(500);
 }
 
 void loop() {
+    read_SerialThrottle();
+
     dshot_01.send_dshot_value(throttle_value);
+
+    // ...print to console
+    USB_Serial.println(throttle_value);
 }
 
 //
 //
-void read_SerialThrottle() {
+uint16_t read_SerialThrottle() {
 	if (USB_Serial.available() > 0) {
 		auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
-		throttle_value = throttle_input;
-	}
+		return throttle_input;
+	} else {
+        return FAILSAVE_THROTTLE;
+    }
 }

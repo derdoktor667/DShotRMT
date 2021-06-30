@@ -3,8 +3,7 @@
         {
             "name": "ESP32",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${vcpkgRoot}/x86-windows/include/**",
+                "${workspaceFolder}\\**",
                 "C:\\Users\\derdoktor667\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\1.0.6\\**"
             ],
             "defines": [
@@ -13,14 +12,13 @@
                 "_UNICODE"
             ],
             "windowsSdkVersion": "10.0.19041.0",
-            "compilerPath": "C:/Qt/Tools/mingw730_32/bin/gcc.exe",
-            "intelliSenseMode": "gcc-x86",
+            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.28.29910/bin/Hostx64/x64/cl.exe",
+            "intelliSenseMode": "windows-msvc-x86",
             "cStandard": "c17",
             "cppStandard": "c++14",
             "browse": {
                 "path": [
                     "${workspaceFolder}",
-                    "${vcpkgRoot}/x86-windows/include",
                     "C:\\Users\\derdoktor667\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\1.0.6"
                 ]
             }

@@ -19,7 +19,7 @@ constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
-constexpr auto DSHOT_PAUSE = 65; // ...25µs break between dshot packets
+constexpr auto DSHOT_PAUSE = 65; // ...25ï¿½s break between dshot packets
 constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PAUSE; // ...same
 constexpr auto DSHOT_PAUSE_BIT = 16;
 
@@ -78,7 +78,7 @@ class DShotRMT {
 	DShotRMT(uint8_t pin, uint8_t channel);
 	~DShotRMT();
 	DShotRMT(DShotRMT const&);
-	DShotRMT& operator=(DShotRMT const&);
+	// DShotRMT& operator=(DShotRMT const&);
 
 	bool begin(dshot_mode_t dshot_mode = DSHOT_OFF, bool is_bidirectional = false);
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);

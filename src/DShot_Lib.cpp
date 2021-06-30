@@ -35,9 +35,9 @@ DShotRMT::DShotRMT(DShotRMT const&) {
 	// ...write me	
 }
 
-DShotRMT& DShotRMT::operator=(DShotRMT const&) {
+// DShotRMT& DShotRMT::operator=(DShotRMT const&) {
 	// TODO: hier return-Anweisung eingeben
-}
+// }
 
 bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	dshot_config.mode = dshot_mode;
@@ -47,27 +47,27 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 
 	switch (dshot_config.mode) {
 		case DSHOT150:
-			dshot_config.ticks_per_bit = 64; // ...Bit Period Time 6.67 µs
-			dshot_config.ticks_zero_high = 24; // ...zero time 2.50 µs
-			dshot_config.ticks_one_high = 48; // ...one time 5.00 µs
+			dshot_config.ticks_per_bit = 64; // ...Bit Period Time 6.67 ï¿½s
+			dshot_config.ticks_zero_high = 24; // ...zero time 2.50 ï¿½s
+			dshot_config.ticks_one_high = 48; // ...one time 5.00 ï¿½s
 			break;
 
 		case DSHOT300:
-			dshot_config.ticks_per_bit = 32; // ...Bit Period Time 3.33 µs
-			dshot_config.ticks_zero_high = 12; // ...zero time 1.25 µs
-			dshot_config.ticks_one_high = 24; // ...one time 2.50 µs
+			dshot_config.ticks_per_bit = 32; // ...Bit Period Time 3.33 ï¿½s
+			dshot_config.ticks_zero_high = 12; // ...zero time 1.25 ï¿½s
+			dshot_config.ticks_one_high = 24; // ...one time 2.50 ï¿½s
 			break;
 
 		case DSHOT600:
-			dshot_config.ticks_per_bit = 16; // ...Bit Period Time 1.67 µs
-			dshot_config.ticks_zero_high = 6; // ...zero time 0.625 µs
-			dshot_config.ticks_one_high = 12; // ...one time 1.25 µs
+			dshot_config.ticks_per_bit = 16; // ...Bit Period Time 1.67 ï¿½s
+			dshot_config.ticks_zero_high = 6; // ...zero time 0.625 ï¿½s
+			dshot_config.ticks_one_high = 12; // ...one time 1.25 ï¿½s
 			break;
 
 		case DSHOT1200:
-			dshot_config.ticks_per_bit = 8; // ...Bit Period Time 0.83 µs
-			dshot_config.ticks_zero_high = 3; // ...zero time 0.313 µs
-			dshot_config.ticks_one_high = 6; // ...one time 0.625 µs
+			dshot_config.ticks_per_bit = 8; // ...Bit Period Time 0.83 ï¿½s
+			dshot_config.ticks_zero_high = 3; // ...zero time 0.313 ï¿½s
+			dshot_config.ticks_one_high = 6; // ...one time 0.625 ï¿½s
 			break;
 
 			// ...because having a default is "good style"

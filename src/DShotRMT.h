@@ -21,7 +21,7 @@ constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
-constexpr auto DSHOT_PAUSE = 65; // ...21bit is recommended
+constexpr auto DSHOT_PAUSE = DSHOT_PACKET_LENGTH * DSHOT_CLK_DIVIDER; // ...21bit is recommended, but to be sure
 constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PAUSE;
 constexpr auto DSHOT_PAUSE_BIT = 16;
 
@@ -37,6 +37,7 @@ typedef enum dshot_mode_e {
 	DSHOT1200
 } dshot_mode_t;
 
+// ...to get human readable DShot Mode 
 static const char* const dshot_mode_name[] = {
 	"DSHOT_OFF",
 	"DSHOT150",
@@ -61,7 +62,7 @@ typedef struct dshot_packet_s {
 typedef struct dshot_config_s {
 	dshot_mode_t mode;
 	dshot_name_t name_str;
-	bool is_inverted;
+	bool bidirectional;
 	gpio_num_t gpio_num;
 	uint8_t pin_num;
 	rmt_channel_t rmt_channel;
@@ -86,7 +87,7 @@ class DShotRMT {
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
 
 	dshot_config_t* get_dshot_info();
-	uint8_t get_dshot_clock_div();
+	uint8_t* get_dshot_clock_div();
 
 	private:
 	rmt_item32_t dshot_rmt_item[DSHOT_PACKET_LENGTH] = { };

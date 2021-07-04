@@ -4,9 +4,10 @@
 // Author:  	derdoktor667
 //
 
-#include <Arduino.h>
-
 #include "DShotRMT.h"
+
+DShotRMT* DShotFirst = nullptr;
+DShotRMT* DShotNext = nullptr;
 
 DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel) {
 	dshot_config.gpio_num = gpio;
@@ -44,7 +45,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	dshot_config.mode = dshot_mode;
 	dshot_config.clk_div = DSHOT_CLK_DIVIDER;
 	dshot_config.name_str = dshot_mode_name[dshot_mode];
-	dshot_config.is_inverted = is_bidirectional;
+	dshot_config.bidirectional = is_bidirectional;
 
 	switch (dshot_config.mode) {
 		case DSHOT150:
@@ -119,7 +120,7 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 		throttle_value = DSHOT_THROTTLE_MAX;
 	}
 
-	if (dshot_config.is_inverted) {
+	if (dshot_config.bidirectional) {
 
 		// ...implement bidirectional mode
 
@@ -132,12 +133,14 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 	}
 }
 
+// ...get all setup data about current mode
 dshot_config_t* DShotRMT::get_dshot_info() {
 	return &dshot_config;
 }
 
-uint8_t DShotRMT::get_dshot_clock_div() {
-	return dshot_config.clk_div;
+// ...get the ABP_Clock Divider for further calculations
+uint8_t* DShotRMT::get_dshot_clock_div() {
+	return &dshot_config.clk_div;
 }
 
 rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
@@ -173,7 +176,7 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
 	uint16_t packet = DSHOT_NULL_PACKET;
 	uint16_t chksum = DSHOT_NULL_PACKET;
 
-	if (dshot_config.is_inverted) {
+	if (dshot_config.bidirectional) {
 
 		// ...implement bidirectional mode
 

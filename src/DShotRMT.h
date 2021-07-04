@@ -1,13 +1,13 @@
 //
-// Name:		ESP32_ESC.ino
+// Name:		DShotRMT.h
 // Created: 	20.03.2021 00:49:15
 // Author:  	derdoktor667
 //
 
 #pragma once
 
-#include "BlheliCmdMap.h"
 #include <Arduino.h>
+#include "BlheliCmdMap.h"
 
 #include <driver/rmt.h>
 #include <string>
@@ -21,7 +21,7 @@ constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
-constexpr auto DSHOT_PAUSE = DSHOT_PACKET_LENGTH * DSHOT_CLK_DIVIDER; // ...21bit is recommended, but to be sure
+constexpr auto DSHOT_PAUSE = 21; // ...21bit is recommended, but to be sure
 constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PAUSE;
 constexpr auto DSHOT_PAUSE_BIT = 16;
 
@@ -81,8 +81,8 @@ class DShotRMT {
 	DShotRMT(uint8_t pin, uint8_t channel);
 	~DShotRMT();
 	DShotRMT(DShotRMT const&);
-	// DShotRMT& operator=(DShotRMT const&);
 
+	// ...safety first ...no parameters, no DShot
 	bool begin(dshot_mode_t dshot_mode = DSHOT_OFF, bool is_bidirectional = false);
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
 
@@ -90,7 +90,7 @@ class DShotRMT {
 	uint8_t* get_dshot_clock_div();
 
 	private:
-	rmt_item32_t dshot_rmt_item[DSHOT_PACKET_LENGTH] = { };
+	rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH] = { };
 	dshot_config_t dshot_config = { };
 	rmt_config_t rmt_dshot_config = { };
 

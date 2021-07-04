@@ -1,8 +1,8 @@
-/*
- Name:		DShotRMT.h
- Created:	29.06.2021 19:41:44
- Author:	derdoktor667
-*/
+//
+// Name:		ESP32_ESC.ino
+// Created: 	20.03.2021 00:49:15
+// Author:  	derdoktor667
+//
 
 #pragma once
 
@@ -12,6 +12,8 @@
 #include <driver/rmt.h>
 #include <string>
 
+constexpr auto MOTOR_NUM_PHASES = 3;
+constexpr auto MOTOR_NUM_COMMUTATION_STEPS = 6;
 constexpr auto DSHOT_CLK_DIVIDER = 8; // ...slow down RMT clock to 10 ticks => 1ns
 constexpr auto DSHOT_PACKET_LENGTH = 17; // ...last pack is the pause
 
@@ -19,8 +21,8 @@ constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
-constexpr auto DSHOT_PAUSE = 65; // ...25�s break between dshot packets
-constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PAUSE; // ...same
+constexpr auto DSHOT_PAUSE = 65; // ...21bit is recommended
+constexpr auto DSHOT_PAUSE_BIDIRECTIONAL = DSHOT_PAUSE;
 constexpr auto DSHOT_PAUSE_BIT = 16;
 
 constexpr auto F_CPU_RMT = 80000000L;
@@ -43,18 +45,18 @@ static const char* const dshot_mode_name[] = {
 	"DSHOT1200"
 };
 
-typedef enum request_e {
+typedef String dshot_name_t;
+
+typedef enum telemetric_request_e {
 	NO_TELEMETRIC,
 	ENABLE_TELEMETRIC,
 } telemetric_request_t;
 
 typedef struct dshot_packet_s {
-	uint16_t throttle_value : 11;
+	uint16_t throttle_value	: 11;
 	telemetric_request_t telemetric_request : 1;
 	uint16_t checksum : 4;
 } dshot_packet_t;
-
-typedef String dshot_name_t;
 
 typedef struct dshot_config_s {
 	dshot_mode_t mode;
@@ -97,5 +99,3 @@ class DShotRMT {
 
 	void output_rmt_data(const dshot_packet_t& dshot_packet);
 };
-
-

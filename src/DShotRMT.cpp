@@ -1,9 +1,10 @@
-/*
- Name:		DShotRMT.cpp
- Created:	29.06.2021 19:41:44
- Author:	derdoktor667
- Editor:	http://www.visualmicro.com
-*/
+//
+// Name:		ESP32_ESC.ino
+// Created: 	20.03.2021 00:49:15
+// Author:  	derdoktor667
+//
+
+#include <Arduino.h>
 
 #include "DShotRMT.h"
 
@@ -31,7 +32,7 @@ DShotRMT::~DShotRMT() {
 	rmt_driver_uninstall(dshot_config.rmt_channel);
 }
 
-DShotRMT::DShotRMT(DShotRMT const&) {
+DShotRMT::DShotRMT(DShotRMT const &) {
 	// ...write me	
 }
 
@@ -70,7 +71,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 			dshot_config.ticks_one_high = 6; // ...one time 0.625 �s
 			break;
 
-			// ...because having a default is "good style"
+		// ...because having a default is "good style"
 		default:
 			dshot_config.ticks_per_bit = 0; // ...Bit Period Time endless
 			dshot_config.ticks_zero_high = 0; // ...no bits, no time
@@ -92,7 +93,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	rmt_dshot_config.tx_config.carrier_en = false;
 	rmt_dshot_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
 	rmt_dshot_config.tx_config.idle_output_en = true;
-
+	
 	// ...setup selected dshot mode
 	rmt_config(&rmt_dshot_config);
 
@@ -102,8 +103,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	// ...because esp_err_t returns more than true or false
 	if (init_failed != 0) {
 		return true;
-	}
-	else {
+	} else {
 		return false;
 	}
 }
@@ -123,8 +123,7 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 
 		// ...implement bidirectional mode
 
-	}
-	else {
+	} else {
 		dshot_rmt_packet.throttle_value = throttle_value;
 		dshot_rmt_packet.telemetric_request = telemetric_request;
 		dshot_rmt_packet.checksum = this->calc_dshot_chksum(dshot_rmt_packet);
@@ -142,7 +141,7 @@ uint8_t DShotRMT::get_dshot_clock_div() {
 }
 
 rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
-	for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) {
+	for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
 		if (parsed_packet & 0b1000000000000000) {
 			// set one
 			dshot_rmt_item[i].duration0 = dshot_config.ticks_one_high;
@@ -178,8 +177,7 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
 
 		// ...implement bidirectional mode
 
-	}
-	else {
+	} else {
 		packet = (dshot_packet.throttle_value << 1) | dshot_packet.telemetric_request;
 
 		for (int i = 0; i < 3; i++) {
@@ -211,4 +209,3 @@ void DShotRMT::output_rmt_data(const dshot_packet_t& dshot_packet) {
 	//
 	rmt_write_items(rmt_dshot_config.channel, dshot_rmt_item, DSHOT_PACKET_LENGTH, false);
 }
-

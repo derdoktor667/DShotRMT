@@ -95,16 +95,10 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	rmt_config(&rmt_dshot_config);
 
 	// ...essential step, return the result
-	auto init_failed = rmt_driver_install(rmt_dshot_config.channel, 0, 0);
-
-	// ...because esp_err_t returns more than true or false
-	if (init_failed != 0) {
-		return true;
-	} else {
-		return false;
-	}
+    return rmt_driver_install(rmt_dshot_config.channel, 0, 0);
 }
 
+//´...the config part is done, now the calculating and sending part
 void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request) {
 	dshot_packet_t dshot_rmt_packet = { };
 
@@ -116,17 +110,12 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 		throttle_value = DSHOT_THROTTLE_MAX;
 	}
 
-	if (dshot_config.bidirectional) {
+	// ...packets are the same for bidirectional mode
+	dshot_rmt_packet.throttle_value = throttle_value;
+	dshot_rmt_packet.telemetric_request = telemetric_request;
+	dshot_rmt_packet.checksum = this->calc_dshot_chksum(dshot_rmt_packet);
 
-		// ...implement bidirectional mode
-
-	} else {
-		dshot_rmt_packet.throttle_value = throttle_value;
-		dshot_rmt_packet.telemetric_request = telemetric_request;
-		dshot_rmt_packet.checksum = this->calc_dshot_chksum(dshot_rmt_packet);
-
-		output_rmt_data(dshot_rmt_packet);
-	}
+	output_rmt_data(dshot_rmt_packet);
 }
 
 // ...get all setup data about current mode
@@ -144,21 +133,20 @@ rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
 		if (parsed_packet & 0b1000000000000000) {
 			// set one
 			dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
-			dshot_tx_rmt_item[i].level0 = 1;
 			dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
-			dshot_tx_rmt_item[i].level1 = 0;
 		}
 		else {
 			// set zero
 			dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
-			dshot_tx_rmt_item[i].level0 = 1;
 			dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
-			dshot_tx_rmt_item[i].level1 = 0;
 		}
+
+		dshot_tx_rmt_item[i].level0 = 1;
+		dshot_tx_rmt_item[i].level1 = 0;
 	}
 
 	// ...end marker added to each frame
-	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration0 = DSHOT_PAUSE_BIDIRECTIONAL;
+	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration0 = (dshot_config.ticks_per_bit * DSHOT_PAUSE);
 	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 0;
 	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration1 = 0;
 	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 0;
@@ -172,19 +160,15 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
 	uint16_t packet = DSHOT_NULL_PACKET;
 	uint16_t chksum = DSHOT_NULL_PACKET;
 
+	// ...same initial 12bit data for bidirectional or "normal" mode
+	packet = (dshot_packet.throttle_value << 1) | dshot_packet.telemetric_request;
+
 	if (dshot_config.bidirectional) {
-
-		// ...implement bidirectional mode
-
+		// ...calc the checksum "inverted" / bdirectional mode
+		chksum = (~(packet ^ (packet >> 4) ^ (packet >> 8))) & 0x0F;
 	} else {
-		packet = (dshot_packet.throttle_value << 1) | dshot_packet.telemetric_request;
-
-		for (int i = 0; i < 3; i++) {
-			chksum ^= packet;   // xor data by nibbles
-			packet >>= 4;
-		}
-
-		chksum &= 0b0000000000001111;
+		// ...calc the checksum "normal" mode
+		chksum = (packet ^ (packet >> 4) ^ (packet >> 8)) & 0x0F;
 	}
 
 	return chksum;
@@ -192,7 +176,6 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
 
 uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t& dshot_packet) {
 	uint16_t prepared_to_encode = DSHOT_NULL_PACKET;
-
 	uint16_t chksum = calc_dshot_chksum(dshot_packet);
 
 	prepared_to_encode = (dshot_packet.throttle_value << 1) | dshot_packet.telemetric_request;

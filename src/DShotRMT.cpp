@@ -6,9 +6,6 @@
 
 #include "DShotRMT.h"
 
-DShotRMT* DShotFirst = nullptr;
-DShotRMT* DShotNext = nullptr;
-
 DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel) {
 	dshot_config.gpio_num = gpio;
 	dshot_config.pin_num = uint8_t(gpio);
@@ -45,27 +42,27 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 
 	switch (dshot_config.mode) {
 		case DSHOT150:
-			dshot_config.ticks_per_bit = 64; // ...Bit Period Time 6.67 �s
-			dshot_config.ticks_zero_high = 24; // ...zero time 2.50 �s
-			dshot_config.ticks_one_high = 48; // ...one time 5.00 �s
+			dshot_config.ticks_per_bit = 64; // ...Bit Period Time 6.67 us
+			dshot_config.ticks_zero_high = 24; // ...zero time 2.50 us
+			dshot_config.ticks_one_high = 48; // ...one time 5.00 us
 			break;
 
 		case DSHOT300:
-			dshot_config.ticks_per_bit = 32; // ...Bit Period Time 3.33 �s
-			dshot_config.ticks_zero_high = 12; // ...zero time 1.25 �s
-			dshot_config.ticks_one_high = 24; // ...one time 2.50 �s
+			dshot_config.ticks_per_bit = 32; // ...Bit Period Time 3.33 us
+			dshot_config.ticks_zero_high = 12; // ...zero time 1.25 us
+			dshot_config.ticks_one_high = 24; // ...one time 2.50 us
 			break;
 
 		case DSHOT600:
-			dshot_config.ticks_per_bit = 16; // ...Bit Period Time 1.67 �s
-			dshot_config.ticks_zero_high = 6; // ...zero time 0.625 �s
-			dshot_config.ticks_one_high = 12; // ...one time 1.25 �s
+			dshot_config.ticks_per_bit = 16; // ...Bit Period Time 1.67 us
+			dshot_config.ticks_zero_high = 6; // ...zero time 0.625 us
+			dshot_config.ticks_one_high = 12; // ...one time 1.25 us
 			break;
 
 		case DSHOT1200:
-			dshot_config.ticks_per_bit = 8; // ...Bit Period Time 0.83 �s
-			dshot_config.ticks_zero_high = 3; // ...zero time 0.313 �s
-			dshot_config.ticks_one_high = 6; // ...one time 0.625 �s
+			dshot_config.ticks_per_bit = 8; // ...Bit Period Time 0.83 us
+			dshot_config.ticks_zero_high = 3; // ...zero time 0.313 us
+			dshot_config.ticks_one_high = 6; // ...one time 0.625 us
 			break;
 
 		// ...because having a default is "good style"
@@ -95,7 +92,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	rmt_config(&rmt_dshot_config);
 
 	// ...essential step, return the result
-    return rmt_driver_install(rmt_dshot_config.channel, 0, 0);
+	return rmt_driver_install(rmt_dshot_config.channel, 0, 0);
 }
 
 //´...the config part is done, now the calculating and sending part

@@ -5,7 +5,7 @@
 #######################################
 # Datatypes (KEYWORD1)
 #######################################
-DShot_Lib	                    KEYWORD1
+DShotRMT	                    KEYWORD1
 dshot_mode_t                    KEYWORD1
 telemetric_request_t            KEYWORD1
 dshot_packet_t                  KEYWORD1

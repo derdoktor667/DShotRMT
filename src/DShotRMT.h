@@ -8,6 +8,7 @@
 
 #include <Arduino.h>
 #include "BlheliCmdMap.h"
+#include "../fc_config.h"
 
 // ...utilizing the IR Module library for generating the DShot signal
 #include <driver/rmt.h>
@@ -50,13 +51,20 @@ typedef enum telemetric_request_e {
 	ENABLE_TELEMETRIC,
 } telemetric_request_t;
 
-// ...set bitcount for DShot packet structure
+// ...set bitcount for DShot packet
 typedef struct dshot_packet_s {
 	uint16_t throttle_value	: 11;
 	telemetric_request_t telemetric_request : 1;
 	uint16_t checksum : 4;
 } dshot_packet_t;
 
+// ...set bitcount for eRPM packet
+typedef struct eRPM_packet_s {
+    uint16_t eRPM_data : 12;
+    uint8_t checksum : 4;
+} eRPM_packet_t;
+
+// ...all settings for the dshot mode
 typedef struct dshot_config_s {
 	dshot_mode_t mode;
 	dshot_name_t name_str;
@@ -88,9 +96,9 @@ class DShotRMT {
 	uint8_t* get_dshot_clock_div();
 
 	private:
-	rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH] = { };
-	dshot_config_t dshot_config = { };
-	rmt_config_t rmt_dshot_config = { };
+	rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH];
+	rmt_config_t dshot_tx_rmt_config;
+	dshot_config_t dshot_config;
 
 	rmt_item32_t* encode_dshot_to_rmt(uint16_t parsed_packet);
 	uint16_t calc_dshot_chksum(const dshot_packet_t& dshot_packet);

@@ -7,7 +7,7 @@
 #include "DShotRMT.h"
 
 DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel) {
-	dshot_config.gpio_num = gpio;
+    dshot_config.gpio_num = gpio;
 	dshot_config.pin_num = uint8_t(gpio);
 	dshot_config.rmt_channel = rmtChannel;
 	dshot_config.mem_block_num = uint8_t(RMT_CHANNEL_MAX - uint8_t(rmtChannel));
@@ -77,25 +77,30 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	dshot_config.ticks_zero_low = (dshot_config.ticks_per_bit - dshot_config.ticks_zero_high);
 	dshot_config.ticks_one_low = (dshot_config.ticks_per_bit - dshot_config.ticks_one_high);
 
-	rmt_dshot_config.rmt_mode = RMT_MODE_TX;
-	rmt_dshot_config.channel = dshot_config.rmt_channel;
-	rmt_dshot_config.gpio_num = dshot_config.gpio_num;
-	rmt_dshot_config.mem_block_num = dshot_config.mem_block_num;
-	rmt_dshot_config.clk_div = dshot_config.clk_div;
+	dshot_tx_rmt_config.rmt_mode = RMT_MODE_TX;
+	dshot_tx_rmt_config.channel = dshot_config.rmt_channel;
+	dshot_tx_rmt_config.gpio_num = dshot_config.gpio_num;
+	dshot_tx_rmt_config.mem_block_num = dshot_config.mem_block_num;
+	dshot_tx_rmt_config.clk_div = dshot_config.clk_div;
 
-	rmt_dshot_config.tx_config.loop_en = false;
-	rmt_dshot_config.tx_config.carrier_en = false;
-	rmt_dshot_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
-	rmt_dshot_config.tx_config.idle_output_en = true;
-	
+	dshot_tx_rmt_config.tx_config.loop_en = false;
+	dshot_tx_rmt_config.tx_config.carrier_en = false;
+	dshot_tx_rmt_config.tx_config.idle_output_en = true;
+
+    if (dshot_config.bidirectional) {
+        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_HIGH;
+    } else {
+        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    }
+
 	// ...setup selected dshot mode
-	rmt_config(&rmt_dshot_config);
+	rmt_config(&dshot_tx_rmt_config);
 
 	// ...essential step, return the result
-	return rmt_driver_install(rmt_dshot_config.channel, 0, 0);
+	return rmt_driver_install(dshot_tx_rmt_config.channel, 0, 0);
 }
 
-//´...the config part is done, now the calculating and sending part
+// ...the config part is done, now the calculating and sending part
 void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request) {
 	dshot_packet_t dshot_rmt_packet = { };
 
@@ -126,27 +131,55 @@ uint8_t* DShotRMT::get_dshot_clock_div() {
 }
 
 rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
-	for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
-		if (parsed_packet & 0b1000000000000000) {
-			// set one
-			dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
-			dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
-		}
-		else {
-			// set zero
-			dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
-			dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
-		}
+    // ...is bidirecional mode activated
+    if (dshot_config.bidirectional) {
+        // ..."invert" the signal duration
+        for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
+		    if (parsed_packet & 0b1000000000000000) {
+			    // set one
+			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_low;
+			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_high;
+		    }
+		    else {
+			    // set zero
+			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_low;
+			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_high;
+		    }
+
+		dshot_tx_rmt_item[i].level0 = 0;
+		dshot_tx_rmt_item[i].level1 = 1;
+        }
+    }
+    
+    // ..."normal" DShot mode / "bidirectional" mode OFF
+    else {
+        for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
+		    if (parsed_packet & 0b1000000000000000) {
+			    // set one
+			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
+			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
+		    }
+		    else {
+			    // set zero
+			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
+			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
+		    }
 
 		dshot_tx_rmt_item[i].level0 = 1;
 		dshot_tx_rmt_item[i].level1 = 0;
-	}
+        }
+    }
+
+    if (dshot_config.bidirectional) {
+        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 1;
+        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 0;
+    } else {
+        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 0;
+        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 1;
+    }
 
 	// ...end marker added to each frame
-	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration0 = (dshot_config.ticks_per_bit * DSHOT_PAUSE);
-	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 0;
-	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration1 = 0;
-	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 0;
+	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration1 = (DSHOT_PAUSE / 2);
 
 	return dshot_tx_rmt_item;
 }
@@ -154,6 +187,7 @@ rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
 // ...just returns the checksum
 // DOES NOT APPEND CHECKSUM!!!
 uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
+    // ...start with two emprty "container"
 	uint16_t packet = DSHOT_NULL_PACKET;
 	uint16_t chksum = DSHOT_NULL_PACKET;
 
@@ -161,7 +195,7 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
 	packet = (dshot_packet.throttle_value << 1) | dshot_packet.telemetric_request;
 
 	if (dshot_config.bidirectional) {
-		// ...calc the checksum "inverted" / bdirectional mode
+		// ...calc the checksum "inverted" / bidirectional mode
 		chksum = (~(packet ^ (packet >> 4) ^ (packet >> 8))) & 0x0F;
 	} else {
 		// ...calc the checksum "normal" mode
@@ -175,6 +209,7 @@ uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t& dshot_packet) {
 	uint16_t prepared_to_encode = DSHOT_NULL_PACKET;
 	uint16_t chksum = calc_dshot_chksum(dshot_packet);
 
+    // ..."construct" the packet
 	prepared_to_encode = (dshot_packet.throttle_value << 1) | dshot_packet.telemetric_request;
 	prepared_to_encode = (prepared_to_encode << 4) | chksum;
 
@@ -186,5 +221,5 @@ void DShotRMT::output_rmt_data(const dshot_packet_t& dshot_packet) {
 	encode_dshot_to_rmt(prepare_rmt_data(dshot_packet));
 
 	//
-	rmt_write_items(rmt_dshot_config.channel, dshot_tx_rmt_item, DSHOT_PACKET_LENGTH, false);
+	rmt_write_items(dshot_tx_rmt_config.channel, dshot_tx_rmt_item, DSHOT_PACKET_LENGTH, false);
 }

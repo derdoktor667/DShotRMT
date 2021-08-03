@@ -8,7 +8,6 @@
 
 #include <Arduino.h>
 #include "BlheliCmdMap.h"
-#include "../fc_config.h"
 
 // ...utilizing the IR Module library for generating the DShot signal
 #include <driver/rmt.h>

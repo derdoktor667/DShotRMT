@@ -97,7 +97,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	rmt_config(&dshot_tx_rmt_config);
 
 	// ...essential step, return the result
-	return rmt_driver_install(dshot_tx_rmt_config.channel, 0, 0);
+	return rmt_driver_install(dshot_tx_rmt_config.channel, 0, RX_BUFFER_SIZE);
 }
 
 // ...the config part is done, now the calculating and sending part
@@ -222,4 +222,15 @@ void DShotRMT::output_rmt_data(const dshot_packet_t& dshot_packet) {
 
 	//
 	rmt_write_items(dshot_tx_rmt_config.channel, dshot_tx_rmt_item, DSHOT_PACKET_LENGTH, false);
+
+	// after done transmitting, switch channel to rx to get response
+    if (dshot_config.bidirectional) {
+		rmt_register_tx_end_callback(&dshot_switch_to_rx, &dshot_config.gpio_num);
+	}
+}
+
+void DShotRMT::dshot_switch_to_rx(rmt_channel_t rmt_channel, void *arg) {
+	gpio_num_t* gpio_num = reinterpret_cast<gpio_num_t*>(arg);
+//	esp_err_t set_pin_result = rmt_set_gpio(rmt_channel, RMT_MODE_RX, gpio_num, false);
+//	esp_err_t rx_start_result = rmt_rx_start(dshot_config.rmt_channel, true);
 }

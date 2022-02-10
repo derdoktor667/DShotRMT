@@ -3,34 +3,39 @@
 #include <Arduino.h>
 #include "src/DShotRMT.h"
 
-// ...clearly name usb port
-#ifdef SERIAL
-#define USB_Serial Serial
-constexpr auto USB_SERIAL_BAUD = 115200;
-#endif // SERIAL
-
 DShotRMT dshot_01(GPIO_NUM_4, RMT_CHANNEL_0);
 
-volatile uint16_t throttle_value = 0x30; // ...sending "48", the lowest throttle value
+volatile uint16_t throttle_value = 48; // 48 is lowest throttle value
+String serialBuffer;
 
 void setup() {
   // ...always start the onboard usb support
-  USB_Serial.begin(USB_SERIAL_BAUD);
+  Serial.begin(115200);
+  Serial.setTimeout(100);
 
   // ...start the dshot generation
-  dshot_01.begin(DSHOT300, false); // speed & bidirectional
+  dshot_01.begin(DSHOT300, false);  // speed & bidirectional
 }
 
 void loop() {
-  if (USB_Serial.available() > 0) {
-    throttle_value = (USB_Serial.readStringUntil('\n')).toInt();
-    USB_Serial.print("read serial value ");
-    USB_Serial.println(throttle_value);
+  while (Serial.available() > 0) {
+    char recieved = Serial.read();
+    if (recieved == '\n') {
+      Serial.println("new serial value");
+      throttle_value = serialBuffer.toInt();
+      serialBuffer = "";
+      Serial.println(throttle_value);
+    } else {
+      serialBuffer += recieved;
+    }
   }
 
-  dshot_01.send_dshot_value(throttle_value);
+  dshot_01.send_dshot_value(throttle_value, NO_TELEMETRIC);
 
   // ...print to console
-  USB_Serial.println(throttle_value);
-  delay(50); // serial.available fails if you lower this too much??
+//  Serial.print(throttle_value);
+  //  Serial.print(" ");
+  //  Serial.print((dshot_01.dshot_tx_rmt_item);
+//  Serial.println("");
+  delay(1);
 }

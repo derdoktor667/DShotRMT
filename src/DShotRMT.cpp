@@ -137,13 +137,13 @@ rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
         for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
 		    if (parsed_packet & 0b1000000000000000) {
 			    // set one
-			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_low;
-			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_high;
+			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
+			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
 		    }
 		    else {
 			    // set zero
-			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_low;
-			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_high;
+			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
+			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
 		    }
 
 		dshot_tx_rmt_item[i].level0 = 0;

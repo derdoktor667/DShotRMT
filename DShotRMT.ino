@@ -5,16 +5,14 @@
 
 DShotRMT dshot_01(GPIO_NUM_4, RMT_CHANNEL_0);
 
-volatile uint16_t throttle_value = 48; // 48 is lowest throttle value
+volatile uint16_t throttle_value = 48;  // throttle range is 48 to 2047
 String serialBuffer;
 
 void setup() {
-  // ...always start the onboard usb support
   Serial.begin(115200);
   Serial.setTimeout(100);
 
-  // ...start the dshot generation
-  dshot_01.begin(DSHOT300, false);  // speed & bidirectional
+  dshot_01.begin(DSHOT300, true);  // speed & bidirectional
 }
 
 void loop() {
@@ -33,9 +31,9 @@ void loop() {
   dshot_01.send_dshot_value(throttle_value, NO_TELEMETRIC);
 
   // ...print to console
-//  Serial.print(throttle_value);
+  //  Serial.print(throttle_value);
   //  Serial.print(" ");
   //  Serial.print((dshot_01.dshot_tx_rmt_item);
-//  Serial.println("");
+  //  Serial.println("");
   delay(1);
 }

@@ -95,6 +95,7 @@ class DShotRMT {
 
 	dshot_config_t* get_dshot_info();
 	uint8_t* get_dshot_clock_div();
+	static void handle_error(esp_err_t);
 
 	private:
 	rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH];

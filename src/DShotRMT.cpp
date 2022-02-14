@@ -87,10 +87,10 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	dshot_tx_rmt_config.tx_config.carrier_en = false;
 	dshot_tx_rmt_config.tx_config.idle_output_en = true;
 
+	dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+
     if (dshot_config.bidirectional) {
-        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_HIGH;
-    } else {
-        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+		dshot_tx_rmt_config.flags = RMT_CHANNEL_FLAGS_INVERT_SIG;
     }
 
 	// ...setup selected dshot mode
@@ -112,7 +112,6 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 		throttle_value = DSHOT_THROTTLE_MAX;
 	}
 
-	// ...packets are the same for bidirectional mode
 	dshot_rmt_packet.throttle_value = throttle_value;
 	dshot_rmt_packet.telemetric_request = telemetric_request;
 	dshot_rmt_packet.checksum = this->calc_dshot_chksum(dshot_rmt_packet);
@@ -131,52 +130,23 @@ uint8_t* DShotRMT::get_dshot_clock_div() {
 }
 
 rmt_item32_t* DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet) {
-    // ...is bidirecional mode activated
-    if (dshot_config.bidirectional) {
-        // ..."invert" the signal duration
-        for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
-		    if (parsed_packet & 0b1000000000000000) {
-			    // set one
-			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
-			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
-		    }
-		    else {
-			    // set zero
-			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
-			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
-		    }
-
-		dshot_tx_rmt_item[i].level0 = 0;
-		dshot_tx_rmt_item[i].level1 = 1;
-        }
-    }
-    
-    // ..."normal" DShot mode / "bidirectional" mode OFF
-    else {
-        for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
-		    if (parsed_packet & 0b1000000000000000) {
-			    // set one
-			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
-			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
-		    }
-		    else {
-			    // set zero
-			    dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
-			    dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
-		    }
-
+	for (int i = 0; i < DSHOT_PAUSE_BIT; i++, parsed_packet <<= 1) 	{
+		if (parsed_packet & 0b1000000000000000) {
+			// set one
+			dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_one_high;
+			dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_one_low;
+		}
+		else {
+			// set zero
+			dshot_tx_rmt_item[i].duration0 = dshot_config.ticks_zero_high;
+			dshot_tx_rmt_item[i].duration1 = dshot_config.ticks_zero_low;
+		}
 		dshot_tx_rmt_item[i].level0 = 1;
 		dshot_tx_rmt_item[i].level1 = 0;
-        }
-    }
+	}
 
-    if (dshot_config.bidirectional) {
-        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 1;
-        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 0;
-    } else {
-        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 0;
-        dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 1;
-    }
+	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level0 = 0;
+	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].level1 = 1;
 
 	// ...end marker added to each frame
 	dshot_tx_rmt_item[DSHOT_PAUSE_BIT].duration1 = (DSHOT_PAUSE / 2);
@@ -220,8 +190,7 @@ uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t& dshot_packet) {
 void DShotRMT::output_rmt_data(const dshot_packet_t& dshot_packet) {
 	encode_dshot_to_rmt(prepare_rmt_data(dshot_packet));
 
-	//
-	rmt_write_items(dshot_tx_rmt_config.channel, dshot_tx_rmt_item, DSHOT_PACKET_LENGTH, false);
+	handle_error(rmt_write_items(dshot_tx_rmt_config.channel, dshot_tx_rmt_item, DSHOT_PACKET_LENGTH, false));
 
 	// after done transmitting, switch channel to rx to get response
     if (dshot_config.bidirectional) {
@@ -231,6 +200,11 @@ void DShotRMT::output_rmt_data(const dshot_packet_t& dshot_packet) {
 
 void DShotRMT::dshot_switch_to_rx(rmt_channel_t rmt_channel, void *arg) {
 	gpio_num_t* gpio_num = reinterpret_cast<gpio_num_t*>(arg);
-//	esp_err_t set_pin_result = rmt_set_gpio(rmt_channel, RMT_MODE_RX, gpio_num, false);
-//	esp_err_t rx_start_result = rmt_rx_start(dshot_config.rmt_channel, true);
+}
+
+void DShotRMT::handle_error(esp_err_t err_code) {
+	if (err_code != ESP_OK) {
+		Serial.print("error: ");
+		Serial.println(esp_err_to_name(err_code));
+	}
 }

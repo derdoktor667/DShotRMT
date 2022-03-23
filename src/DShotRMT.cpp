@@ -10,7 +10,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel) {
     dshot_config.gpio_num = gpio;
 	dshot_config.pin_num = uint8_t(gpio);
 	dshot_config.rmt_channel = rmtChannel;
-	dshot_config.mem_block_num = uint8_t(RMT_CHANNEL_MAX - uint8_t(rmtChannel));
+	dshot_config.mem_block_num = 1;
 
 	// ...create clean packet
 	encode_dshot_to_rmt(DSHOT_NULL_PACKET);

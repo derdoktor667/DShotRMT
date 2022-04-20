@@ -19,7 +19,7 @@ void loop() {
   while (Serial.available() > 0) {
     char recieved = Serial.read();
     if (recieved == '\n') {
-      Serial.println("new serial value");
+      Serial.print("new serial value: ");
       throttle_value = serialBuffer.toInt();
       serialBuffer = "";
       Serial.println(throttle_value);

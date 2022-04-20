@@ -72,7 +72,8 @@ typedef struct dshot_config_s {
 	bool bidirectional;
 	gpio_num_t gpio_num;
 	uint8_t pin_num;
-	rmt_channel_t rmt_channel;
+	rmt_channel_t tx_channel;
+	rmt_channel_t rx_channel;	// This may not exist; don't access it if bidirectional is false
 	uint8_t mem_block_num;
 	uint16_t ticks_per_bit;
 	uint8_t clk_div;
@@ -84,7 +85,7 @@ typedef struct dshot_config_s {
 
 class DShotRMT {
 	public:
-	DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel);
+	DShotRMT(gpio_num_t gpio, rmt_channel_t tx_channel, rmt_channel_t opt_rx_channel = RMT_CHANNEL_MAX);
 	DShotRMT(uint8_t pin, uint8_t channel);
 	~DShotRMT();
 	DShotRMT(DShotRMT const&);
@@ -100,6 +101,7 @@ class DShotRMT {
 	private:
 	rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH];
 	rmt_config_t dshot_tx_rmt_config;
+	rmt_config_t dshot_rx_rmt_config;
 	dshot_config_t dshot_config;
 
 	rmt_item32_t* encode_dshot_to_rmt(uint16_t parsed_packet);

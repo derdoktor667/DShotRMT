@@ -6,20 +6,22 @@
 
 #include "DShotRMT.h"
 
-DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel) {
+DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t tx_channel, rmt_channel_t opt_rx_channel) {
     dshot_config.gpio_num = gpio;
 	dshot_config.pin_num = uint8_t(gpio);
-	dshot_config.rmt_channel = rmtChannel;
+	dshot_config.tx_channel = tx_channel;
+	dshot_config.rx_channel = opt_rx_channel;
 	dshot_config.mem_block_num = 1;
 
 	// ...create clean packet
 	encode_dshot_to_rmt(DSHOT_NULL_PACKET);
 }
 
+// This will need to be updated, or removed. Why do we need it?
 DShotRMT::DShotRMT(uint8_t pin, uint8_t channel) {
 	dshot_config.gpio_num = gpio_num_t(pin);
 	dshot_config.pin_num = pin;
-	dshot_config.rmt_channel = rmt_channel_t(channel);
+	dshot_config.tx_channel = rmt_channel_t(channel);
 	dshot_config.mem_block_num = (RMT_CHANNEL_MAX - channel);
 
 	// ...create clean packet
@@ -27,7 +29,9 @@ DShotRMT::DShotRMT(uint8_t pin, uint8_t channel) {
 }
 
 DShotRMT::~DShotRMT() {
-	rmt_driver_uninstall(dshot_config.rmt_channel);
+	rmt_driver_uninstall(dshot_config.tx_channel);
+	if (dshot_config.bidirectional)
+		rmt_driver_uninstall(dshot_config.rx_channel);
 }
 
 DShotRMT::DShotRMT(DShotRMT const&) {
@@ -78,7 +82,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 	dshot_config.ticks_one_low = (dshot_config.ticks_per_bit - dshot_config.ticks_one_high);
 
 	dshot_tx_rmt_config.rmt_mode = RMT_MODE_TX;
-	dshot_tx_rmt_config.channel = dshot_config.rmt_channel;
+	dshot_tx_rmt_config.channel = dshot_config.tx_channel;
 	dshot_tx_rmt_config.gpio_num = dshot_config.gpio_num;
 	dshot_tx_rmt_config.mem_block_num = dshot_config.mem_block_num;
 	dshot_tx_rmt_config.clk_div = dshot_config.clk_div;
@@ -91,13 +95,46 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional) {
 
     if (dshot_config.bidirectional) {
 		dshot_tx_rmt_config.flags = RMT_CHANNEL_FLAGS_INVERT_SIG;
+
+		dshot_rx_rmt_config.rmt_mode = RMT_MODE_RX;
+		dshot_rx_rmt_config.channel = dshot_config.rx_channel;
+		dshot_rx_rmt_config.gpio_num = dshot_config.gpio_num;
+		dshot_rx_rmt_config.mem_block_num = dshot_config.mem_block_num;
+		dshot_rx_rmt_config.clk_div = dshot_config.clk_div;
+
+		// dshot_rx_rmt_config.filter_en = ; // Don't know if we need this
+		// dshot_rx_rmt_config.filter_ticks_thresh = ; // Don't know if we need this
+		// dshot_rx_rmt_config.idle_threshold = ; // May need this?
+
+		dshot_rx_rmt_config.flags = RMT_CHANNEL_FLAGS_INVERT_SIG;	// Assumed default?
+
+		rmt_config(&dshot_rx_rmt_config);
     }
 
 	// ...setup selected dshot mode
 	rmt_config(&dshot_tx_rmt_config);
 
+	int ret = rmt_driver_install(dshot_tx_rmt_config.channel, 0, RX_BUFFER_SIZE);
+
+
+	bool invert_signal = true; // TODO(Daehder) play with this later; it may make our lives/code simpler
+	// attach RMT channels to new gpio pin
+    // ATTENTION: set pin for rx first since gpio_output_disable() will
+    //            remove rmt output signal in matrix!
+    if (dshot_config.bidirectional)
+	{
+		Serial.println("Setting rx gpio");
+		rmt_set_gpio( dshot_config.rx_channel, RMT_MODE_RX, dshot_config.gpio_num, invert_signal);
+	}
+	Serial.println("Setting tx gpio");
+    rmt_set_gpio( dshot_config.tx_channel, RMT_MODE_TX, dshot_config.gpio_num, invert_signal);
+    // force pin direction to input to enable path to RX channel
+    PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[dshot_config.gpio_num]);
+
+	GPIO.pin[dshot_config.gpio_num].pad_driver = 1;
+
 	// ...essential step, return the result
-	return rmt_driver_install(dshot_tx_rmt_config.channel, 0, RX_BUFFER_SIZE);
+	return ret;
 }
 
 // ...the config part is done, now the calculating and sending part
@@ -118,6 +155,10 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 
 	output_rmt_data(dshot_rmt_packet);
 }
+
+// uint16_t DShotRMT::receive_dshot_value() {
+
+// }
 
 // ...get all setup data about current mode
 dshot_config_t* DShotRMT::get_dshot_info() {

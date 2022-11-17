@@ -91,17 +91,17 @@ class DShotRMT {
 	bool begin(dshot_mode_t dshot_mode = DSHOT_OFF, bool is_bidirectional = false);
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
 
-	dshot_config_t* get_dshot_info();
-	uint8_t* get_dshot_clock_div();
+	dshot_config_t *get_dshot_info();
+	uint8_t *get_dshot_clock_div();
 
 	private:
 	rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH];
 	rmt_config_t dshot_tx_rmt_config;
 	dshot_config_t dshot_config;
 
-	rmt_item32_t* encode_dshot_to_rmt(uint16_t parsed_packet);
-	uint16_t calc_dshot_chksum(const dshot_packet_t& dshot_packet);
-	uint16_t prepare_rmt_data(const dshot_packet_t& dshot_packet);
+	rmt_item32_t *encode_dshot_to_rmt(uint16_t parsed_packet);
+	uint16_t calc_dshot_chksum(const dshot_packet_t &dshot_packet);
+	uint16_t prepare_rmt_data(const dshot_packet_t &dshot_packet);
 
-	void output_rmt_data(const dshot_packet_t& dshot_packet);
+	void output_rmt_data(const dshot_packet_t &dshot_packet);
 };

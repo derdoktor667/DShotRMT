@@ -205,7 +205,7 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_packet_t& dshot_packet) {
 	return chksum;
 }
 
-uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t& dshot_packet) {
+uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t &dshot_packet) {
 	uint16_t prepared_to_encode = DSHOT_NULL_PACKET;
 	uint16_t chksum = calc_dshot_chksum(dshot_packet);
 
@@ -217,7 +217,7 @@ uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t& dshot_packet) {
 }
 
 // ...finally output using ESP32 RMT
-void DShotRMT::output_rmt_data(const dshot_packet_t& dshot_packet) {
+void DShotRMT::output_rmt_data(const dshot_packet_t &dshot_packet) {
 	encode_dshot_to_rmt(prepare_rmt_data(dshot_packet));
 
 	//

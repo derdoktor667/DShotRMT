@@ -1,3 +1,5 @@
+.vs
+.vscode
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -12,4 +14,4 @@
 *.vsix
 
 # Caching ESP32 Builds
-buildCache/*
+buildCache

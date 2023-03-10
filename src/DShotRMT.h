@@ -1,5 +1,5 @@
 //
-// Name:		DShotRMT.h
+// Name:        DShotRMT.h
 // Created: 	20.03.2021 00:49:15
 // Author:  	derdoktor667
 //
@@ -10,13 +10,16 @@
 #define _DSHOTRMT_h
 
 #if defined(ARDUINO) && ARDUINO >= 100
-#include "arduino.h"
+#include <Arduino.h>
 #else
 #include "WProgram.h"
 #endif
 
 // ...utilizing the RMT Module library for generating the DShot signal
 #include <driver/rmt.h>
+
+// ...unify versioning
+constexpr auto DSHOT_LIB_VERSION = "0.2.2";
 
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // ...slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
 constexpr auto DSHOT_PACKET_LENGTH = 17; // ...last pack is the pause

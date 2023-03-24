@@ -17,7 +17,7 @@ The checksum is calculated over the throttle value and the telemetry bit, so the
     crc = (value ^ (value >> 4) ^ (value >> 8)) & 0x0F;
 
 ### Bidirectional DSHOT
-Bidirictional DSHOT is also known as inverted DSHOT, because the signal level is inverted, so 1 is low and a 0 is high. This is done in order to let the ESC know, that we are operating in bidirectional mode and that it should be sending back eRPM telemetry packages.
+Bidirectional DSHOT is also known as inverted DSHOT, because the signal level is inverted, so 1 is low and a 0 is high. This is done in order to let the ESC know, that we are operating in bidirectional mode and that it should be sending back eRPM telemetry packages.
 
 #### Calculating the Bidirectional CRC
 The calculation of the checksum is basically the same, just before the last step the values are inverted:

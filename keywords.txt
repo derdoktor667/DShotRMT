@@ -15,7 +15,7 @@ dshot_config_t                  KEYWORD1
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
-begin	                        KEYWORD2
+install_dshot_driver            KEYWORD2
 send_dshot_value	            KEYWORD2
 get_dshot_info  	            KEYWORD2
 get_dshot_clock_div	            KEYWORD2

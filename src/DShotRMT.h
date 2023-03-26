@@ -4,20 +4,15 @@
 // Author:  	derdoktor667
 //
 
-#ifndef _DSHOTRMT_h
-#define _DSHOTRMT_h
+#pragma once
 
-#if defined(ARDUINO) && ARDUINO >= 100
 #include <Arduino.h>
-#else
-#include "WProgram.h"
-#endif
 
 // ...utilizing the RMT Module library for generating the DShot signal
 #include <driver/rmt.h>
 
 // ...unify versioning
-constexpr auto DSHOT_LIB_VERSION = "0.2.2";
+constexpr auto DSHOT_LIB_VERSION = "0.2.3";
 
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // ...slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
 constexpr auto DSHOT_PACKET_LENGTH = 17; // ...last pack is the pause
@@ -94,13 +89,12 @@ typedef struct dshot_config_s
 class DShotRMT
 {
 public:
-    DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel);
-    DShotRMT(uint8_t pin, uint8_t channel);
+    DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel, dshot_mode_t dshot_mode, bool is_bidirectional);
+    DShotRMT(uint8_t pin, uint8_t channel, dshot_mode_t dshot_mode, bool is_bidirectional);
     ~DShotRMT();
     DShotRMT(DShotRMT const &);
 
     // ...safety first ...no parameters, no DShot
-    bool begin(dshot_mode_t dshot_mode = DSHOT_OFF, bool is_bidirectional = false);
     void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
 
     dshot_config_t *get_dshot_info();
@@ -115,7 +109,6 @@ private:
     uint16_t calc_dshot_chksum(const dshot_packet_t &dshot_packet);
     uint16_t prepare_rmt_data(const dshot_packet_t &dshot_packet);
 
+    void install_dshot_driver(dshot_mode_t dshot_mode, bool is_bidirectional);
     void output_rmt_data(const dshot_packet_t &dshot_packet);
 };
-
-#endif

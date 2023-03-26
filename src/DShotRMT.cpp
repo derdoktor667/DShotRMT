@@ -4,9 +4,9 @@
 // Author:  	derdoktor667
 //
 
-#include "DShotRMT.h"
+#include <DShotRMT.h>
 
-DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel)
+DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel, dshot_mode_t dshot_mode, bool is_bidirectional)
 {
     dshot_config.gpio_num = gpio;
     dshot_config.pin_num = uint8_t(gpio);
@@ -15,9 +15,12 @@ DShotRMT::DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel)
 
     // ...create empty packet
     encode_dshot_to_rmt(DSHOT_NULL_PACKET);
+
+    // install the RMT driver with dshot values
+    install_dshot_driver(dshot_mode, is_bidirectional);
 }
 
-DShotRMT::DShotRMT(uint8_t pin, uint8_t channel)
+DShotRMT::DShotRMT(uint8_t pin, uint8_t channel, dshot_mode_t dshot_mode, bool is_bidirectional)
 {
     dshot_config.gpio_num = gpio_num_t(pin);
     dshot_config.pin_num = pin;
@@ -26,6 +29,9 @@ DShotRMT::DShotRMT(uint8_t pin, uint8_t channel)
 
     // ...create empty packet
     encode_dshot_to_rmt(DSHOT_NULL_PACKET);
+
+    // install the RMT driver with dshot values
+    install_dshot_driver(dshot_mode, is_bidirectional);
 }
 
 DShotRMT::~DShotRMT()
@@ -36,77 +42,6 @@ DShotRMT::~DShotRMT()
 DShotRMT::DShotRMT(DShotRMT const &)
 {
     // ...write me
-}
-
-bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
-{
-    dshot_config.mode = dshot_mode;
-    dshot_config.clk_div = DSHOT_CLK_DIVIDER;
-    dshot_config.name_str = dshot_mode_name[dshot_mode];
-    dshot_config.bidirectional = is_bidirectional;
-
-    switch (dshot_config.mode)
-    {
-    case DSHOT150:
-        dshot_config.ticks_per_bit = 64;   // ...Bit Period Time 6.67 us
-        dshot_config.ticks_zero_high = 24; // ...zero time 2.50 us
-        dshot_config.ticks_one_high = 48;  // ...one time 5.00 us
-        break;
-
-    case DSHOT300:
-        dshot_config.ticks_per_bit = 32;   // ...Bit Period Time 3.33 us
-        dshot_config.ticks_zero_high = 12; // ...zero time 1.25 us
-        dshot_config.ticks_one_high = 24;  // ...one time 2.50 us
-        break;
-
-    case DSHOT600:
-        dshot_config.ticks_per_bit = 16;  // ...Bit Period Time 1.67 us
-        dshot_config.ticks_zero_high = 6; // ...zero time 0.625 us
-        dshot_config.ticks_one_high = 12; // ...one time 1.25 us
-        break;
-
-    case DSHOT1200:
-        dshot_config.ticks_per_bit = 8;   // ...Bit Period Time 0.83 us
-        dshot_config.ticks_zero_high = 3; // ...zero time 0.313 us
-        dshot_config.ticks_one_high = 6;  // ...one time 0.625 us
-        break;
-
-        // ...because having a default is "good style"
-    default:
-        dshot_config.ticks_per_bit = 0;   // ...Bit Period Time endless
-        dshot_config.ticks_zero_high = 0; // ...no bits, no time
-        dshot_config.ticks_one_high = 0;  // ......no bits, no time
-        break;
-    }
-
-    // ...calc low signal timing
-    dshot_config.ticks_zero_low = (dshot_config.ticks_per_bit - dshot_config.ticks_zero_high);
-    dshot_config.ticks_one_low = (dshot_config.ticks_per_bit - dshot_config.ticks_one_high);
-
-    dshot_tx_rmt_config.rmt_mode = RMT_MODE_TX;
-    dshot_tx_rmt_config.channel = dshot_config.rmt_channel;
-    dshot_tx_rmt_config.gpio_num = dshot_config.gpio_num;
-    dshot_tx_rmt_config.mem_block_num = dshot_config.mem_block_num;
-    dshot_tx_rmt_config.clk_div = dshot_config.clk_div;
-
-    dshot_tx_rmt_config.tx_config.loop_en = false;
-    dshot_tx_rmt_config.tx_config.carrier_en = false;
-    dshot_tx_rmt_config.tx_config.idle_output_en = true;
-
-    if (dshot_config.bidirectional)
-    {
-        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_HIGH;
-    }
-    else
-    {
-        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
-    }
-
-    // ...setup selected dshot mode
-    rmt_config(&dshot_tx_rmt_config);
-
-    // ...essential step, return the result
-    return rmt_driver_install(dshot_tx_rmt_config.channel, 0, 0);
 }
 
 // ...the config part is done, now the calculating and sending part
@@ -245,6 +180,77 @@ uint16_t DShotRMT::prepare_rmt_data(const dshot_packet_t &dshot_packet)
     prepared_to_encode = (prepared_to_encode << 4) | chksum;
 
     return prepared_to_encode;
+}
+
+void DShotRMT::install_dshot_driver(dshot_mode_t dshot_mode, bool is_bidirectional)
+{
+    dshot_config.mode = dshot_mode;
+    dshot_config.clk_div = DSHOT_CLK_DIVIDER;
+    dshot_config.name_str = dshot_mode_name[dshot_mode];
+    dshot_config.bidirectional = is_bidirectional;
+
+    switch (dshot_config.mode)
+    {
+    case DSHOT150:
+        dshot_config.ticks_per_bit = 64;   // ...Bit Period Time 6.67 us
+        dshot_config.ticks_zero_high = 24; // ...zero time 2.50 us
+        dshot_config.ticks_one_high = 48;  // ...one time 5.00 us
+        break;
+
+    case DSHOT300:
+        dshot_config.ticks_per_bit = 32;   // ...Bit Period Time 3.33 us
+        dshot_config.ticks_zero_high = 12; // ...zero time 1.25 us
+        dshot_config.ticks_one_high = 24;  // ...one time 2.50 us
+        break;
+
+    case DSHOT600:
+        dshot_config.ticks_per_bit = 16;  // ...Bit Period Time 1.67 us
+        dshot_config.ticks_zero_high = 6; // ...zero time 0.625 us
+        dshot_config.ticks_one_high = 12; // ...one time 1.25 us
+        break;
+
+    case DSHOT1200:
+        dshot_config.ticks_per_bit = 8;   // ...Bit Period Time 0.83 us
+        dshot_config.ticks_zero_high = 3; // ...zero time 0.313 us
+        dshot_config.ticks_one_high = 6;  // ...one time 0.625 us
+        break;
+
+        // ...because having a default is "good style"
+    default:
+        dshot_config.ticks_per_bit = 0;   // ...Bit Period Time endless
+        dshot_config.ticks_zero_high = 0; // ...no bits, no time
+        dshot_config.ticks_one_high = 0;  // ......no bits, no time
+        break;
+    }
+
+    // ...calc low signal timing
+    dshot_config.ticks_zero_low = (dshot_config.ticks_per_bit - dshot_config.ticks_zero_high);
+    dshot_config.ticks_one_low = (dshot_config.ticks_per_bit - dshot_config.ticks_one_high);
+
+    dshot_tx_rmt_config.rmt_mode = RMT_MODE_TX;
+    dshot_tx_rmt_config.channel = dshot_config.rmt_channel;
+    dshot_tx_rmt_config.gpio_num = dshot_config.gpio_num;
+    dshot_tx_rmt_config.mem_block_num = dshot_config.mem_block_num;
+    dshot_tx_rmt_config.clk_div = dshot_config.clk_div;
+
+    dshot_tx_rmt_config.tx_config.loop_en = false;
+    dshot_tx_rmt_config.tx_config.carrier_en = false;
+    dshot_tx_rmt_config.tx_config.idle_output_en = true;
+
+    if (dshot_config.bidirectional)
+    {
+        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_HIGH;
+    }
+    else
+    {
+        dshot_tx_rmt_config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    }
+
+    // ...setup selected dshot mode
+    rmt_config(&dshot_tx_rmt_config);
+
+    // ...essential step, install rmt driver
+    rmt_driver_install(dshot_tx_rmt_config.channel, 0, 0);
 }
 
 // ...finally output using ESP32 RMT

@@ -9,7 +9,7 @@
 constexpr auto USB_SERIAL_BAUD = 115200;
 #endif // SERIAL
 
-DShotRMT motor01(GPIO_NUM_4, RMT_CHANNEL_0, DSHOT300, false);
+DShotRMT motor01(GPIO_NUM_4, RMT_CHANNEL_0);
 
 volatile uint16_t throttle_value = 0x30; // ...sending "48", the first throttle value
 constexpr auto FAILSAVE_THROTTLE = 0x3E7;

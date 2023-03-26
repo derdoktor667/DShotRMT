@@ -8,26 +8,31 @@
 
 #include <Arduino.h>
 
-// ...utilizing the RMT Module library for generating the DShot signal
+// Use the RMT Module library for generating the DShot signal
 #include <driver/rmt.h>
 
-// ...unify versioning
+// Define library version
 constexpr auto DSHOT_LIB_VERSION = "0.2.3";
 
-constexpr auto DSHOT_CLK_DIVIDER = 8;    // ...slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
-constexpr auto DSHOT_PACKET_LENGTH = 17; // ...last pack is the pause
+// Define constants for generating the DShot signal
+constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
+constexpr auto DSHOT_PACKET_LENGTH = 17; // Last pack is the pause
 
+// Define constants for DShot throttle range and null packet
 constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
-constexpr auto DSHOT_PAUSE = 21; // ...21bit is recommended, but to be sure
+// Define constants for DShot pause
+constexpr auto DSHOT_PAUSE = 21; // 21bit is recommended, but to be sure
 constexpr auto DSHOT_PAUSE_BIT = 16;
 
+// Define constants for RMT timing
 constexpr auto F_CPU_RMT = APB_CLK_FREQ;
 constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
 constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC);
 
+// Define enumeration for DShot mode
 typedef enum dshot_mode_e
 {
     DSHOT_OFF,
@@ -37,23 +42,24 @@ typedef enum dshot_mode_e
     DSHOT1200
 } dshot_mode_t;
 
-// ...to get human readable DShot Mode
+// Define human-readable names for DShot modes
 static const char *const dshot_mode_name[] = {
     "DSHOT_OFF",
     "DSHOT150",
     "DSHOT300",
     "DSHOT600",
-    "DSHOT1200"};
+    "DSHOT1200"
+};
 
+// Define type aliases for DShot name and telemetry request
 typedef String dshot_name_t;
-
 typedef enum telemetric_request_e
 {
     NO_TELEMETRIC,
     ENABLE_TELEMETRIC,
 } telemetric_request_t;
 
-// ...set bitcount for DShot packet
+// Define structure for DShot packet
 typedef struct dshot_packet_s
 {
     uint16_t throttle_value : 11;
@@ -61,14 +67,14 @@ typedef struct dshot_packet_s
     uint16_t checksum : 4;
 } dshot_packet_t;
 
-// ...set bitcount for eRPM packet
+// Define structure for eRPM packet
 typedef struct eRPM_packet_s
 {
     uint16_t eRPM_data : 12;
     uint8_t checksum : 4;
 } eRPM_packet_t;
 
-// ...all settings for the dshot mode
+// Define structure for DShot configuration
 typedef struct dshot_config_s
 {
     dshot_mode_t mode;
@@ -86,11 +92,12 @@ typedef struct dshot_config_s
     uint16_t ticks_one_low;
 } dshot_config_t;
 
+// Define class for DShot generation using RMT
 class DShotRMT
 {
 public:
-    DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel, dshot_mode_t dshot_mode, bool is_bidirectional);
-    DShotRMT(uint8_t pin, uint8_t channel, dshot_mode_t dshot_mode, bool is_bidirectional);
+    DShotRMT(gpio_num_t gpio, rmt_channel_t rmtChannel, dshot_mode_t dshot_mode = DSHOT300, bool is_bidirectional = false);
+    DShotRMT(uint8_t pin, uint8_t channel, dshot_mode_t dshot_mode = DSHOT300, bool is_bidirectional = false);
     ~DShotRMT();
     DShotRMT(DShotRMT const &);
 

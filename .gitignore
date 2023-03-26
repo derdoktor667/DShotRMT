@@ -18,3 +18,4 @@ buildCache
 examples/dshot300/debug.cfg
 examples/dshot300/esp32.svd
 examples/dshot300/debug_custom.json
+examples/dshot300/debug.svd

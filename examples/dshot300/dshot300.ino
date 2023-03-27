@@ -16,31 +16,34 @@ constexpr auto FAILSAVE_THROTTLE = 0x3E7;
 
 void setup()
 {
-	// ...always start the onboard usb support
-	USB_Serial.begin(USB_SERIAL_BAUD);
+    // ...always start the onboard usb support
+    USB_Serial.begin(USB_SERIAL_BAUD);
+
+    // ...start the dshot generation
+    motor01.begin(DSHOT300);
 }
 
 void loop()
 {
-	read_SerialThrottle();
+    readSerialThrottle();
 
-	motor01.send_dshot_value(throttle_value);
+    motor01.sendThrottleValue(throttle_value);
 
-	// ...print to console
-	USB_Serial.println(throttle_value);
+    // ...print to console
+    USB_Serial.println(throttle_value);
 }
 
 //
 //
-uint16_t read_SerialThrottle()
+uint16_t readSerialThrottle()
 {
-	if (USB_Serial.available() > 0)
-	{
-		auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
-		return throttle_input;
-	}
-	else
-	{
-		return FAILSAVE_THROTTLE;
-	}
+    if (USB_Serial.available() > 0)
+    {
+        auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
+        return throttle_input;
+    }
+    else
+    {
+        return FAILSAVE_THROTTLE;
+    }
 }

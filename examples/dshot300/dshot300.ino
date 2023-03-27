@@ -1,49 +1,57 @@
 // ...some very simple DShot example generating a DShot300 signal.
-
 #include <Arduino.h>
 #include <DShotRMT.h>
 
-// ...clearly name usb port
+// Define USB serial port if available
 #ifdef SERIAL
 #define USB_Serial Serial
 constexpr auto USB_SERIAL_BAUD = 115200;
 #endif // SERIAL
 
-DShotRMT motor01(GPIO_NUM_4, RMT_CHANNEL_0);
+// Define motor pin and DShot protocol
+constexpr auto MOTOR_PIN = GPIO_NUM_4;
+constexpr auto DSHOT_MODE = DSHOT300;
 
-volatile uint16_t throttle_value = 0x30; // ...sending "48", the first throttle value
-constexpr auto FAILSAVE_THROTTLE = 0x3E7;
+// Define failsafe and initial throttle value
+constexpr auto FAILSAFE_THROTTLE = 0x3E7;
+constexpr auto INITIAL_THROTTLE = 0x30;
+
+// Initialize DShotRMT object for the motor
+DShotRMT motor01(MOTOR_PIN, RMT_CHANNEL_0);
 
 void setup()
 {
-    // ...always start the onboard usb support
+    // Start USB serial port
     USB_Serial.begin(USB_SERIAL_BAUD);
 
-    // ...start the dshot generation
-    motor01.begin(DSHOT300);
+    // Start DShot signal generation
+    motor01.begin(DSHOT_MODE);
 }
 
 void loop()
 {
-    readSerialThrottle();
+    // Read throttle value from serial input
+    auto throttle_input = readSerialThrottle();
 
+    // Set the throttle value
+    auto throttle_value = (throttle_input > 0) ? throttle_input : FAILSAFE_THROTTLE;
+
+    // Send the throttle value to the motor
     motor01.sendThrottleValue(throttle_value);
 
-    // ...print to console
+    // Print the throttle value to the serial console
     USB_Serial.println(throttle_value);
 }
 
-//
-//
+// Read throttle value from USB serial input
 uint16_t readSerialThrottle()
 {
     if (USB_Serial.available() > 0)
     {
-        auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
-        return throttle_input;
+        return USB_Serial.readStringUntil('\n').toInt();
     }
     else
     {
-        return FAILSAVE_THROTTLE;
+        return 0;
     }
 }

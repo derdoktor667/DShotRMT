@@ -15,13 +15,8 @@ dshot_config_t                  KEYWORD1
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
-install_dshot_driver            KEYWORD2
-send_dshot_value	            KEYWORD2
-get_dshot_info  	            KEYWORD2
-get_dshot_clock_div	            KEYWORD2
-calc_dshot_chksum	            KEYWORD2
-prepare_rmt_data	            KEYWORD2
-output_rmt_data 	            KEYWORD2
+begin                           KEYWORD2
+sendThrottleValue	            KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)

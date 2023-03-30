@@ -1,6 +1,9 @@
 name: Arduino CI
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
@@ -18,9 +21,7 @@ jobs:
 
     - name: Compile sketch
       run: |
-        arduino-cli compile --fqbn ${{ matrix.board }} ${{ github.workspace }}/example/dshot300
+        arduino-cli compile --fqbn esp32:esp32 ${{ github.workspace }}/examples/dshot300
       env:
         ARDUINO_LIBRARY_PATH: ${{ github.workspace }}/libraries
         ARDUINO_DATA_PATH: ${{ github.workspace }}/arduino-data
-      matrix:
-        board: [esp32:esp32]

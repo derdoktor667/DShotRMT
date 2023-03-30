@@ -1,6 +1,6 @@
 // ...some very simple DShot example generating a DShot300 signal.
 #include <Arduino.h>
-#include <DShotRMT.h>
+#include "DShotRMT.h"
 
 // Define USB serial port if available
 #ifdef SERIAL

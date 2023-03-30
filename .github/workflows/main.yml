@@ -22,7 +22,7 @@ jobs:
 
     - name: Compile sketch
       run: |
-        arduino-cli compile --fqbn esp32:esp32 ${{ github.workspace }}/examples/dshot300
+        arduino-cli compile --fqbn esp32:esp32:nodemcu-32s ${{ github.workspace }}/examples/dshot300
       env:
         ARDUINO_LIBRARY_PATH: ${{ github.workspace }}/libraries
         ARDUINO_DATA_PATH: ${{ github.workspace }}/arduino-data

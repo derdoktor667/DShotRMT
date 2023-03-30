@@ -1,0 +1,26 @@
+name: Arduino CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install Arduino CLI
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+        arduino-cli core update-index
+        arduino-cli core install esp32:esp32
+
+    - name: Compile sketch
+      run: |
+        arduino-cli compile --fqbn ${{ matrix.board }} ${{ github.workspace }}/example/dshot300
+      env:
+        ARDUINO_LIBRARY_PATH: ${{ github.workspace }}/libraries
+        ARDUINO_DATA_PATH: ${{ github.workspace }}/arduino-data
+      matrix:
+        board: [esp32:esp32]

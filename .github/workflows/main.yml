@@ -17,7 +17,8 @@ jobs:
       run: |
         curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
         arduino-cli core update-index
-        arduino-cli core install esp32:esp32
+        arduino-cli core update-index --additional-urls https://dl.espressif.com/dl/package_esp32_index.json
+        arduino-cli core install esp32:esp32 --additional-urls https://dl.espressif.com/dl/package_esp32_index.json
 
     - name: Compile sketch
       run: |

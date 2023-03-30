@@ -1,14 +1,16 @@
+ [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml)
+
 ## DShot ESP32 Library utilizing RMT
 
 ### The DShot Protocol
 The DSHOT protocol consists of transmitting 16-bit packets to the ESCs: 11-bit throttle value,  1-bit to request telemetry and a 4-bit checksum. There are three major protocol speeds: DSHOT150, DSHOT300 and DSHOT600.
 
-| DSHOT  | Bitrate   | TH1   | TH0    | Bit Time µs | Frame Time µs |
-|-------|----------|-------|--------|-------------|-----------------|
-| 150   | 150kbit/s | 5.00  | 2.50   | 6.67        | 106.72          |
-| 300   | 300kbit/s | 2.50  | 1.25   | 3.33        | 53.28           |
-| 600   | 600kbit/s | 1.25  | 0.625  | 1.67        | 26.72           |
-| 1200  | 1200kbit/s| 0.625 | 0.313  | 0.83        | 13.28           |
+| DSHOT | Bitrate   | TH1   | TH0    | Bit Time µs | Frame Time µs |
+|-------|------------|-------|--------|------------|---------------|
+| 150   | 150kbit/s  | 5.00  | 2.50   | 6.67       | 106.72        |
+| 300   | 300kbit/s  | 2.50  | 1.25   | 3.33       | 53.28         |
+| 600   | 600kbit/s  | 1.25  | 0.625  | 1.67       | 26.72         |
+| 1200  | 1200kbit/s | 0.625 | 0.313  | 0.83       | 13.28         |
 
 #### Calculating the CRC
 The checksum is calculated over the throttle value and the telemetry bit, so the “first” 12 bits our value in the following example:

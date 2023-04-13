@@ -108,7 +108,8 @@ public:
     // The sendThrottleValue() function sends a DShot packet with a given
     // throttle value (between 0 and 2047) and an optional telemetry
     // request flag.
-    void sendThrottleValue(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
+    // void sendThrottleValue(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
+    void sendThrottleValue(uint16_t throttle_value);
 
 private:
     rmt_item32_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH]; // An array of RMT items used to send a DShot packet.

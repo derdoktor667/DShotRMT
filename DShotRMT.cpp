@@ -113,7 +113,8 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 }
 
 // ...the config part is done, now the calculating and sending part
-void DShotRMT::sendThrottleValue(uint16_t throttle_value, telemetric_request_t telemetric_request)
+// void DShotRMT::sendThrottleValue(uint16_t throttle_value, telemetric_request_t telemetric_request)
+void DShotRMT::sendThrottleValue(uint16_t throttle_value)
 {
     dshot_packet_t dshot_rmt_packet = {};
 
@@ -129,8 +130,9 @@ void DShotRMT::sendThrottleValue(uint16_t throttle_value, telemetric_request_t t
 
     // ...packets are the same for bidirectional mode
     dshot_rmt_packet.throttle_value = throttle_value;
-    dshot_rmt_packet.telemetric_request = telemetric_request;
-    dshot_rmt_packet.checksum = this->calculateCRC(dshot_rmt_packet);
+    // dshot_rmt_packet.telemetric_request = telemetric_request;
+    dshot_rmt_packet.telemetric_request = NO_TELEMETRIC;
+    dshot_rmt_packet.checksum = calculateCRC(dshot_rmt_packet);
 
     sendRmtPaket(dshot_rmt_packet);
 }

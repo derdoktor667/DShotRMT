@@ -2,6 +2,7 @@
  * Title: dshot300.ino
  * Author: derdoktor667
  * Date: 2023-04-13
+ * 
  * Description: A simple example of using the DShotRMT library to
  * generate a DShot300 signal for a motor using an Arduino board.
  */
@@ -10,16 +11,16 @@
 #include "DShotRMT.h"
 
 // USB serial port needed for this example
-constexpr auto USB_SERIAL_BAUD = 115200;
+const auto USB_SERIAL_BAUD = 115200;
 #define USB_Serial Serial
 
 // Define the GPIO pin connected to the motor and the DShot protocol used
-constexpr auto MOTOR01_PIN = GPIO_NUM_4;
-constexpr auto DSHOT_MODE = DSHOT300;
+const auto MOTOR01_PIN = GPIO_NUM_4;
+const auto DSHOT_MODE = DSHOT300;
 
 // Define the failsafe and initial throttle values
-constexpr auto FAILSAFE_THROTTLE = 999;
-constexpr auto INITIAL_THROTTLE = 48;
+const auto FAILSAFE_THROTTLE = 999;
+const auto INITIAL_THROTTLE = 48;
 
 // Initialize a DShotRMT object for the motor
 DShotRMT motor01(MOTOR01_PIN, RMT_CHANNEL_0);

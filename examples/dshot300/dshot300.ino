@@ -2,9 +2,9 @@
  * Title: dshot300.ino
  * Author: derdoktor667
  * Date: 2023-04-13
- * 
+ *
  * Description: A simple example of using the DShotRMT library to
- * generate a DShot300 signal for a motor using an Arduino board.
+ * generate a DShot300 signal for blheli_s escs.
  */
 
 #include <Arduino.h>

@@ -1,0 +1,25 @@
+{
+  "name": "DShot-rmt-NEO",
+  "version": "0.0.1",
+  "description": "DShot implementation using newer espidf rmt libraries",
+  "keywords": "dshot, rmt, esc",
+  "authors":
+  [
+    {
+	  
+      "name": "Edward Stuckey",
+      "maintainer": true
+    },
+	{
+	  
+      "name": "derdoktor667",
+      "maintainer": false
+    }
+  ],
+  "dependencies":
+  {
+    "external-repo": "https://github.com/DrGlaucous/esp-rmt-NEO.git"
+  },
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}

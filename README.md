@@ -1,6 +1,10 @@
- [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml)
-
 ## DShot ESP32 Library utilizing RMT
+
+
+### What is this fork?
+This fork tries to update the existing ESP-RMT library made by derdoktor667 to use the newer espidf RMT libraries. The eventual goal is to (hopefully) add bidirectional d-shot support to the library, which the new RMT backend supports.
+
+
 
 ### The DShot Protocol
 The DSHOT protocol consists of transmitting 16-bit packets to the ESCs: 11-bit throttle value,  1-bit to request telemetry and a 4-bit checksum. There are three major protocol speeds: DSHOT150, DSHOT300 and DSHOT600.

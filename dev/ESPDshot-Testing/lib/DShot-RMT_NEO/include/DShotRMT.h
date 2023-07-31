@@ -22,7 +22,7 @@ constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended
 constexpr auto DSHOT_PAUSE_BIT = 16;
 constexpr auto F_CPU_RMT = APB_CLK_FREQ;
 constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
-constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC);
+constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC); //not used ATM
 
 
 // Enumeration for the DShot mode
@@ -53,6 +53,15 @@ typedef enum telemetric_request_e {
 	ENABLE_TELEMETRIC,
 } telemetric_request_t;
 
+//holds everything the TX callback needs to start the RX callback
+typedef struct tx_callback_datapack_s
+{
+    rmt_channel_handle_t channel_handle; //rx_chan
+    rmt_receive_config_t channel_config; //dshot_config.receive_config
+    rmt_symbol_word_t* raw_symbols; //where the gotten symbols should go
+    size_t raw_sym_size; //size of the storage space for the raw symbols
+
+} tx_callback_datapack_t;
 
 //Type of Dshot ESC frame
 typedef union {
@@ -64,7 +73,7 @@ typedef union {
     uint16_t val;
 } dshot_esc_frame_t;
 
-
+//all settings for the dshot config
 typedef struct dshot_config_s
 {
     dshot_mode_t mode; //enum of mode (e.g. DSHOT150)
@@ -82,6 +91,12 @@ typedef struct dshot_config_s
 	uint16_t ticks_zero_low; //calculated from high and total
 	uint16_t ticks_one_high; //ditto
 	uint16_t ticks_one_low; //ditto
+
+    uint32_t micros_per_frame; //time for one complete frame of dshot data
+    uint32_t micros_per_shortest; //min time
+
+
+    tx_callback_datapack_t receive_config; //a collection of data telling the tx callback how to set up the rx session
 
     //channel config (things like GPIO number send buffer, clock resolution live here)
     rmt_channel_handle_t tx_chan;
@@ -138,11 +153,20 @@ class DShotRMT
 
     private:
 
-    //where raw telemetry from the ESC lives
-    uint16_t bi_telem_buffer;
 
-    //where the raw frame info lives
-    rmt_symbol_word_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH];
+    //thread-safe queue object that the RX callback uses
+    QueueHandle_t receive_queue;
+
+    //new data will be dumped in here from the callback (size doesn't need to be exact, we make it bigger to be safe)
+    //(I think it isn't thread safe to touch this while RMT callbacks are running)
+    rmt_symbol_word_t dshot_rx_rmt_item[64] = {};
+
+
+    //where the TX raw frame info lives (to be sent out)
+    rmt_symbol_word_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH] = {};
+
+    //where the de-symboled RX data goes
+    uint16_t processed_data = 0;
 
     //all the settings for setting up the ESC channels 
     dshot_config_t dshot_config;
@@ -152,7 +176,7 @@ class DShotRMT
     //rmt_item32_t* encode_dshot_to_rmt(uint16_t parsed_packet); //rmt_symbol_word_t
     void encode_dshot_to_rmt(uint16_t parsed_packet);
 	uint16_t calc_dshot_chksum(const dshot_esc_frame_t& dshot_frame);
-	uint16_t prepare_rmt_data(dshot_esc_frame_t& dshot_frame);
+	//uint16_t prepare_rmt_data(dshot_esc_frame_t& dshot_frame);
 
 
 

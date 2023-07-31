@@ -21,18 +21,25 @@ void setup()
 {
   USB_Serial.begin(USB_SERIAL_BAUD);
 
-  if(anESC.begin(DSHOT300, false))
+  if(anESC.begin(DSHOT300, true))
     Serial.println("init error");
 }
 
 int loopCount = 0;
 void loop()
 {
-  if(loopCount < 500)
+  if(loopCount < 700)
     anESC.send_dshot_value(INITIAL_THROTTLE);
   else
-    anESC.send_dshot_value(500);
+    anESC.send_dshot_value(INITIAL_THROTTLE);
+
+
+  if(loopCount % 100 == 0)
+    anESC.get_dshot_RPM();
 
   delay(10);
   ++loopCount;
+
+
+
 }

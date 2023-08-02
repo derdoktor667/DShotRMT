@@ -1,5 +1,5 @@
-
 #include <DShotRMT.h>
+#include <hal/gpio_hal.h>
 
 //#include <Arduino.h>
 
@@ -38,6 +38,17 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	tx_callback_datapack_t* config = (tx_callback_datapack_t*)user_ctx;
 	//size_t symbol_count = edata->num_symbols; //we don't need to know how many symbols we sent
 
+
+	//I don't know why we need to use HAL for this...
+	//we can also use gpio_ll to get the same result
+	//static gpio_hal_context_t _gpio_hal = {
+    //.dev = GPIO_HAL_GET_HW(GPIO_PORT_0)
+	//};
+	//gpio_hal_od_enable(&_gpio_hal, config->gpio_num);
+	
+	//enable open drain mode before listening for a response
+	gpio_ll_od_enable(GPIO_LL_GET_HW(GPIO_PORT_0), config->gpio_num);
+
 	//start listening for a response
 	rmt_receive(config->channel_handle, config->raw_symbols, config->raw_sym_size, &config->channel_config);
 	
@@ -45,6 +56,33 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 }
 
 }
+
+
+
+//i need to find a better place for these:
+//nibble mapping for GCR
+static const unsigned char GCR_encode[16] =
+{
+	0x19, 0x1B, 0x12, 0x13,
+	0x1D, 0x15, 0x16, 0x17,
+	0x1A, 0x09, 0x0A, 0x0B,
+	0x1E, 0x0D, 0x0E, 0x0F
+};
+
+//  5 bits > 4 bits (0xff => invalid)
+static const unsigned char GCR_decode[32] =
+{
+	0xFF, 0xFF, 0xFF, 0xFF, // 0 - 3
+	0xFF, 0xFF, 0xFF, 0xFF, // 4 - 7
+	0xFF, 9, 10, 11, // 8 - 11
+	0xFF, 13, 14, 15, // 12 - 15
+
+	0xFF, 0xFF, 2, 3, // 16 - 19
+	0xFF, 5, 6, 7, // 20 - 23
+	0xFF, 0, 8, 1, // 24 - 27
+	0xFF, 4, 12, 0xFF, // 28 - 31
+};
+
 
 //populate the config struct with relavent data
 DShotRMT::DShotRMT(uint8_t pin)
@@ -173,6 +211,8 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 		if(rmt_new_rx_channel(&rx_chan_config, &dshot_config.rx_chan) != 0)
 			bError = true;
 
+		
+
 		//configure recieve callbacks
 		rmt_rx_event_callbacks_t callback = 
 		{
@@ -202,6 +242,8 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 		dshot_config.receive_config.raw_symbols = dshot_rx_rmt_item;
 		//how big this buffer is
 		dshot_config.receive_config.raw_sym_size = sizeof(rmt_symbol_word_t) * DSHOT_PACKET_LENGTH;
+		//what pin this is running on (for flip-flopping open drain mode)
+		dshot_config.receive_config.gpio_num = dshot_config.gpio_num;
 
 
 	}
@@ -270,6 +312,9 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 
 	encode_dshot_to_rmt(dshot_frame.val); //we can pull the compiled frame out with "val"
 
+	//disable open drain mode before sending this out
+	gpio_ll_od_disable(GPIO_LL_GET_HW(GPIO_PORT_0), dshot_config.gpio_num);
+
 	//may want to put this inside the begin() function...
 	rmt_transmit_config_t tx_config =
 	{
@@ -298,27 +343,85 @@ uint16_t DShotRMT::get_dshot_RPM()
 	if(xQueueReceive(receive_queue, &rx_data, 0))
 	{
 
-		if(rx_data.num_symbols > 1)
+		//only execute if we got a packet (no packet response gives us only one symbol be default)
+		if (rx_data.num_symbols > 1)
 		{
-			//TODO: decompile processed data
-			//parse data here
-			Serial.println("I got data");
-			Serial.println("=========================");
-
-			for(int i = 0; i < rx_data.num_symbols; ++i)
+			unsigned int bitTime = 25 * 9 / 10;
+			unsigned int bitCount0 = 0;
+			unsigned int bitCount1 = 0;
+			unsigned int bitShiftLevel = 20;//21 bits, including 0
+			unsigned int assembledFrame = 0;
+			unsigned int* y = &assembledFrame;
+			for (int i = 0; i < rx_data.num_symbols; ++i)
 			{
-				char outarr[100] = {};
-				sprintf(outarr, "Num %d || D0: %d || D1: %d", i,
-					rx_data.received_symbols[i].duration0,
-					rx_data.received_symbols[i].duration1);
-				Serial.println(outarr);
+				//for each symbol, see how many bits are in there
+				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime;
+				bitCount1 = rx_data.received_symbols[i].duration1 / bitTime;
+
+				//if we know the level of the first part of the symbol,
+				//we know the second part must be different
+				//if it is a 0, we don't have to shift bits because they are all initialized as 0
+				if (rx_data.received_symbols[i].level0 == 0)
+				{
+
+					bitShiftLevel -= bitCount0;
+					for (int j = 0; j < bitCount1; ++j)
+					{
+						assembledFrame |= 1 << bitShiftLevel;
+						--bitShiftLevel;
+					}
+				}
+				else
+				{
+					//shift back any '1' values
+					for (int j = 0; j < bitCount0; ++j)
+					{
+						assembledFrame |= 1 << bitShiftLevel;
+						--bitShiftLevel;
+					}
+					bitShiftLevel -= bitCount1;
+
+				}
+
+			}
+			//fill any remaining space with '1's
+			for (int i = bitShiftLevel; i >= 0; --i)
+			{
+				assembledFrame |= 1 << i;
+			}
+
+			//decode the data from its transmissive state
+			assembledFrame = (assembledFrame ^ (assembledFrame >> 1));
+			//assembledFrame = 0b11010100101111010110; //test frame from dshot docs
+
+			unsigned char nibble = 0;
+			unsigned char fiveBitSubset = 0;
+			unsigned int decodedFrame = 0;
+			y = &decodedFrame;
+			//remove GCR encoding
+			for (int i = 0; i < 4; ++i)
+			{
+				//bitmask out the encoded quintuple
+				fiveBitSubset = (assembledFrame >> (i * 5)) & 0b11111;//shift over in sets of 5
+
+				//use a lookup table to get the corresponding nibble
+				nibble = GCR_decode[fiveBitSubset];
+				//append nibble to the frame
+				decodedFrame |= nibble << (i * 4);
+
 
 			}
 
-			Serial.println("=========================");
+			//mask out componets of the frame
+			uint16_t frameData = (decodedFrame >> 4) & (0b111111111111);
+			uint8_t crc = decodedFrame & (0b1111);
+			uint8_t alsocrc = (~(frameData ^ (frameData >> 4) ^ (frameData >> 8))) & 0x0F;
+
+			//TODO: relate above to processed_data.
 
 
 		}
+
 	}
 
 	return processed_data;

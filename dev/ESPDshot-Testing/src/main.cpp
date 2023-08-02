@@ -1,9 +1,12 @@
 #include <Arduino.h>
 
+//TEST
+#include <hal/gpio_hal.h>
+
 #include <DShotRMT.h>
 
 // USB serial port needed for this example
-const int USB_SERIAL_BAUD = 9600;
+const int USB_SERIAL_BAUD = 115200;
 #define USB_Serial Serial
 
 // Define the GPIO pin connected to the motor and the DShot protocol used
@@ -29,10 +32,14 @@ int loopCount = 0;
 void loop()
 {
   if(loopCount < 700)
+  {
     anESC.send_dshot_value(INITIAL_THROTTLE);
+  }
   else
-    anESC.send_dshot_value(INITIAL_THROTTLE);
+  {
 
+    anESC.send_dshot_value(INITIAL_THROTTLE);
+  }
 
   if(loopCount % 100 == 0)
     anESC.get_dshot_RPM();

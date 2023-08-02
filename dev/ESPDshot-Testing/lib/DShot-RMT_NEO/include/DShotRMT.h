@@ -56,10 +56,14 @@ typedef enum telemetric_request_e {
 //holds everything the TX callback needs to start the RX callback
 typedef struct tx_callback_datapack_s
 {
+    //TEST: we're going to try reconfiguring the GPIO to open drain mode right before we get the telemetry response
+    gpio_num_t gpio_num;
+
     rmt_channel_handle_t channel_handle; //rx_chan
     rmt_receive_config_t channel_config; //dshot_config.receive_config
     rmt_symbol_word_t* raw_symbols; //where the gotten symbols should go
     size_t raw_sym_size; //size of the storage space for the raw symbols
+
 
 } tx_callback_datapack_t;
 
@@ -79,6 +83,7 @@ typedef struct dshot_config_s
     dshot_mode_t mode; //enum of mode (e.g. DSHOT150)
 	dshot_name_t name_str; //string of ^ for user-reading
 	bool bidirectional; //do we request eRPM frames from the ESC?
+    uint16_t num_motor_poles; //how many magnets does the brushless motor have? (essential for calculating RPM, eRPM = x * RPM)
 	gpio_num_t gpio_num; //pin the ESC is on
 	//uint8_t pin_num;  //redundant?
 	//uint8_t mem_block_num; //not needed with the new backend

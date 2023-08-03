@@ -22,31 +22,32 @@ DShotRMT anESC(23);
 
 void setup()
 {
-  USB_Serial.begin(USB_SERIAL_BAUD);
+	USB_Serial.begin(USB_SERIAL_BAUD);
+	anESC.begin(DSHOT300, ENABLE_BIDIRECTION, 14);
 
-  if(anESC.begin(DSHOT300, true))
-    Serial.println("init error");
 }
 
 int loopCount = 0;
 void loop()
 {
-  if(loopCount < 700)
-  {
-    anESC.send_dshot_value(INITIAL_THROTTLE);
-  }
-  else
-  {
+	if(loopCount < 700)
+	{
+		anESC.send_dshot_value(INITIAL_THROTTLE);
+	}
+	else if(loopCount < 1200)
+	{
 
-    anESC.send_dshot_value(INITIAL_THROTTLE);
-  }
+    	anESC.send_dshot_value(500);
+	}
+	else
+	{
+		anESC.send_dshot_value(300);
+	}
 
-  if(loopCount % 100 == 0)
-    anESC.get_dshot_RPM();
+	if(loopCount % 10 == 0)
+		Serial.println(anESC.get_dshot_RPM());
 
-  delay(10);
-  ++loopCount;
-
-
+	delay(10);
+		++loopCount;
 
 }

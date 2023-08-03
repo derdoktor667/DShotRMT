@@ -23,10 +23,12 @@ static bool rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_eve
 {
 	//init return value
     BaseType_t high_task_wakeup = pdFALSE;
-	//get pointer to freeRTOS queue handle (passed in by us when we initialized the callback)
-    QueueHandle_t receive_queue = (QueueHandle_t)user_data;
+
+	//get pointer to the settings passed in by us when we initialized the callback
+	rx_callback_datapack_t* config = (rx_callback_datapack_t*)user_data;
+
     //send the received RMT symbols to the parser task
-    xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
+    xQueueSendFromISR(config->receive_queue, edata, &high_task_wakeup);
 
     return high_task_wakeup == pdTRUE; //return xQueueSendFromISR result (does it wake up a higher task?)
 }
@@ -46,7 +48,7 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	//};
 	//gpio_hal_od_enable(&_gpio_hal, config->gpio_num);
 	
-	//enable open drain mode before listening for a response
+	//enable open drain mode before listening for a response (no need for snap logic here, we only do callbacks in bidirectional mode)
 	gpio_ll_od_enable(GPIO_LL_GET_HW(GPIO_PORT_0), config->gpio_num);
 
 	//start listening for a response
@@ -56,7 +58,6 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 }
 
 }
-
 
 
 //i need to find a better place for these:
@@ -101,14 +102,12 @@ DShotRMT::~DShotRMT()
 
 
 //apply the settings to the RMT backend
-bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
+void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectional, uint16_t magnet_count)
 {
-
-	bool bError = false;
 
 	//populate bidirection
 	if(dshot_mode == DSHOT150) //dshot 150 does not support bidirection
-		dshot_config.bidirectional = false;
+		dshot_config.bidirectional = NO_BIDIRECTION;
 	else
 		dshot_config.bidirectional = is_bidirectional;
 
@@ -173,6 +172,8 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 
 	}
 
+	//pass motor poll count off to settings
+	dshot_config.num_motor_poles = magnet_count;
 
 	//holder for tx channel settings until we install them
 	rmt_tx_channel_config_t tx_chan_config =
@@ -203,16 +204,15 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 			.mem_block_symbols = 64, // default count per channel
 			.flags =
 				{
+				.invert_in = 1, //invert the input logic
 				.io_loop_back = 1,	//enable loopback			
 				}
 		};
 
 		//populate channel object
-		if(rmt_new_rx_channel(&rx_chan_config, &dshot_config.rx_chan) != 0)
-			bError = true;
+		handle_error(rmt_new_rx_channel(&rx_chan_config, &dshot_config.rx_chan));
 
 		
-
 		//configure recieve callbacks
 		rmt_rx_event_callbacks_t callback = 
 		{
@@ -222,37 +222,33 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 		// create a thread safe queue handle
   		receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
 
+		//stow settings into datapack so we can get them in the callback
+		dshot_config.rx_callback_datapack.receive_queue = receive_queue;
+
 		//register them
-		if(rmt_rx_register_event_callbacks(dshot_config.rx_chan, &callback, receive_queue) != 0)
-			bError = true;
+		handle_error(rmt_rx_register_event_callbacks(dshot_config.rx_chan, &callback, &dshot_config.rx_callback_datapack));
 
 
 		//setup the timeouts for the reception (must change depending on DSHOT mode)
-
-
-
-		dshot_config.receive_config.channel_config =
+		dshot_config.tx_callback_datapack.channel_config =
 		{
 			.signal_range_min_ns=dshot_config.micros_per_shortest,
 			.signal_range_max_ns=dshot_config.micros_per_frame
 		};
 		//copy the pointer for the channel handle so we can start it in the TX callback
-		dshot_config.receive_config.channel_handle = dshot_config.rx_chan; 
+		dshot_config.tx_callback_datapack.channel_handle = dshot_config.rx_chan; 
 		//where the rx data should go
-		dshot_config.receive_config.raw_symbols = dshot_rx_rmt_item;
+		dshot_config.tx_callback_datapack.raw_symbols = dshot_rx_rmt_item;
 		//how big this buffer is
-		dshot_config.receive_config.raw_sym_size = sizeof(rmt_symbol_word_t) * DSHOT_PACKET_LENGTH;
+		dshot_config.tx_callback_datapack.raw_sym_size = sizeof(rmt_symbol_word_t) * DSHOT_PACKET_LENGTH;
 		//what pin this is running on (for flip-flopping open drain mode)
-		dshot_config.receive_config.gpio_num = dshot_config.gpio_num;
+		dshot_config.tx_callback_datapack.gpio_num = dshot_config.gpio_num;
 
 
 	}
 
-
-
 	//populate channel object
-	if(rmt_new_tx_channel(&tx_chan_config, &dshot_config.tx_chan) != 0)
-		bError = true;
+	handle_error(rmt_new_tx_channel(&tx_chan_config, &dshot_config.tx_chan));
 
 
 	//additional settings if bidirectional
@@ -266,8 +262,7 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 
 		//tx event will be set on the TX channel, with "callback" config and fed the timing config for the RX reception
 		//RX reception will be enabled as soon as the TX transmission is over
-		if(rmt_tx_register_event_callbacks(dshot_config.tx_chan, &callback, &dshot_config.receive_config) != 0)
-			bError = true;
+		handle_error(rmt_tx_register_event_callbacks(dshot_config.tx_chan, &callback, &dshot_config.tx_callback_datapack));
 
 
 		//enable RX channel
@@ -276,21 +271,13 @@ bool DShotRMT::begin(dshot_mode_t dshot_mode, bool is_bidirectional)
 	}
 
 	//enable TX channel
-	rmt_enable(dshot_config.tx_chan);
+	handle_error(rmt_enable(dshot_config.tx_chan));
 
 
 	//make a copy encoder to push out the array of rmt_symbol_word_t we make when we process a dshot frame
 	rmt_copy_encoder_config_t copy_encoder_config = {}; //nothing to configure
-	rmt_new_copy_encoder(&copy_encoder_config, &dshot_config.copy_encoder);
+	handle_error(rmt_new_copy_encoder(&copy_encoder_config, &dshot_config.copy_encoder));
 
-
-	//try enabling internal pullup on top of open drain mode (doesn't work, resistor value is too large 10k vs the needed 1k)
-	//if(dshot_config.bidirectional)
-	//	if(gpio_pullup_en(dshot_config.gpio_num) != 0)
-	//		bError = true;
-
-
-	return bError;
 }
 
 //encode and send a throttle value
@@ -307,7 +294,7 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 
 	//setup dshot frame
 	dshot_frame.throttle = throttle_value;
-	dshot_frame.telemetry = telemetric_request;
+	dshot_frame.telemetry = telemetric_request; //NOT bidirectional telemetry
 	dshot_frame.crc = calc_dshot_chksum(dshot_frame);
 
 	encode_dshot_to_rmt(dshot_frame.val); //we can pull the compiled frame out with "val"
@@ -330,9 +317,29 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 				&tx_config);
 
 
-
-
 }
+
+
+//convert the dshot frame (WITHOUT checksum) into some form of erpm (not sure what units yet...)
+//stolen from betaflight (src/main/drivers/dshot.c)
+uint32_t DShotRMT::decode_eRPM_telemetry_value(uint16_t value)
+{
+    // eRPM range
+    if (value == 0x0fff) {
+        return 0;
+    }
+
+    // Convert value to 16 bit from the GCR telemetry format (eeem mmmm mmmm)
+    value = (value & 0x01ff) << ((value & 0xfe00) >> 9);
+    if (!value) {
+        return 0;
+    }
+
+    // Convert period to erpm * 100
+    return (1000000 * 60 / 100 + value / 2) / value;
+}
+
+
 
 //read back the value in the buffer
 uint16_t DShotRMT::get_dshot_RPM()
@@ -346,13 +353,31 @@ uint16_t DShotRMT::get_dshot_RPM()
 		//only execute if we got a packet (no packet response gives us only one symbol be default)
 		if (rx_data.num_symbols > 1)
 		{
-			unsigned int bitTime = 25 * 9 / 10;
-			unsigned int bitCount0 = 0;
-			unsigned int bitCount1 = 0;
-			unsigned int bitShiftLevel = 20;//21 bits, including 0
+
+
+			// Serial.println("===============================");
+			// for (int i = 0; i < rx_data.num_symbols; ++i)
+			// {
+			// 	char hold[100] = {};
+			// 	sprintf(hold, "D0: %d L0: %d || D1: %d L1: %d",
+			// 	rx_data.received_symbols[i].duration0, rx_data.received_symbols[i].level0,
+			// 	rx_data.received_symbols[i].duration1, rx_data.received_symbols[i].level1);
+			// 	Serial.println(hold);
+			// }
+			// Serial.println("===============================");
+			
+
+
+			int i,j;
+
+			unsigned short bitTime = 25 * 9 / 10;
+			unsigned short bitCount0 = 0;
+			unsigned short bitCount1 = 0;
+			unsigned short bitShiftLevel = 20;//21 bits, including 0
 			unsigned int assembledFrame = 0;
-			unsigned int* y = &assembledFrame;
-			for (int i = 0; i < rx_data.num_symbols; ++i)
+
+			//unsigned int* y = &assembledFrame; //for debugging on the computer
+			for (i = 0; i < rx_data.num_symbols; ++i)
 			{
 				//for each symbol, see how many bits are in there
 				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime;
@@ -365,7 +390,7 @@ uint16_t DShotRMT::get_dshot_RPM()
 				{
 
 					bitShiftLevel -= bitCount0;
-					for (int j = 0; j < bitCount1; ++j)
+					for (j = 0; j < bitCount1; ++j)
 					{
 						assembledFrame |= 1 << bitShiftLevel;
 						--bitShiftLevel;
@@ -374,7 +399,7 @@ uint16_t DShotRMT::get_dshot_RPM()
 				else
 				{
 					//shift back any '1' values
-					for (int j = 0; j < bitCount0; ++j)
+					for (j = 0; j < bitCount0; ++j)
 					{
 						assembledFrame |= 1 << bitShiftLevel;
 						--bitShiftLevel;
@@ -384,22 +409,27 @@ uint16_t DShotRMT::get_dshot_RPM()
 				}
 
 			}
+			//this only needed to happen if the base logic level is '1'.
+			//If we invert the input logic with RMT, we don't need to do this (esc response sends inverted logic, a HIGH == 0)
+			//spaces come pre-filled with 0
 			//fill any remaining space with '1's
-			for (int i = bitShiftLevel; i >= 0; --i)
-			{
-				assembledFrame |= 1 << i;
-			}
+			// for (i = bitShiftLevel; i >= 0; --i)
+			// {
+			// 	assembledFrame |= 1 << i;
+			// }
+
 
 			//decode the data from its transmissive state
+			//it doesn't matter if we invert the input or not, this will result in the same number
 			assembledFrame = (assembledFrame ^ (assembledFrame >> 1));
 			//assembledFrame = 0b11010100101111010110; //test frame from dshot docs
 
 			unsigned char nibble = 0;
 			unsigned char fiveBitSubset = 0;
 			unsigned int decodedFrame = 0;
-			y = &decodedFrame;
+			//y = &decodedFrame;
 			//remove GCR encoding
-			for (int i = 0; i < 4; ++i)
+			for (i = 0; i < 4; ++i)
 			{
 				//bitmask out the encoded quintuple
 				fiveBitSubset = (assembledFrame >> (i * 5)) & 0b11111;//shift over in sets of 5
@@ -417,8 +447,17 @@ uint16_t DShotRMT::get_dshot_RPM()
 			uint8_t crc = decodedFrame & (0b1111);
 			uint8_t alsocrc = (~(frameData ^ (frameData >> 4) ^ (frameData >> 8))) & 0x0F;
 
-			//TODO: relate above to processed_data.
+			//stop processing if the checksum is invalid
+			if(crc != alsocrc)
+			{
+				//Serial.println("checksum error");
+				return processed_data;
+			}
 
+			//get base and exponet
+			//uint8_t exponet = (frameData >> 9) & (0b111);
+			//uint16_t base = (frameData & 0b111111111);
+			processed_data = decode_eRPM_telemetry_value(frameData) * dshot_config.num_motor_poles;
 
 		}
 
@@ -426,6 +465,7 @@ uint16_t DShotRMT::get_dshot_RPM()
 
 	return processed_data;
 }
+
 
 
 //take dshot bits and create an array of rmt clocks

@@ -48,24 +48,39 @@ static const char *const dshot_mode_name[] =
 typedef String dshot_name_t;
 
 
-typedef enum telemetric_request_e {
+typedef enum telemetric_request_e
+{
 	NO_TELEMETRIC,
 	ENABLE_TELEMETRIC,
 } telemetric_request_t;
 
+typedef enum bidirectional_mode_e
+{
+	NO_BIDIRECTION,
+	ENABLE_BIDIRECTION,
+} bidirectional_mode_t;
+
+
 //holds everything the TX callback needs to start the RX callback
 typedef struct tx_callback_datapack_s
 {
-    //TEST: we're going to try reconfiguring the GPIO to open drain mode right before we get the telemetry response
     gpio_num_t gpio_num;
 
     rmt_channel_handle_t channel_handle; //rx_chan
-    rmt_receive_config_t channel_config; //dshot_config.receive_config
+    rmt_receive_config_t channel_config; //dshot_config.tx_callback_datapack
     rmt_symbol_word_t* raw_symbols; //where the gotten symbols should go
     size_t raw_sym_size; //size of the storage space for the raw symbols
 
 
 } tx_callback_datapack_t;
+
+//hold everything the RX callback needs to do its thing
+typedef struct rx_callback_datapack_s
+{
+    //thread-safe queue object that the RX callback uses
+    QueueHandle_t receive_queue;
+} rx_callback_datapack_t;
+
 
 //Type of Dshot ESC frame
 typedef union {
@@ -82,7 +97,7 @@ typedef struct dshot_config_s
 {
     dshot_mode_t mode; //enum of mode (e.g. DSHOT150)
 	dshot_name_t name_str; //string of ^ for user-reading
-	bool bidirectional; //do we request eRPM frames from the ESC?
+	bidirectional_mode_t bidirectional; //do we request eRPM frames from the ESC?
     uint16_t num_motor_poles; //how many magnets does the brushless motor have? (essential for calculating RPM, eRPM = x * RPM)
 	gpio_num_t gpio_num; //pin the ESC is on
 	//uint8_t pin_num;  //redundant?
@@ -101,7 +116,10 @@ typedef struct dshot_config_s
     uint32_t micros_per_shortest; //min time
 
 
-    tx_callback_datapack_t receive_config; //a collection of data telling the tx callback how to set up the rx session
+    tx_callback_datapack_t tx_callback_datapack; //a collection of data telling the tx callback how to set up the rx session
+
+    rx_callback_datapack_t rx_callback_datapack; //collection of settings passed to the rx callback
+
 
     //channel config (things like GPIO number send buffer, clock resolution live here)
     rmt_channel_handle_t tx_chan;
@@ -117,28 +135,6 @@ typedef struct dshot_config_s
 } dshot_config_t;
 
 
-//in the end, I want 4 items:
-//constructor(take pin and RMT channel)
-    //inside this function, i create the rmt_encoder_configs
-    //I install the configs i created
-
-//begin(take dshot mode, bidirectional)
-    //inside this function, I enable the channel (rmt_enable)
-
-//sendThrottle(take throttle value, telemetry req) (does not loop)
-    //I encode the throttle value
-    //I send the throttle value
-    //IF bidirectional, on send completed, start RX callback
-    //ON RX callback, put gotten data into class storage
-
-//sendCustom(take raw command)
-    //see sendThrottle
-
-//read(take nothing)
-    //get RX data out of class storage
-    //decode RX data
-
-
 
 class DShotRMT
 {
@@ -150,7 +146,7 @@ class DShotRMT
 
 
     //interface commands (with safe defaults)
-	bool begin(dshot_mode_t dshot_mode = DSHOT_OFF, bool is_bidirectional = false);
+	void begin(dshot_mode_t dshot_mode = DSHOT_OFF, bidirectional_mode_t is_bidirectional = NO_BIDIRECTION, uint16_t magnet_count = 14);
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
     uint16_t get_dshot_RPM();
 
@@ -181,6 +177,7 @@ class DShotRMT
     //rmt_item32_t* encode_dshot_to_rmt(uint16_t parsed_packet); //rmt_symbol_word_t
     void encode_dshot_to_rmt(uint16_t parsed_packet);
 	uint16_t calc_dshot_chksum(const dshot_esc_frame_t& dshot_frame);
+    uint32_t decode_eRPM_telemetry_value(uint16_t value);
 	//uint16_t prepare_rmt_data(dshot_esc_frame_t& dshot_frame);
 
 

@@ -11,19 +11,19 @@ const int USB_SERIAL_BAUD = 115200;
 
 // Define the GPIO pin connected to the motor and the DShot protocol used
 const auto MOTOR01_PIN = 23;
-const auto DSHOT_MODE = DSHOT300;
+const auto DSHOT_MODE = DSHOT600;
 
 // Define the failsafe and initial throttle values
 const auto FAILSAFE_THROTTLE = 999;
 const auto INITIAL_THROTTLE = 48;
 
 
-DShotRMT anESC(23);
+DShotRMT anESC(MOTOR01_PIN);
 
 void setup()
 {
 	USB_Serial.begin(USB_SERIAL_BAUD);
-	anESC.begin(DSHOT300, ENABLE_BIDIRECTION, 14);
+	anESC.begin(DSHOT_MODE, ENABLE_BIDIRECTION, 14);
 
 }
 

@@ -167,6 +167,7 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 		}
 
 		//set up parameters for dshot length filtering (I went 10% beyond real vals for leniency)
+		//note that the ESC responds with a slightly higher bitrate of 5/4, so timing issues may happen due to my nasty math here (probably not though)
 		//frame count * (ticks / 10) * 1000 for ms
 		dshot_config.micros_per_frame = 16 * dshot_config.ticks_per_bit * 110; //110/100: 110% longer
 		//shortest length * 90% * 100
@@ -386,7 +387,14 @@ uint16_t DShotRMT::get_dshot_RPM()
 
 			int i,j;
 
-			unsigned short bitTime = 25 * 9 / 10;
+			//experimental data shows that I get telemetry back with the following timing:
+			//dshot 300 = 25 ticks per bit
+			//dshot 600 = 12.5 ticks per bit
+			//dshot 1200 = 6.25 ticks per bit
+			//this closely matches dshot_config.ticks_one_high
+
+			//bit time is reception bitrate * 90%
+			unsigned short bitTime = dshot_config.ticks_one_high * 9 / 10;
 			unsigned short bitCount0 = 0;
 			unsigned short bitCount1 = 0;
 			unsigned short bitShiftLevel = 20;//21 bits, including 0

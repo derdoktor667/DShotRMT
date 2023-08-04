@@ -2,8 +2,7 @@
 
 
 ### What is this fork?
-This fork tries to update the existing ESP-RMT library made by derdoktor667 to use the newer espidf RMT libraries. The eventual goal is to (hopefully) add bidirectional d-shot support to the library, which the new RMT backend supports.
-*Note: I DID enable bidirectional d-shot support, but the library that does this is tucked away inside the "dev" folder, as I'm still working on it.*
+This fork updates the existing ESP-RMT library made by derdoktor667 to use the newer espidf RMT libraries. It adds **working Bidirectional Dshot Support** to the library.
 
 
 ### The DShot Protocol

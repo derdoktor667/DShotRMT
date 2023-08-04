@@ -7,7 +7,7 @@
   [
     {
 	  
-      "name": "Edward Stuckey",
+      "name": "DrGlaucous",
       "maintainer": true
     },
 	{
@@ -18,8 +18,8 @@
   ],
   "dependencies":
   {
-    "external-repo": "https://github.com/DrGlaucous/esp-rmt-NEO.git",
-  }
+    "external-repo": "https://github.com/DrGlaucous/esp-rmt-NEO.git"
+  },
   "frameworks": "arduino",
   "platforms": "espressif32"
 }

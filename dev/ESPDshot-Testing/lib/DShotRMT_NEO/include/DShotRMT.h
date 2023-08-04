@@ -10,7 +10,7 @@
 //#include <driver/rmt.h>
 
 // Defines the library version
-constexpr auto DSHOT_LIB_VERSION = "0.2.4";
+constexpr auto DSHOT_LIB_VERSION = "0.3.0";
 
 // Constants related to the DShot protocol
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
@@ -24,6 +24,35 @@ constexpr auto F_CPU_RMT = APB_CLK_FREQ;
 constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
 constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC); //not used ATM
 
+
+// The official DShot Commands
+typedef enum dshot_cmd_e
+{
+    DSHOT_CMD_MOTOR_STOP = 0,          // Currently not implemented - STOP Motors
+    DSHOT_CMD_BEEP1,                   // Wait at least length of beep (380ms) before next command
+    DSHOT_CMD_BEEP2,                   // Wait at least length of beep (380ms) before next command
+    DSHOT_CMD_BEEP3,                   // Wait at least length of beep (400ms) before next command
+    DSHOT_CMD_BEEP4,                   // Wait at least length of beep (400ms) before next command
+    DSHOT_CMD_BEEP5,                   // Wait at least length of beep (400ms) before next command
+    DSHOT_CMD_ESC_INFO,                // Currently not implemented
+    DSHOT_CMD_SPIN_DIRECTION_1,        // Need 6x, no wait required
+    DSHOT_CMD_SPIN_DIRECTION_2,        // Need 6x, no wait required
+    DSHOT_CMD_3D_MODE_OFF,             // Need 6x, no wait required
+    DSHOT_CMD_3D_MODE_ON,              // Need 6x, no wait required
+    DSHOT_CMD_SETTINGS_REQUEST,        // Currently not implemented
+    DSHOT_CMD_SAVE_SETTINGS,           // Need 6x, wait at least 12ms before next command
+    DSHOT_CMD_SPIN_DIRECTION_NORMAL,   // Need 6x, no wait required
+    DSHOT_CMD_SPIN_DIRECTION_REVERSED, // Need 6x, no wait required
+    DSHOT_CMD_LED0_ON,                 // Currently not implemented
+    DSHOT_CMD_LED1_ON,                 // Currently not implemented
+    DSHOT_CMD_LED2_ON,                 // Currently not implemented
+    DSHOT_CMD_LED3_ON,                 // Currently not implemented
+    DSHOT_CMD_LED0_OFF,                // Currently not implemented
+    DSHOT_CMD_LED1_OFF,                // Currently not implemented
+    DSHOT_CMD_LED2_OFF,                // Currently not implemented
+    DSHOT_CMD_LED3_OFF,                // Currently not implemented
+    DSHOT_CMD_MAX = 47
+} dshot_cmd_t;
 
 // Enumeration for the DShot mode
 typedef enum dshot_mode_e
@@ -178,6 +207,7 @@ class DShotRMT
     void encode_dshot_to_rmt(uint16_t parsed_packet);
 	uint16_t calc_dshot_chksum(const dshot_esc_frame_t& dshot_frame);
     uint32_t decode_eRPM_telemetry_value(uint16_t value);
+    uint32_t erpmToRpm(uint16_t erpm, uint16_t motorPoleCount);
 	//uint16_t prepare_rmt_data(dshot_esc_frame_t& dshot_frame);
 
 

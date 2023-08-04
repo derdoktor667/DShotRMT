@@ -13,6 +13,20 @@ remove CRC and calculate the checksum, ignore any bad packets
 for dshot 300, each bit is 25 us, +-10%
 
 
+//experiment: inverted signal flag == true
+===============================
+D0: 49 L0: 1 || D1: 24 L1: 0
+D0: 26 L0: 1 || D1: 25 L1: 0
+D0: 50 L0: 1 || D1: 25 L1: 0
+D0: 24 L0: 1 || D1: 24 L1: 0
+D0: 50 L0: 1 || D1: 25 L1: 0
+D0: 25 L0: 1 || D1: 23 L1: 0
+D0: 25 L0: 1 || D1: 25 L1: 0
+D0: 78 L0: 1 || D1: 0 L1: 0
+===============================
+
+
+
 ////////////////////////////////////Experiment 1: 9600 baud//////////////////////////////////////////////////////
 //telemetry paring data (with 4.7k inline resistor):
 =========================

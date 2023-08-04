@@ -94,9 +94,17 @@ DShotRMT::DShotRMT(uint8_t pin)
 //clear constructed variables
 DShotRMT::~DShotRMT()
 {
+	//TODO: more RMT stuff needs to be cleaned out
+
+	if(dshot_config.bidirectional)
+	{
+
+		rmt_del_channel(dshot_config.rx_chan);
+		vQueueDelete(receive_queue);
+	}
+
 	rmt_del_channel(dshot_config.tx_chan); //de-allocate channel
 	rmt_del_encoder(dshot_config.copy_encoder); //de-allocate encoder
-	//TODO: more RMT stuff needs to be cleaned out
 }
 
 
@@ -172,7 +180,7 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 
 	}
 
-	//pass motor poll count off to settings
+	//pass motor pole count off to settings
 	dshot_config.num_motor_poles = magnet_count;
 
 	//holder for tx channel settings until we install them
@@ -340,6 +348,14 @@ uint32_t DShotRMT::decode_eRPM_telemetry_value(uint16_t value)
 }
 
 
+//stolen from betaflight (src/main/drivers/dshot.c)
+// Used with serial esc telem as well as dshot telem
+uint32_t DShotRMT::erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
+{
+    //  rpm = (erpm * 100) / (motorConfig()->motorPoleCount / 2)
+    return (erpm * 200) / motorPoleCount;
+}
+
 
 //read back the value in the buffer
 uint16_t DShotRMT::get_dshot_RPM()
@@ -457,7 +473,7 @@ uint16_t DShotRMT::get_dshot_RPM()
 			//get base and exponet
 			//uint8_t exponet = (frameData >> 9) & (0b111);
 			//uint16_t base = (frameData & 0b111111111);
-			processed_data = decode_eRPM_telemetry_value(frameData) * dshot_config.num_motor_poles;
+			processed_data = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
 
 		}
 
@@ -465,7 +481,6 @@ uint16_t DShotRMT::get_dshot_RPM()
 
 	return processed_data;
 }
-
 
 
 //take dshot bits and create an array of rmt clocks
@@ -539,8 +554,6 @@ uint16_t DShotRMT::calc_dshot_chksum(const dshot_esc_frame_t &dshot_frame)
 // 	//we don't need to do this because it is a union:
 // 	return dshot_frame.val;//prepared_to_encode;
 // }
-
-
 
 
 

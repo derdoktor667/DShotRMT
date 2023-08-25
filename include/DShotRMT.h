@@ -15,7 +15,7 @@ constexpr auto DSHOT_LIB_VERSION = "0.3.0";
 // Constants related to the DShot protocol
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
 constexpr auto DSHOT_PACKET_LENGTH = 17; // Last pack is the pause
-constexpr auto DSHOT_THROTTLE_MIN = 48;
+constexpr auto DSHOT_THROTTLE_MIN = 0;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended

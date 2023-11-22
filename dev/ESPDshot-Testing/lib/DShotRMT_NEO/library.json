@@ -21,5 +21,5 @@
     "external-repo": "https://github.com/DrGlaucous/esp-rmt-NEO.git"
   },
   "frameworks": "arduino",
-  "platforms": "espressif32"
+  "platforms": "espressif32 @ ^6.3.2"
 }

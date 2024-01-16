@@ -15,7 +15,7 @@ constexpr auto DSHOT_LIB_VERSION = "0.3.0";
 // Constants related to the DShot protocol
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
 constexpr auto DSHOT_PACKET_LENGTH = 17; // Last pack is the pause
-constexpr auto DSHOT_THROTTLE_MIN = 48;
+constexpr auto DSHOT_THROTTLE_MIN = 0;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended
@@ -177,7 +177,11 @@ class DShotRMT
     //interface commands (with safe defaults)
 	void begin(dshot_mode_t dshot_mode = DSHOT_OFF, bidirectional_mode_t is_bidirectional = NO_BIDIRECTION, uint16_t magnet_count = 14);
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
-    uint16_t get_dshot_RPM();
+    
+    //uint16_t get_dshot_RPM();
+    int get_dshot_RPM(uint16_t* RPM); //function now returns its fail state to the caller
+    //ratio of passed to failed checksums
+    float get_telem_success_rate();
 
     static void handle_error(esp_err_t);
 
@@ -195,8 +199,10 @@ class DShotRMT
     //where the TX raw frame info lives (to be sent out)
     rmt_symbol_word_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH] = {};
 
-    //where the de-symboled RX data goes
-    uint16_t processed_data = 0;
+    //used to determine telemetry success rate when reading values sent from the ESC
+    uint32_t successful_packets = 0;
+    uint32_t error_packets = 0;
+
 
     //all the settings for setting up the ESC channels 
     dshot_config_t dshot_config;

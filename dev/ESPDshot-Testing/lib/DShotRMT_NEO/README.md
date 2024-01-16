@@ -1,9 +1,10 @@
 ## DShot ESP32 Library utilizing RMT
 
+## What is this branch?
+This branch is where I'm squashing bugs and implementing new features without potentially breaking the main release.
 
 ### What is this fork?
-This fork tries to update the existing ESP-RMT library made by derdoktor667 to use the newer espidf RMT libraries. The eventual goal is to (hopefully) add bidirectional d-shot support to the library, which the new RMT backend supports.
-
+This fork updates the existing ESP-RMT library made by derdoktor667 to use the newer espidf RMT libraries. It adds **working Bidirectional Dshot Support** to the library.
 
 
 ### The DShot Protocol

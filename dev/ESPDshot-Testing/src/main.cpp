@@ -19,14 +19,14 @@ const auto FAILSAFE_THROTTLE = 999;
 const auto INITIAL_THROTTLE = 48;
 
 
-DShotRMT anESC(MOTOR01_PIN);
-DShotRMT anotherESC(MOTOR02_PIN);
+DShotRMT anESC(MOTOR02_PIN);//MOTOR01_PIN
+//DShotRMT anotherESC(MOTOR01_PIN);//MOTOR02_PIN
 
 void setup()
 {
 	USB_Serial.begin(USB_SERIAL_BAUD);
 	anESC.begin(DSHOT_MODE, ENABLE_BIDIRECTION, 14);
-	anotherESC.begin(DSHOT_MODE, ENABLE_BIDIRECTION, 14);
+	//anotherESC.begin(DSHOT_MODE, ENABLE_BIDIRECTION, 14);
 
 }
 
@@ -36,28 +36,39 @@ void loop()
 	if(loopCount < 700)
 	{
 		anESC.send_dshot_value(INITIAL_THROTTLE);
-		anotherESC.send_dshot_value(INITIAL_THROTTLE);
+		//anotherESC.send_dshot_value(INITIAL_THROTTLE);
 	}
 	else if(loopCount < 1200)
 	{
 
-    	anESC.send_dshot_value(500);
-		anotherESC.send_dshot_value(300);
+    	anESC.send_dshot_value(100);
+		//anotherESC.send_dshot_value(100);
 	}
 	else
 	{
-		anESC.send_dshot_value(300);
-		anotherESC.send_dshot_value(500);
+		anESC.send_dshot_value(100);
+		//anotherESC.send_dshot_value(100);
 	}
 
 	if(loopCount % 10 == 0)
 	{
-		Serial.print(anESC.get_dshot_RPM());
-		Serial.print(" || ");
-		Serial.println(anotherESC.get_dshot_RPM());
+		uint16_t rpm_1 = 0;
+		int error_a = anESC.get_dshot_RPM(&rpm_1);
+		//uint16_t rpm_2 = 0;
+		//int error_b = anotherESC.get_dshot_RPM(&rpm_2);
+
+
+
+		// Serial.printf("%10d, %10.3f || %10d, %10.3f\n",
+		// 	rpm_1, anESC.get_telem_success_rate(),
+		// 	rpm_2, anotherESC.get_telem_success_rate());
+
+		Serial.printf("%10d, %10.3f, err: %d\n",
+			rpm_1, anESC.get_telem_success_rate(), error_a);
+
 	}
 
-	delay(10);
-		++loopCount;
+	delay(2);
+	++loopCount;
 
 }

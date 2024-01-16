@@ -55,6 +55,8 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	rmt_receive(config->channel_handle, config->raw_symbols, config->raw_sym_size, &config->channel_config);
 	
 	return high_task_wakeup; //nothing to wake up; no data needs to be send back
+	
+	//assert failed: rmt_isr_handle_rx_done rmt_rx.c:505 (offset > rx_chan->mem_off)
 }
 
 }
@@ -303,7 +305,7 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 
 	//setup dshot frame
 	dshot_frame.throttle = throttle_value;
-	dshot_frame.telemetry = telemetric_request; //NOT bidirectional telemetry
+	dshot_frame.telemetry = telemetric_request; //NOT bidirectional telemetry (requests telemetry over second wire, which is not implemented)
 	dshot_frame.crc = calc_dshot_chksum(dshot_frame);
 
 	encode_dshot_to_rmt(dshot_frame.val); //we can pull the compiled frame out with "val"
@@ -359,15 +361,26 @@ uint32_t DShotRMT::erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
 
 
 //read back the value in the buffer
-uint16_t DShotRMT::get_dshot_RPM()
+//Error Codes:
+//0: exit success
+//1: nothing in queue
+//2: no packet in queue
+//3: checksum mismatch
+//4: bidirection not enabled
+int_fast32_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 {
+
+	if(dshot_config.bidirectional != ENABLE_BIDIRECTION)
+	{
+		return 4;
+	}
 
 	//only process new data if we have new data waiting in the queue
 	rmt_rx_done_event_data_t rx_data;
 	if(xQueueReceive(receive_queue, &rx_data, 0))
 	{
 
-		//only execute if we got a packet (no packet response gives us only one symbol be default)
+		//only execute if we got a packet (no packet response gives us only one symbol by default)
 		if (rx_data.num_symbols > 1)
 		{
 
@@ -474,20 +487,37 @@ uint16_t DShotRMT::get_dshot_RPM()
 			//stop processing if the checksum is invalid
 			if(crc != alsocrc)
 			{
-				//Serial.println("checksum error");
-				return processed_data;
+				error_packets += 1; //for now, the only error packets we will track are the ones where the checksum fails
+				//we don't update the RPM pointer that was passed to us
+				return 3;
 			}
 
 			//get base and exponet
 			//uint8_t exponet = (frameData >> 9) & (0b111);
 			//uint16_t base = (frameData & 0b111111111);
-			processed_data = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
+
+			//update output pointer
+			*RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
 
 		}
-
+		else
+		{
+			return 2;
+		}
+	}
+	else
+	{
+		return 1;
 	}
 
-	return processed_data;
+	successful_packets += 1;
+	return 0;
+}
+
+//return the percent of the dshot RPM requests that succeeded
+float DShotRMT::get_telem_success_rate()
+{
+	return (float)successful_packets / (float)(error_packets + successful_packets);
 }
 
 
@@ -528,7 +558,7 @@ void DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet)
 //take the dshot frame and calulate its checksum
 uint16_t DShotRMT::calc_dshot_chksum(const dshot_esc_frame_t &dshot_frame)
 {
-    //start with two emprty containers
+    //start with two empty containers
 	uint16_t packet = DSHOT_NULL_PACKET;
 	uint16_t chksum = DSHOT_NULL_PACKET;
 

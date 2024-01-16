@@ -1,5 +1,53 @@
 ## DShot ESP32 Library utilizing RMT
 
+## What is this branch?
+This branch is where I'm squashing bugs and implementing new features without potentially breaking the main release.
+
+Known problems so far:
+-	Reception reliability is around 60%, which is far too low
+-	rmt_rx.c line 505, there's a bug with the RMT version I used that made an incorrect assertion:
+	`assert(offset > rx_chan->mem_off);` should be `assert(offset >= rx_chan->mem_off);`
+-	Starting a back transmit before the reception has been read results in an overflow because it is hearing its own voice... I think...
+	This one actually doesn't happen all the time, so I don't know its cause
+
+
+
+
+## Debugging error rates
+pin 23 has a success rate of 37.5 % (in spot 1)
+pin 18 has a success rate of 63.2 % (in spot 2)
+
+(adding these averages together makes around 100%?) Is this a coincidence?
+
+when switching these spots, the success rates for each pin stayed the same.
+Even though the RMT for one pin was initialized before the other, there must be some set precidence for the backend
+
+23 in spot 2 had a lower success than 18 in spot 1
+spot 1 had a success of 60.8 % (18)
+spot 2 had a success of 46.2 % (23)
+
+this doesn't add as evenly into 100%...
+
+just spot 1 with pin 23:
+success of 46.9 % (considered close enough to the experiment above)
+
+just spot 1 with pin 18:
+success of 60.4 % (close enough to the experiment above)
+
+
+The betaflight controller sends dshot 600 commands every 2 milliseconds
+It also sends dshot 300 commands every 2 milliseconds as well.
+This is also not a hard and fast 2ms. It varies based on processor load
+The frequency of commands is independent of speed. The controller will perform all important operations first, then send the latest dshot command as the scheduler decides.
+
+
+occasionally, we get this error:
+`E rmt: hw buffer too small, received symbols truncated`
+This is followed immediately by a reception error of 2 (no packet in queue, rx_data.num_symbols = 1 or 0?)
+
+
+
+---
 
 ### What is this fork?
 This fork updates the existing ESP-RMT library made by derdoktor667 to use the newer espidf RMT libraries. It adds **working Bidirectional Dshot Support** to the library.

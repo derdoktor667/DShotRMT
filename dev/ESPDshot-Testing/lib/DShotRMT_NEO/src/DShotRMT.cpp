@@ -22,13 +22,21 @@ TEST_RMT_CALLBACK_ATTR
 static bool rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
 	//init return value
+	//high task wakeup will be true if pushing data to the queue started a task with a higher priority than this inturrupt.
     BaseType_t high_task_wakeup = pdFALSE;
 
 	//get pointer to the settings passed in by us when we initialized the callback
 	rx_callback_datapack_t* config = (rx_callback_datapack_t*)user_data;
 
+	rx_frame_data_t out_data = {};
+
+	//copy the edata symbols to the frame data
+	size_t sym_count = edata->num_symbols > RX_SYMBOL_MAX ? RX_SYMBOL_MAX : edata->num_symbols; //cap copy size to 11
+	memcpy(&out_data.received_symbols, edata->received_symbols, sym_count * sizeof(rmt_symbol_word_t));
+	out_data.num_symbols = sym_count;
+
     //send the received RMT symbols to the parser task
-    xQueueSendFromISR(config->receive_queue, edata, &high_task_wakeup);
+	xQueueSendFromISR(config->receive_queue, &out_data, &high_task_wakeup);
 
     return high_task_wakeup == pdTRUE; //return xQueueSendFromISR result (does it wake up a higher task?)
 }
@@ -40,6 +48,8 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	tx_callback_datapack_t* config = (tx_callback_datapack_t*)user_ctx;
 	//size_t symbol_count = edata->num_symbols; //we don't need to know how many symbols we sent
 
+	//restart rx channel
+	rmt_enable(config->channel_handle);
 
 	//I don't know why we need to use HAL for this...
 	//we can also use gpio_ll to get the same result
@@ -55,7 +65,7 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	rmt_receive(config->channel_handle, config->raw_symbols, config->raw_sym_size, &config->channel_config);
 	
 	return high_task_wakeup; //nothing to wake up; no data needs to be send back
-	
+
 	//assert failed: rmt_isr_handle_rx_done rmt_rx.c:505 (offset > rx_chan->mem_off)
 }
 
@@ -231,7 +241,7 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 		};
 	
 		// create a thread safe queue handle
-  		receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+		receive_queue = xQueueCreate(1, sizeof(rx_frame_data_t));
 
 		//stow settings into datapack so we can get them in the callback
 		dshot_config.rx_callback_datapack.receive_queue = receive_queue;
@@ -276,8 +286,8 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 		handle_error(rmt_tx_register_event_callbacks(dshot_config.tx_chan, &callback, &dshot_config.tx_callback_datapack));
 
 
-		//enable RX channel
-		rmt_enable(dshot_config.rx_chan);
+		//enable RX channel (may need to remove this, we disable the channel right away when we go to send a packet)
+		handle_error(rmt_enable(dshot_config.rx_chan));
 
 	}
 
@@ -318,6 +328,14 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 	{
         //.loop_count = -1, // infinite loop
     };
+
+	//shut down the rmt reciever before we send a packet out to protect against self-sniffing
+	//this is what's used low-level, but rmt_rx_disable should be good enough for our needs
+	//rmt_ll_rx_enable((rmt_dev_t*)hal->regs, dshot_config.rx_chan.channel_id, false); //ALTER (cast)
+	if(dshot_config.bidirectional == ENABLE_BIDIRECTION)
+		handle_error(rmt_disable(dshot_config.rx_chan));
+	//run this in the tx_done callback
+	//handle_error(rmt_enable(dshot_config.rx_chan));
 
 
 	//send the frame off to the pin
@@ -367,16 +385,16 @@ uint32_t DShotRMT::erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
 //2: no packet in queue
 //3: checksum mismatch
 //4: bidirection not enabled
-int_fast32_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
+dshot_erpm_exit_mode_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 {
 
 	if(dshot_config.bidirectional != ENABLE_BIDIRECTION)
 	{
-		return 4;
+		return ERR_BIDIRECTION_DISABLED;
 	}
 
 	//only process new data if we have new data waiting in the queue
-	rmt_rx_done_event_data_t rx_data;
+	rx_frame_data_t rx_data;
 	if(xQueueReceive(receive_queue, &rx_data, 0))
 	{
 
@@ -406,6 +424,9 @@ int_fast32_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 			//dshot 1200 = 6.25 ticks per bit
 			//this closely matches dshot_config.ticks_one_high
 
+			//with 600, recieved packets can have veriety that simultaneously renders the 90% reduction needed and erronious
+			//(we get ticks with time 30 and time 40. Where do these go?)
+
 			//bit time is reception bitrate * 90%
 			unsigned short bitTime = dshot_config.ticks_one_high * 9 / 10;
 			unsigned short bitCount0 = 0;
@@ -416,6 +437,7 @@ int_fast32_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 			//unsigned int* y = &assembledFrame; //for debugging on the computer
 			for (i = 0; i < rx_data.num_symbols; ++i)
 			{
+
 				//for each symbol, see how many bits are in there
 				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime;
 				bitCount1 = rx_data.received_symbols[i].duration1 / bitTime;
@@ -489,12 +511,8 @@ int_fast32_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 			{
 				error_packets += 1; //for now, the only error packets we will track are the ones where the checksum fails
 				//we don't update the RPM pointer that was passed to us
-				return 3;
+				return ERR_CHECKSUM_FAIL;
 			}
-
-			//get base and exponet
-			//uint8_t exponet = (frameData >> 9) & (0b111);
-			//uint16_t base = (frameData & 0b111111111);
 
 			//update output pointer
 			*RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
@@ -502,16 +520,16 @@ int_fast32_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 		}
 		else
 		{
-			return 2;
+			return ERR_NO_PACKETS;
 		}
 	}
 	else
 	{
-		return 1;
+		return ERR_EMPTY_QUEUE;
 	}
 
 	successful_packets += 1;
-	return 0;
+	return DECODE_SUCCESS;
 }
 
 //return the percent of the dshot RPM requests that succeeded
@@ -520,6 +538,8 @@ float DShotRMT::get_telem_success_rate()
 	return (float)successful_packets / (float)(error_packets + successful_packets);
 }
 
+
+//private functions below:
 
 //take dshot bits and create an array of rmt clocks
 //(we don't need to return anything because we fiddle with the class-baked array, accessible everywhere)

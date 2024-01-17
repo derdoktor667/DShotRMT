@@ -15,8 +15,8 @@ constexpr auto DSHOT_LIB_VERSION = "0.3.0";
 // Constants related to the DShot protocol
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
 constexpr auto DSHOT_PACKET_LENGTH = 17; // Last pack is the pause
-constexpr auto DSHOT_THROTTLE_MIN = 0;
-constexpr auto DSHOT_THROTTLE_MAX = 2047;
+constexpr auto DSHOT_THROTTLE_MIN = 48; //the smallest value considered to be explicitly a "throttle" value (smaller values are in the enum below)
+constexpr auto DSHOT_THROTTLE_MAX = 2047; //the largest value that can be passed back in a single packet
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended
 constexpr auto DSHOT_PAUSE_BIT = 16;
@@ -24,6 +24,7 @@ constexpr auto F_CPU_RMT = APB_CLK_FREQ;
 constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
 constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC); //not used ATM
 
+constexpr auto RX_SYMBOL_MAX = 11;
 
 // The official DShot Commands
 typedef enum dshot_cmd_e
@@ -64,6 +65,17 @@ typedef enum dshot_mode_e
     DSHOT1200
 } dshot_mode_t;
 
+//return states of the RPM getting function
+typedef enum dshot_erpm_exit_mode_e
+{
+    DECODE_SUCCESS = 0,
+    ERR_EMPTY_QUEUE,
+    ERR_NO_PACKETS,
+    ERR_CHECKSUM_FAIL,
+    ERR_BIDIRECTION_DISABLED,
+
+} dshot_erpm_exit_mode_t;
+
 // Array of human-readable DShot mode names
 static const char *const dshot_mode_name[] =
 {
@@ -103,12 +115,20 @@ typedef struct tx_callback_datapack_s
 
 } tx_callback_datapack_t;
 
-//hold everything the RX callback needs to do its thing
+//holds everything the RX callback needs to do its thing
 typedef struct rx_callback_datapack_s
 {
     //thread-safe queue object that the RX callback uses
     QueueHandle_t receive_queue;
 } rx_callback_datapack_t;
+
+//holds the actual frame data received from the ESC, this is what's passed back and forth through the xQueue
+typedef struct rx_frame_data_s
+{
+    size_t num_symbols; //how many of the 11 frames are filled with data
+    rmt_symbol_word_t received_symbols[RX_SYMBOL_MAX]; //11 frames of received symbols for 21 bits
+
+}rx_frame_data_t;
 
 
 //Type of Dshot ESC frame
@@ -179,7 +199,7 @@ class DShotRMT
 	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
     
     //uint16_t get_dshot_RPM();
-    int get_dshot_RPM(uint16_t* RPM); //function now returns its fail state to the caller
+    dshot_erpm_exit_mode_t get_dshot_RPM(uint16_t* RPM); //function now returns its fail state to the caller
     //ratio of passed to failed checksums
     float get_telem_success_rate();
 

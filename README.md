@@ -3,6 +3,10 @@
 ## What is this branch?
 This branch is where I'm squashing bugs and implementing new features without potentially breaking the main release.
 
+<details>
+  <summary style="font-size:100%;"><i><b>Notes for me</b></i></summary>
+
+
 Known problems so far:
 -	Reception reliability is around 60%, which is far too low
 -	rmt_rx.c line 505, there's a bug with the RMT version I used that made an incorrect assertion:
@@ -11,6 +15,47 @@ Known problems so far:
 	This one actually doesn't happen all the time, so I don't know its cause
 
 
+The program is getting good packets, but is parsing them incorrectly?
+
+For example, this:
+===============================<\r><\n>
+D0: 23 L0: 1 || D1: 38 L1: 0<\r><\n>
+D0: 10 L0: 1 || D1: 11 L1: 0<\r><\n>
+D0: 11 L0: 1 || D1: 12 L1: 0<\r><\n>
+D0: 23 L0: 1 || D1: 10 L1: 0<\r><\n>
+D0: 38 L0: 1 || D1: 24 L1: 0<\r><\n>
+D0: 24 L0: 1 || D1: 0 L1: 0<\r><\n>
+===============================<\r><\n>
+was reported as a bad packet, even though running it through the code on a desktop PC resulted in a good packet!
+
+This one duplicated the final frame
+===============================<\r><\n>
+D0: 24 L0: 1 || D1: 37 L1: 0<\r><\n>
+D0: 24 L0: 1 || D1: 10 L1: 0<\r><\n>
+D0: 24 L0: 1 || D1: 24 L1: 0<\r><\n>
+D0: 23 L0: 1 || D1: 24 L1: 0<\r><\n>
+D0: 11 L0: 1 || D1: 23 L1: 0<\r><\n>
+D0: 10 L0: 1 || D1: 0 L1: 0<\r><\n>
+D0: 10 L0: 1 || D1: 0 L1: 0<\r><\n> //this one caused error
+===============================<\r><\n>
+
+
+potential problem note:
+xQueue ISR data passer sends a pointer to the data
+the data that the pointer is refrencing can change with another RX event
+
+since we know the max size that a recieved frame should be, we could probably copy the whole thing into the queue instead of just a pointer to the data. That way, if things change midway, we don't get weird OOB memory problems
+
+the response packet is 21 bits long
+each bit is either HIGH or LOW
+an rmt_symbol_word_t contains a HIGH and LOW part (so it contains 2 bits)
+21/2 = 10 + r=1
+11 is the max number of symbols we would need
+each symbol is 32 bits long (unsigned int)
+11 ints is the size of the data
+
+
+note: there is a 30 microsecond space minimum between dshot TX and RX
 
 
 ## Debugging error rates
@@ -46,6 +91,12 @@ occasionally, we get this error:
 This is followed immediately by a reception error of 2 (no packet in queue, rx_data.num_symbols = 1 or 0?)
 
 
+Changing the queue type to use a statically allocated array of rmt symbols has increased the success rate to 99% for all channels (removed channel "bias"). 
+I still have problems with too frequent reads though. I think the problem is that when I go to read, I get inturrupted by an rx event, so the data I get in gets cut off.
+
+Is the RX event cutting off the read event, or is the read event cutting off the RX event?
+
+</details>
 
 ---
 
@@ -69,7 +120,7 @@ The checksum is calculated over the throttle value and the telemetry bit, so the
     crc = (value ^ (value >> 4) ^ (value >> 8)) & 0x0F;
 
 ### Bidirectional DSHOT
-Bidirectional DSHOT is also known as inverted DSHOT, because the signal level is inverted, so 1 is low and a 0 is high. This is done in order to let the ESC know, that we are operating in bidirectional mode and that it should be sending back eRPM telemetry packages.
+Bidirectional DSHOT is also known as inverted DSHOT, because the signal level is inverted, so 1 is low and a 0 is high. This is done in order to let the ESC know that we are operating in bidirectional mode and that it should be sending back eRPM telemetry packages.
 
 #### Calculating the Bidirectional CRC
 The calculation of the checksum is basically the same, just before the last step the values are inverted:

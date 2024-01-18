@@ -27,33 +27,71 @@ constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC); //not us
 constexpr auto RX_SYMBOL_MAX = 11;
 
 // The official DShot Commands
+// see https://github.com/betaflight/betaflight/blob/master/src/main/drivers/dshot_command.h //list of commands
+// and https://github.com/betaflight/betaflight/blob/master/src/main/drivers/dshot_command.c#L195 //what commands need repeated/delayed
+// and https://github.com/betaflight/betaflight/blob/master/src/main/drivers/dshot_command.c#L45 //delay timings
+// and https://github.com/bird-sanctuary/extended-dshot-telemetry //dshot docs for bluejay ESC
+
+/*
+  DshotSettingRequest (KISS24). Spin direction, 3d and save Settings require 10 requests.. and the TLM Byte must always be high if 1-47 are used to send settings
+
+  3D Mode:
+  0 = stop
+  48   (low) - 1047 (high) -> negative direction
+  1048 (low) - 2047 (high) -> positive direction
+ */
 typedef enum dshot_cmd_e
 {
-    DSHOT_CMD_MOTOR_STOP = 0,          // Currently not implemented - STOP Motors
-    DSHOT_CMD_BEEP1,                   // Wait at least length of beep (380ms) before next command
-    DSHOT_CMD_BEEP2,                   // Wait at least length of beep (380ms) before next command
-    DSHOT_CMD_BEEP3,                   // Wait at least length of beep (400ms) before next command
-    DSHOT_CMD_BEEP4,                   // Wait at least length of beep (400ms) before next command
-    DSHOT_CMD_BEEP5,                   // Wait at least length of beep (400ms) before next command
-    DSHOT_CMD_ESC_INFO,                // Currently not implemented
-    DSHOT_CMD_SPIN_DIRECTION_1,        // Need 6x, no wait required
-    DSHOT_CMD_SPIN_DIRECTION_2,        // Need 6x, no wait required
-    DSHOT_CMD_3D_MODE_OFF,             // Need 6x, no wait required
-    DSHOT_CMD_3D_MODE_ON,              // Need 6x, no wait required
-    DSHOT_CMD_SETTINGS_REQUEST,        // Currently not implemented
-    DSHOT_CMD_SAVE_SETTINGS,           // Need 6x, wait at least 12ms before next command
-    DSHOT_CMD_SPIN_DIRECTION_NORMAL,   // Need 6x, no wait required
-    DSHOT_CMD_SPIN_DIRECTION_REVERSED, // Need 6x, no wait required
-    DSHOT_CMD_LED0_ON,                 // Currently not implemented
-    DSHOT_CMD_LED1_ON,                 // Currently not implemented
-    DSHOT_CMD_LED2_ON,                 // Currently not implemented
-    DSHOT_CMD_LED3_ON,                 // Currently not implemented
-    DSHOT_CMD_LED0_OFF,                // Currently not implemented
-    DSHOT_CMD_LED1_OFF,                // Currently not implemented
-    DSHOT_CMD_LED2_OFF,                // Currently not implemented
-    DSHOT_CMD_LED3_OFF,                // Currently not implemented
-    DSHOT_CMD_MAX = 47
-} dshot_cmd_t;
+    DSHOT_CMD_MOTOR_STOP = 0,                   // Stop Motors
+    DSHOT_CMD_BEACON1,                          // Wait at least 100000 microseconds before next command
+    DSHOT_CMD_BEACON2,                          // Wait at least 100000 microseconds before next command
+    DSHOT_CMD_BEACON3,                          // Wait at least 100000 microseconds before next command
+    DSHOT_CMD_BEACON4,                          // Wait at least 100000 microseconds before next command
+    DSHOT_CMD_BEACON5,                          // Wait at least 100000 microseconds before next command
+    DSHOT_CMD_ESC_INFO,                         // Dshot V2 includes settings
+    DSHOT_CMD_SPIN_DIRECTION_1,                 // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_SPIN_DIRECTION_2,                 // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_3D_MODE_OFF,                      // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_3D_MODE_ON,                       // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_SETTINGS_REQUEST,                 // Currently not implemented
+    DSHOT_CMD_SAVE_SETTINGS,                    // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_EXTENDED_TELEMETRY_ENABLE,        // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_EXTENDED_TELEMETRY_DISABLE,       // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_SPIN_DIRECTION_NORMAL = 20,       // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_SPIN_DIRECTION_REVERSED = 21,     // ESC needs >6 repeats, betaflight does x10 repeats
+    DSHOT_CMD_LED0_ON,                          // BLHeli32 only
+    DSHOT_CMD_LED1_ON,                          // BLHeli32 only
+    DSHOT_CMD_LED2_ON,                          // BLHeli32 only
+    DSHOT_CMD_LED3_ON,                          // BLHeli32 only
+    DSHOT_CMD_LED0_OFF,                         // BLHeli32 only
+    DSHOT_CMD_LED1_OFF,                         // BLHeli32 only
+    DSHOT_CMD_LED2_OFF,                         // BLHeli32 only
+    DSHOT_CMD_LED3_OFF,                         // BLHeli32 only
+    DSHOT_CMD_AUDIO_STREAM_MODE_ON_OFF = 30,    // KISS audio Stream mode on/Off
+    DSHOT_CMD_SILENT_MODE_ON_OFF = 31,          // KISS silent Mode on/Off
+
+    // Commands below only apply to the descrete telemetry line (NOT bidirectional DSHOT)
+    DSHOT_CMD_SIGNAL_LINE_TELEMETRY_DISABLE,                    // Need 6x, no wait required. Disables commands 42 to 47
+    DSHOT_CMD_SIGNAL_LINE_TELEMETRY_ENABLE,                     // Need 6x, no wait required. Enables commands 42 to 47
+    DSHOT_CMD_SIGNAL_LINE_CONTINUOUS_ERPM_TELEMETRY,            // Need 6x, no wait required. Enables commands 42 to 47, and sends erpm if normal Dshot frame
+    DSHOT_CMD_SIGNAL_LINE_CONTINUOUS_ERPM_PERIOD_TELEMETRY,     // Need 6x, no wait required. Enables commands 42 to 47, and sends erpm period if normal Dshot frame
+    // Commands above are only executed when motors are stopped
+    DSHOT_CMD_36,                                               // Not yet assigned 
+    DSHOT_CMD_37,                                               // Not yet assigned 
+    DSHOT_CMD_38,                                               // Not yet assigned 
+    DSHOT_CMD_39,                                               // Not yet assigned 
+    DSHOT_CMD_40,                                               // Not yet assigned 
+    DSHOT_CMD_41,                                               // Not yet assigned 
+    // Commands below are executed at any time
+    DSHOT_CMD_SIGNAL_LINE_TEMPERATURE_TELEMETRY,                // No wait required 
+    DSHOT_CMD_SIGNAL_LINE_VOLTAGE_TELEMETRY,                    // No wait required 
+    DSHOT_CMD_SIGNAL_LINE_CURRENT_TELEMETRY,                    // No wait required 
+    DSHOT_CMD_SIGNAL_LINE_CONSUMPTION_TELEMETRY,                // No wait required 
+    DSHOT_CMD_SIGNAL_LINE_ERPM_TELEMETRY,                       // No wait required
+    DSHOT_CMD_SIGNAL_LINE_ERPM_PERIOD_TELEMETRY,                // No wait required (also command 47)
+
+    DSHOT_CMD_MAX = 47,
+}dshot_cmd_t;
 
 // Enumeration for the DShot mode
 typedef enum dshot_mode_e
@@ -75,6 +113,20 @@ typedef enum dshot_erpm_exit_mode_e
     ERR_BIDIRECTION_DISABLED,
 
 } dshot_erpm_exit_mode_t;
+
+//types of data that can come back from the ESC that is not erpm
+typedef enum extended_telem_type_e
+{
+    TYPE_ERPM = 0x1, //due to how extended telemetry works, all odd numbers are this
+	TYPE_TEMPRATURE = 0x2,
+	TYPE_VOLTAGE = 0x4,
+	TYPE_CURRENT = 0x6,
+	TYPE_DEBUG_A = 0x8,
+	TYPE_DEBUG_B = 0xA,
+	TYPE_STRESS_LEVEL = 0xC,
+	TYPE_STATUS = 0xE,
+}extended_telem_type_t;
+
 
 // Array of human-readable DShot mode names
 static const char *const dshot_mode_name[] =
@@ -196,14 +248,20 @@ class DShotRMT
 
     //interface commands (with safe defaults)
 	void begin(dshot_mode_t dshot_mode = DSHOT_OFF, bidirectional_mode_t is_bidirectional = NO_BIDIRECTION, uint16_t magnet_count = 14);
-	void send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request = NO_TELEMETRIC);
+	void send_dshot_value(uint16_t throttle_value, bool get_onewire_telemetry = true, telemetric_request_t telemetric_request = NO_TELEMETRIC);
     
     //uint16_t get_dshot_RPM();
-    dshot_erpm_exit_mode_t get_dshot_RPM(uint16_t* RPM); //function now returns its fail state to the caller
+    //function now returns its fail state to the caller
+
+    //peeks into the queue and gets the response from the ESC
+    dshot_erpm_exit_mode_t get_dshot_packet(uint16_t* value, extended_telem_type_t* packetType);
+    
+    //converts a dshot packet into an equivalent voltage (as specified by dshot specs)
+    float convert_packet_to_volts(uint8_t value);
+
+    
     //ratio of passed to failed checksums
     float get_telem_success_rate();
-
-    static void handle_error(esp_err_t);
 
     private:
 
@@ -215,19 +273,15 @@ class DShotRMT
     //(I think it isn't thread safe to touch this while RMT callbacks are running)
     rmt_symbol_word_t dshot_rx_rmt_item[64] = {};
 
-
     //where the TX raw frame info lives (to be sent out)
     rmt_symbol_word_t dshot_tx_rmt_item[DSHOT_PACKET_LENGTH] = {};
+
+    //all the settings for setting up the ESC channels 
+    dshot_config_t dshot_config;
 
     //used to determine telemetry success rate when reading values sent from the ESC
     uint32_t successful_packets = 0;
     uint32_t error_packets = 0;
-
-
-    //all the settings for setting up the ESC channels 
-    dshot_config_t dshot_config;
-    
-
 
     //rmt_item32_t* encode_dshot_to_rmt(uint16_t parsed_packet); //rmt_symbol_word_t
     void encode_dshot_to_rmt(uint16_t parsed_packet);
@@ -236,6 +290,8 @@ class DShotRMT
     uint32_t erpmToRpm(uint16_t erpm, uint16_t motorPoleCount);
 	//uint16_t prepare_rmt_data(dshot_esc_frame_t& dshot_frame);
 
+
+    static void handle_error(esp_err_t);
 
 
 };

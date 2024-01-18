@@ -253,10 +253,10 @@ int main(void)
 		}
 
 		//test
-		//frameData = 0b001001001000;
+		frameData = 0b001101001000;
 
 		//determine packet type
-		if (frameData & 0b000100000000) //is erpm packet
+		if (frameData & 0b000100000000 || (~frameData & 0b111100000000) == 0b111100000000) //is erpm packet
 		{
 			//update output pointer
 			uint32_t RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), 14);

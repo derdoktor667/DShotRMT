@@ -302,14 +302,11 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 }
 
 //encode and send a throttle value
-void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request)
+void DShotRMT::send_dshot_value(uint16_t throttle_value, bool get_onewire_telemetry, telemetric_request_t telemetric_request)
 {
 	dshot_esc_frame_t dshot_frame = {};
 
-	//keep throttle within valid range
-	if (throttle_value < DSHOT_THROTTLE_MIN)
-		throttle_value = DSHOT_THROTTLE_MIN;
-
+	//keep packet size within valid range
 	if (throttle_value > DSHOT_THROTTLE_MAX)
 		throttle_value = DSHOT_THROTTLE_MAX;
 
@@ -379,13 +376,7 @@ uint32_t DShotRMT::erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
 
 
 //read back the value in the buffer
-//Error Codes:
-//0: exit success
-//1: nothing in queue
-//2: no packet in queue
-//3: checksum mismatch
-//4: bidirection not enabled
-dshot_erpm_exit_mode_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
+dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_telem_type_t* packetType)
 {
 
 	if(dshot_config.bidirectional != ENABLE_BIDIRECTION)
@@ -514,8 +505,47 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 				return ERR_CHECKSUM_FAIL;
 			}
 
-			//update output pointer
-			*RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
+			//test
+			//frameData = 0b001001001000;
+
+			//determine packet type
+			if (frameData & 0b000100000000 || (~frameData & 0b111100000000) == 0b111100000000) //is erpm packet (4th bit is 1 or all four bits are 0)
+			{
+				//update internal values
+				*packetType = TYPE_ERPM;
+
+				//update output pointer
+				*value = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
+
+			}
+			else //is extended telemetry packet
+			{
+				*packetType = (extended_telem_type_t)((frameData >> 8) & 0b1111); //we return this value anyway, so we reuse it
+				*value = (frameData & 0b11111111);
+
+				Serial.println("Other");
+
+				//not needed, we leave this logic up to the implementer
+				//uint8_t response_data = (frameData & 0b11111111);
+				//switch packet type
+				// switch (*packetType)
+				// {
+				// case TYPE_TEMPRATURE: //temprature in degrees C
+				// case TYPE_VOLTAGE: //0.25 volts per step
+				// case TYPE_CURRENT: //current in ANP
+				// 	*value = response_data;
+				// 	break;
+
+				// default:
+				// case TYPE_DEBUG_A: //do nothing for these for now
+				// case TYPE_DEBUG_B:
+				// case TYPE_STRESS_LEVEL:
+				// case TYPE_STATUS:
+				// 	break;
+					
+				// }
+			}
+
 
 		}
 		else
@@ -531,6 +561,13 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_RPM(uint16_t* RPM)
 	successful_packets += 1;
 	return DECODE_SUCCESS;
 }
+
+//converts the value recieved from the dshot packet into a voltage
+float DShotRMT::convert_packet_to_volts(uint8_t value)
+{
+	return (float)value * 0.25;
+}
+
 
 //return the percent of the dshot RPM requests that succeeded
 float DShotRMT::get_telem_success_rate()
@@ -621,6 +658,5 @@ void DShotRMT::handle_error(esp_err_t err_code) {
 		Serial.println(esp_err_to_name(err_code));
 	}
 }
-
 
 

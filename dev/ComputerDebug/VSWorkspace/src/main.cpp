@@ -27,6 +27,16 @@ typedef struct rx_frame_data_s
 
 }rx_frame_data_t;
 
+typedef enum extended_telem_type_e
+{
+	TYPE_TEMPRATURE = 0x2,
+	TYPE_VOLTAGE = 0x4,
+	TYPE_CURRENT = 0x6,
+	TYPE_DEBUG_A = 0x8,
+	TYPE_DEBUG_B = 0xA,
+	TYPE_DEBUG_C = 0xC,
+	TYPE_STATE = 0xE,
+}extended_telem_type_t;
 
 
 //i need to find a better place for these:
@@ -102,6 +112,16 @@ uint32_t erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
 	return (erpm * 200) / motorPoleCount;
 }
 
+//Error Codes:
+//0: exit success
+//1: nothing in queue
+//2: no packet in queue
+//3: checksum mismatch
+//4: bidirection not enabled
+//5: got other packet type?
+
+
+//should I run this every time I try to send out a dshot packet, or should I let the user run this function?
 int main(void)
 {
 	unsigned short ticks_one_high = 12;
@@ -231,17 +251,41 @@ int main(void)
 			//we don't update the RPM pointer that was passed to us
 			return 3;
 		}
-		else
+
+		//test
+		//frameData = 0b001001001000;
+
+		//determine packet type
+		if (frameData & 0b000100000000) //is erpm packet
 		{
-			//print the good packet
+			//update output pointer
+			uint32_t RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), 14);
+		}
+		else //is extended telemetry packet
+		{
+			uint8_t response_type = (frameData >> 8) & 0b1111;
+			uint8_t response_data = (frameData & 0b11111111);
+
+			//switch packet type
+			switch ((extended_telem_type_t)response_type)
+			{
+			case TYPE_TEMPRATURE: //temprature in degrees C
+				break;
+			case TYPE_VOLTAGE: //0.25 volts per step
+				break;
+			case TYPE_CURRENT: //current in ANP
+				break;
+
+			default:
+			case TYPE_DEBUG_A: //do nothing for these for now
+			case TYPE_DEBUG_B:
+			case TYPE_DEBUG_C:
+			case TYPE_STATE:
+				break;
+				
+			}
 		}
 
-		//get base and exponet
-		//uint8_t exponet = (frameData >> 9) & (0b111);
-		//uint16_t base = (frameData & 0b111111111);
-
-		//update output pointer
-		uint32_t RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), 14);
 
 	}
 	else

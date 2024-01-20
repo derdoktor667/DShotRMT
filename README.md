@@ -96,6 +96,8 @@ I still have problems with too frequent reads though. I think the problem is tha
 
 Is the RX event cutting off the read event, or is the read event cutting off the RX event?
 
+Noticed that whenever a serialPrint operation is sent, the next packet we get back is shorter than it should be.
+
 </details>
 
 ---

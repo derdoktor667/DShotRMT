@@ -64,7 +64,7 @@ static const unsigned char GCR_decode[32] =
 };
 
 
-rmt_symbol_word_t raw_data[6] =
+rmt_symbol_word_t raw_data[8] =
 {
 //	{23, 1, 38, 0},
 //	{10, 1, 11, 0},
@@ -74,13 +74,18 @@ rmt_symbol_word_t raw_data[6] =
 //	{24, 1, 0, 0},
 
 
-	{24, 1, 37, 0},
-	{24, 1, 10, 0},
-	{24, 1, 24, 0},
-	{23, 1, 24, 0},
-	{11, 1, 23, 0},
-	{10, 1, 0, 0},
-	//{10, 1, 0, 0},
+	{25, 1, 13, 0},
+	{13, 1, 13, 0},
+	{24, 1, 13, 0},
+	{13, 1, 13, 0},
+	{24, 1, 13, 0},
+	{13, 1, 13, 0},
+	{13, 1, 13, 0},
+	{37, 1, 13, 0},
+
+
+
+
 };
 
 
@@ -252,14 +257,13 @@ int main(void)
 			return 3;
 		}
 
-		//test
-		frameData = 0b001101001000;
 
 		//determine packet type
 		if (frameData & 0b000100000000 || (~frameData & 0b111100000000) == 0b111100000000) //is erpm packet
 		{
 			//update output pointer
 			uint32_t RPM = erpmToRpm(decode_eRPM_telemetry_value(frameData), 14);
+			int ano = RPM;
 		}
 		else //is extended telemetry packet
 		{

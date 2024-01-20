@@ -64,10 +64,9 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	//start listening for a response
 	rmt_receive(config->channel_handle, config->raw_symbols, config->raw_sym_size, &config->channel_config);
 	
-	return high_task_wakeup; //nothing to wake up; no data needs to be send back
-
-	//assert failed: rmt_isr_handle_rx_done rmt_rx.c:505 (offset > rx_chan->mem_off)
+	return high_task_wakeup; //nothing to wake up; no data needs to be sent back
 }
+
 
 }
 
@@ -386,6 +385,7 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_tele
 
 	//only process new data if we have new data waiting in the queue
 	rx_frame_data_t rx_data;
+
 	if(xQueueReceive(receive_queue, &rx_data, 0))
 	{
 

@@ -32,7 +32,7 @@ void setup()
 	pinMode(TRIGGER_PIN, INPUT_PULLUP);
 
 }
-
+int loopCount = 0;
 void loop()
 {
 	//////////////////////////////////
@@ -54,39 +54,71 @@ void loop()
 
 
 
-	static int loopCount = 20;
-	static bool last_trg = false;
-	if(digitalRead(TRIGGER_PIN) == LOW)
+	// static bool last_trg = false;
+	// if(digitalRead(TRIGGER_PIN) == LOW)
+	// {
+	// 	if(!last_trg)
+	// 	{
+	// 		loopCount = 0;
+	// 		Serial.printf("Reset Loop\n");
+	// 	}
+	// 	last_trg = true;
+	// }
+	// else
+	// 	last_trg = false;
+
+
+
+
+	if(loopCount < 1200)
 	{
-		if(!last_trg)
+		anESC.send_dshot_value(DSHOT_THROTTLE_MIN);
+	}
+	else if(loopCount < 1600)
+	{
+		static int enable_telemm = 0;
+		if(enable_telemm < 10)
 		{
-			loopCount = 0;
-			Serial.printf("Reset Loop\n");
+			anESC.send_dshot_value(DSHOT_CMD_EXTENDED_TELEMETRY_ENABLE);
+			++enable_telemm;
 		}
-		last_trg = true;
+		else
+		{
+			anESC.send_dshot_value(DSHOT_THROTTLE_MIN);
+		}
 	}
-	else
-		last_trg = false;
-
-
-
-
-	uint16_t packet_1 = 0;
-	extended_telem_type_t pack_type = TYPE_ERPM;
-	int error_a = anESC.get_dshot_packet(&packet_1, &pack_type);
-
-	if(pack_type != TYPE_ERPM)
+	else if(loopCount < 2400)
 	{
-		Serial.printf("Packet: %10d || Packet Type: %10d\n", packet_1, pack_type);
-	}
-	if(loopCount < 10)
-	{
-		anESC.send_dshot_value(DSHOT_CMD_EXTENDED_TELEMETRY_ENABLE);
+		anESC.send_dshot_value(DSHOT_CMD_ESC_INFO);
 	}
 	else
 	{
-		anESC.send_dshot_value(INITIAL_THROTTLE);
+		anESC.send_dshot_value(DSHOT_CMD_ESC_INFO);
 	}
+
+
+
+	//if(error_a == ERR_CHECKSUM_FAIL)
+	//	Serial.printf("had error %10.3f\n", anESC.get_telem_success_rate());
+
+	//if(pack_type != TYPE_ERPM)
+	//	Serial.printf("A\n");
+
+	if(loopCount % 10 == 0)
+	{
+
+		uint16_t packet_1 = 0;
+		extended_telem_type_t pack_type = TYPE_ERPM;
+		int error_a = anESC.get_dshot_packet(&packet_1, &pack_type);
+
+		//Serial.printf("Packet: %10d || Packet Type: %10d\n", packet_1, pack_type);
+		//Serial.printf("%10d, %10.3f, err: %d\n",
+	 	//	packet_1, anESC.get_telem_success_rate(), error_a);
+		//Serial.printf("%10.3f\n", anESC.get_telem_success_rate());
+	}
+
+
+
 
 	delay(2);
 	++loopCount;

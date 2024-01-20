@@ -10,7 +10,7 @@
 //#include <driver/rmt.h>
 
 // Defines the library version
-constexpr auto DSHOT_LIB_VERSION = "0.3.0";
+constexpr auto DSHOT_LIB_VERSION = "0.4.0";
 
 // Constants related to the DShot protocol
 constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
@@ -117,14 +117,14 @@ typedef enum dshot_erpm_exit_mode_e
 //types of data that can come back from the ESC that is not erpm
 typedef enum extended_telem_type_e
 {
-    TYPE_ERPM = 0x1, //due to how extended telemetry works, all odd numbers are this
-	TYPE_TEMPRATURE = 0x2,
-	TYPE_VOLTAGE = 0x4,
-	TYPE_CURRENT = 0x6,
-	TYPE_DEBUG_A = 0x8,
-	TYPE_DEBUG_B = 0xA,
-	TYPE_STRESS_LEVEL = 0xC,
-	TYPE_STATUS = 0xE,
+    TELEM_TYPE_ERPM = 0x1, //due to how extended telemetry works, all odd numbers are this
+	TELEM_TYPE_TEMPRATURE = 0x2,
+	TELEM_TYPE_VOLTAGE = 0x4,
+	TELEM_TYPE_CURRENT = 0x6,
+	TELEM_TYPE_DEBUG_A = 0x8,
+	TELEM_TYPE_DEBUG_B = 0xA,
+	TELEM_TYPE_STRESS_LEVEL = 0xC,
+	TELEM_TYPE_STATUS = 0xE,
 }extended_telem_type_t;
 
 
@@ -254,7 +254,7 @@ class DShotRMT
     //function now returns its fail state to the caller
 
     //peeks into the queue and gets the response from the ESC
-    dshot_erpm_exit_mode_t get_dshot_packet(uint16_t* value, extended_telem_type_t* packetType);
+    dshot_erpm_exit_mode_t get_dshot_packet(uint16_t* value, extended_telem_type_t* packetType = NULL);
     
     //converts a dshot packet into an equivalent voltage (as specified by dshot specs)
     float convert_packet_to_volts(uint8_t value);

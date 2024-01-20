@@ -373,7 +373,6 @@ uint32_t DShotRMT::erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
     return (erpm * 200) / motorPoleCount;
 }
 
-
 //read back the value in the buffer
 dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_telem_type_t* packetType)
 {
@@ -512,7 +511,8 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_tele
 			if (frameData & 0b000100000000 || (~frameData & 0b111100000000) == 0b111100000000) //is erpm packet (4th bit is 1 or all four bits are 0)
 			{
 				//update internal values
-				*packetType = TYPE_ERPM;
+				if(packetType)
+					*packetType = TELEM_TYPE_ERPM;
 
 				//update output pointer
 				*value = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
@@ -520,30 +520,10 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_tele
 			}
 			else //is extended telemetry packet
 			{
-				*packetType = (extended_telem_type_t)((frameData >> 8) & 0b1111); //we return this value anyway, so we reuse it
+				if(packetType)
+					*packetType = (extended_telem_type_t)((frameData >> 8) & 0b1111); //we return this value anyway, so we reuse it
 				*value = (frameData & 0b11111111);
 
-				Serial.println("Other");
-
-				//not needed, we leave this logic up to the implementer
-				//uint8_t response_data = (frameData & 0b11111111);
-				//switch packet type
-				// switch (*packetType)
-				// {
-				// case TYPE_TEMPRATURE: //temprature in degrees C
-				// case TYPE_VOLTAGE: //0.25 volts per step
-				// case TYPE_CURRENT: //current in ANP
-				// 	*value = response_data;
-				// 	break;
-
-				// default:
-				// case TYPE_DEBUG_A: //do nothing for these for now
-				// case TYPE_DEBUG_B:
-				// case TYPE_STRESS_LEVEL:
-				// case TYPE_STATUS:
-				// 	break;
-					
-				// }
 			}
 
 

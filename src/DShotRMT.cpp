@@ -35,6 +35,23 @@ static bool rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_eve
 	memcpy(&out_data.received_symbols, edata->received_symbols, sym_count * sizeof(rmt_symbol_word_t));
 	out_data.num_symbols = sym_count;
 
+	//TEST
+	//Serial.printf("~%d\n", edata->num_symbols);
+	//for(int i = 0; i < edata->num_symbols; ++i)
+	//	Serial.printf("%d,%d|%d,%d\n",edata->received_symbols[i].duration0,edata->received_symbols[i].level0,
+	//			edata->received_symbols[i].duration1,edata->received_symbols[i].level1);
+
+	size_t last_sym = edata->num_symbols - 1;
+	if(edata->received_symbols[last_sym].duration0 != 0
+		&& edata->received_symbols[last_sym].duration1 != 0)
+	{
+		Serial.printf("~\n");
+		//out_data.non_termination = true;
+	}
+
+
+
+
     //send the received RMT symbols to the parser task
 	xQueueSendFromISR(config->receive_queue, &out_data, &high_task_wakeup);
 
@@ -418,7 +435,7 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_tele
 			//(we get ticks with time 30 and time 40. Where do these go?)
 
 			//bit time is reception bitrate * 90%
-			unsigned short bitTime = dshot_config.ticks_one_high * 9 / 10;
+			unsigned short bitTime = dshot_config.ticks_one_high;// * 9 / 10;
 			unsigned short bitCount0 = 0;
 			unsigned short bitCount1 = 0;
 			unsigned short bitShiftLevel = 20;//21 bits, including 0
@@ -427,10 +444,11 @@ dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_tele
 			//unsigned int* y = &assembledFrame; //for debugging on the computer
 			for (i = 0; i < rx_data.num_symbols; ++i)
 			{
-
-				//for each symbol, see how many bits are in there
-				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime;
-				bitCount1 = rx_data.received_symbols[i].duration1 / bitTime;
+				//due to how the GCR encoding works, there will never be more than 3 of the same bit in a row. We can assume all bits with length over a threshhold are 3.
+				
+				//for each symbol, see how many bits are in there (+ rounding)
+				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime + (rx_data.received_symbols[i].duration0 % bitTime > bitTime - 4);
+				bitCount1 = rx_data.received_symbols[i].duration1 / bitTime + (rx_data.received_symbols[i].duration1 % bitTime > bitTime - 4);
 
 				//if we know the level of the first part of the symbol,
 				//we know the second part must be different

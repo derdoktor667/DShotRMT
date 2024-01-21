@@ -98,6 +98,61 @@ Is the RX event cutting off the read event, or is the read event cutting off the
 
 Noticed that whenever a serialPrint operation is sent, the next packet we get back is shorter than it should be.
 
+
+
+## Determining end-of-transmission
+I just found out that the RMT callback isn't guaranteed to get all
+the data in one go.
+I need to see what the end-of-transmission event looks like
+
+EOT event always seems to be a '0' level event with '0' time.
+If the first part of the transmissions are '0' level, then the second part is untouched,
+D0: 22 L0: 0 || [D1: 11 L1: 1<\r><\n>] These two sections are always the same if the termination value is first.
+D0: 0 L0: 0 || [D1: 11 L1: 1<\r><\n>]
+
+This doesn't help; that's the halt condition for multiple transfers
+
+
+Note: the transmission formula is:
+11 - start
+00
+11100
+100
+1100
+110
+110
+1 -end
+{1: HI 0: LO}
+
+{1: LO 0: HI}
+24,1|32,0
+24,1|12,0
+24,1|24,0
+24,1|24,0
+12,1|24,0
+12,1|(REST HIGH)
+
+
+
+
+
+~6<\n>
+22,1|32,0<\n>
+22,1|11,0<\n>
+22,1|21,0<\n>
+22,1|22,0<\n>
+10,1|22,0<\n>
+11,1|0,0<\n>
+
+~5<\n>
+22,1|11,0<\n>
+21,1|22,0<\n>
+22,1|22,0<\n>
+10,1|22,0<\n>
+11,1|0,0
+
+
+
 </details>
 
 ---

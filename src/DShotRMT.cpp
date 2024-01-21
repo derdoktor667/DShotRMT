@@ -22,13 +22,38 @@ TEST_RMT_CALLBACK_ATTR
 static bool rx_done_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
 	//init return value
+	//high task wakeup will be true if pushing data to the queue started a task with a higher priority than this inturrupt.
     BaseType_t high_task_wakeup = pdFALSE;
 
 	//get pointer to the settings passed in by us when we initialized the callback
 	rx_callback_datapack_t* config = (rx_callback_datapack_t*)user_data;
 
+	rx_frame_data_t out_data = {};
+
+	//copy the edata symbols to the frame data
+	size_t sym_count = edata->num_symbols > RX_SYMBOL_MAX ? RX_SYMBOL_MAX : edata->num_symbols; //cap copy size to 11
+	memcpy(&out_data.received_symbols, edata->received_symbols, sym_count * sizeof(rmt_symbol_word_t));
+	out_data.num_symbols = sym_count;
+
+	//TEST
+	//Serial.printf("~%d\n", edata->num_symbols);
+	//for(int i = 0; i < edata->num_symbols; ++i)
+	//	Serial.printf("%d,%d|%d,%d\n",edata->received_symbols[i].duration0,edata->received_symbols[i].level0,
+	//			edata->received_symbols[i].duration1,edata->received_symbols[i].level1);
+
+	size_t last_sym = edata->num_symbols - 1;
+	if(edata->received_symbols[last_sym].duration0 != 0
+		&& edata->received_symbols[last_sym].duration1 != 0)
+	{
+		Serial.printf("~\n");
+		//out_data.non_termination = true;
+	}
+
+
+
+
     //send the received RMT symbols to the parser task
-    xQueueSendFromISR(config->receive_queue, edata, &high_task_wakeup);
+	xQueueSendFromISR(config->receive_queue, &out_data, &high_task_wakeup);
 
     return high_task_wakeup == pdTRUE; //return xQueueSendFromISR result (does it wake up a higher task?)
 }
@@ -40,6 +65,8 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	tx_callback_datapack_t* config = (tx_callback_datapack_t*)user_ctx;
 	//size_t symbol_count = edata->num_symbols; //we don't need to know how many symbols we sent
 
+	//restart rx channel
+	rmt_enable(config->channel_handle);
 
 	//I don't know why we need to use HAL for this...
 	//we can also use gpio_ll to get the same result
@@ -54,8 +81,9 @@ static bool tx_done_callback(rmt_channel_handle_t tx_chan, const rmt_tx_done_eve
 	//start listening for a response
 	rmt_receive(config->channel_handle, config->raw_symbols, config->raw_sym_size, &config->channel_config);
 	
-	return high_task_wakeup; //nothing to wake up; no data needs to be send back
+	return high_task_wakeup; //nothing to wake up; no data needs to be sent back
 }
+
 
 }
 
@@ -229,7 +257,7 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 		};
 	
 		// create a thread safe queue handle
-  		receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+		receive_queue = xQueueCreate(1, sizeof(rx_frame_data_t));
 
 		//stow settings into datapack so we can get them in the callback
 		dshot_config.rx_callback_datapack.receive_queue = receive_queue;
@@ -274,8 +302,8 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 		handle_error(rmt_tx_register_event_callbacks(dshot_config.tx_chan, &callback, &dshot_config.tx_callback_datapack));
 
 
-		//enable RX channel
-		rmt_enable(dshot_config.rx_chan);
+		//enable RX channel (may need to remove this, we disable the channel right away when we go to send a packet)
+		handle_error(rmt_enable(dshot_config.rx_chan));
 
 	}
 
@@ -290,20 +318,17 @@ void DShotRMT::begin(dshot_mode_t dshot_mode, bidirectional_mode_t is_bidirectio
 }
 
 //encode and send a throttle value
-void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t telemetric_request)
+void DShotRMT::send_dshot_value(uint16_t throttle_value, bool get_onewire_telemetry, telemetric_request_t telemetric_request)
 {
 	dshot_esc_frame_t dshot_frame = {};
 
-	//keep throttle within valid range
-	if (throttle_value < DSHOT_THROTTLE_MIN)
-		throttle_value = DSHOT_THROTTLE_MIN;
-
+	//keep packet size within valid range
 	if (throttle_value > DSHOT_THROTTLE_MAX)
 		throttle_value = DSHOT_THROTTLE_MAX;
 
 	//setup dshot frame
 	dshot_frame.throttle = throttle_value;
-	dshot_frame.telemetry = telemetric_request; //NOT bidirectional telemetry
+	dshot_frame.telemetry = telemetric_request; //NOT bidirectional telemetry (requests telemetry over second wire, which is not implemented)
 	dshot_frame.crc = calc_dshot_chksum(dshot_frame);
 
 	encode_dshot_to_rmt(dshot_frame.val); //we can pull the compiled frame out with "val"
@@ -316,6 +341,14 @@ void DShotRMT::send_dshot_value(uint16_t throttle_value, telemetric_request_t te
 	{
         //.loop_count = -1, // infinite loop
     };
+
+	//shut down the rmt reciever before we send a packet out to protect against self-sniffing
+	//this is what's used low-level, but rmt_rx_disable should be good enough for our needs
+	//rmt_ll_rx_enable((rmt_dev_t*)hal->regs, dshot_config.rx_chan.channel_id, false); //ALTER (cast)
+	if(dshot_config.bidirectional == ENABLE_BIDIRECTION)
+		handle_error(rmt_disable(dshot_config.rx_chan));
+	//run this in the tx_done callback
+	//handle_error(rmt_enable(dshot_config.rx_chan));
 
 
 	//send the frame off to the pin
@@ -357,17 +390,22 @@ uint32_t DShotRMT::erpmToRpm(uint16_t erpm, uint16_t motorPoleCount)
     return (erpm * 200) / motorPoleCount;
 }
 
-
 //read back the value in the buffer
-uint16_t DShotRMT::get_dshot_RPM()
+dshot_erpm_exit_mode_t DShotRMT::get_dshot_packet(uint16_t* value, extended_telem_type_t* packetType)
 {
 
+	if(dshot_config.bidirectional != ENABLE_BIDIRECTION)
+	{
+		return ERR_BIDIRECTION_DISABLED;
+	}
+
 	//only process new data if we have new data waiting in the queue
-	rmt_rx_done_event_data_t rx_data;
+	rx_frame_data_t rx_data;
+
 	if(xQueueReceive(receive_queue, &rx_data, 0))
 	{
 
-		//only execute if we got a packet (no packet response gives us only one symbol be default)
+		//only execute if we got a packet (no packet response gives us only one symbol by default)
 		if (rx_data.num_symbols > 1)
 		{
 
@@ -393,8 +431,11 @@ uint16_t DShotRMT::get_dshot_RPM()
 			//dshot 1200 = 6.25 ticks per bit
 			//this closely matches dshot_config.ticks_one_high
 
+			//with 600, recieved packets can have veriety that simultaneously renders the 90% reduction needed and erronious
+			//(we get ticks with time 30 and time 40. Where do these go?)
+
 			//bit time is reception bitrate * 90%
-			unsigned short bitTime = dshot_config.ticks_one_high * 9 / 10;
+			unsigned short bitTime = dshot_config.ticks_one_high;// * 9 / 10;
 			unsigned short bitCount0 = 0;
 			unsigned short bitCount1 = 0;
 			unsigned short bitShiftLevel = 20;//21 bits, including 0
@@ -403,9 +444,11 @@ uint16_t DShotRMT::get_dshot_RPM()
 			//unsigned int* y = &assembledFrame; //for debugging on the computer
 			for (i = 0; i < rx_data.num_symbols; ++i)
 			{
-				//for each symbol, see how many bits are in there
-				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime;
-				bitCount1 = rx_data.received_symbols[i].duration1 / bitTime;
+				//due to how the GCR encoding works, there will never be more than 3 of the same bit in a row. We can assume all bits with length over a threshhold are 3.
+				
+				//for each symbol, see how many bits are in there (+ rounding)
+				bitCount0 = rx_data.received_symbols[i].duration0 / bitTime + (rx_data.received_symbols[i].duration0 % bitTime > bitTime - 4);
+				bitCount1 = rx_data.received_symbols[i].duration1 / bitTime + (rx_data.received_symbols[i].duration1 % bitTime > bitTime - 4);
 
 				//if we know the level of the first part of the symbol,
 				//we know the second part must be different
@@ -474,22 +517,64 @@ uint16_t DShotRMT::get_dshot_RPM()
 			//stop processing if the checksum is invalid
 			if(crc != alsocrc)
 			{
-				//Serial.println("checksum error");
-				return processed_data;
+				error_packets += 1; //for now, the only error packets we will track are the ones where the checksum fails
+				//we don't update the RPM pointer that was passed to us
+				return ERR_CHECKSUM_FAIL;
 			}
 
-			//get base and exponet
-			//uint8_t exponet = (frameData >> 9) & (0b111);
-			//uint16_t base = (frameData & 0b111111111);
-			processed_data = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
+			//test
+			//frameData = 0b001001001000;
+
+			//determine packet type
+			if (frameData & 0b000100000000 || (~frameData & 0b111100000000) == 0b111100000000) //is erpm packet (4th bit is 1 or all four bits are 0)
+			{
+				//update internal values
+				if(packetType)
+					*packetType = TELEM_TYPE_ERPM;
+
+				//update output pointer
+				*value = erpmToRpm(decode_eRPM_telemetry_value(frameData), dshot_config.num_motor_poles);
+
+			}
+			else //is extended telemetry packet
+			{
+				if(packetType)
+					*packetType = (extended_telem_type_t)((frameData >> 8) & 0b1111); //we return this value anyway, so we reuse it
+				*value = (frameData & 0b11111111);
+
+			}
+
 
 		}
-
+		else
+		{
+			return ERR_NO_PACKETS;
+		}
+	}
+	else
+	{
+		return ERR_EMPTY_QUEUE;
 	}
 
-	return processed_data;
+	successful_packets += 1;
+	return DECODE_SUCCESS;
 }
 
+//converts the value recieved from the dshot packet into a voltage
+float DShotRMT::convert_packet_to_volts(uint8_t value)
+{
+	return (float)value * 0.25;
+}
+
+
+//return the percent of the dshot RPM requests that succeeded
+float DShotRMT::get_telem_success_rate()
+{
+	return (float)successful_packets / (float)(error_packets + successful_packets);
+}
+
+
+//private functions below:
 
 //take dshot bits and create an array of rmt clocks
 //(we don't need to return anything because we fiddle with the class-baked array, accessible everywhere)
@@ -528,7 +613,7 @@ void DShotRMT::encode_dshot_to_rmt(uint16_t parsed_packet)
 //take the dshot frame and calulate its checksum
 uint16_t DShotRMT::calc_dshot_chksum(const dshot_esc_frame_t &dshot_frame)
 {
-    //start with two emprty containers
+    //start with two empty containers
 	uint16_t packet = DSHOT_NULL_PACKET;
 	uint16_t chksum = DSHOT_NULL_PACKET;
 
@@ -571,6 +656,5 @@ void DShotRMT::handle_error(esp_err_t err_code) {
 		Serial.println(esp_err_to_name(err_code));
 	}
 }
-
 
 

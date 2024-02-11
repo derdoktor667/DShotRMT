@@ -32,6 +32,19 @@ DShotRMT::DShotRMT(uint8_t pin, uint8_t channel)
     buildTxRmtItem(DSHOT_NULL_PACKET);
 }
 
+// ...simplest but only for testing
+DShotRMT::DShotRMT(uint8_t pin)
+{
+    // Initialize the dshot_config structure with the arguments passed to the constructor
+    dshot_config.gpio_num = static_cast<gpio_num_t>(pin);
+    dshot_config.pin_num = pin;
+    dshot_config.rmt_channel = static_cast<rmt_channel_t>(RMT_CHANNEL_MAX -1);
+    dshot_config.mem_block_num = RMT_CHANNEL_MAX - 1;
+
+    // Create an empty packet using the DSHOT_NULL_PACKET and the buildTxRmtItem function
+    buildTxRmtItem(DSHOT_NULL_PACKET);
+}
+
 DShotRMT::~DShotRMT()
 {
     // Uninstall the RMT driver

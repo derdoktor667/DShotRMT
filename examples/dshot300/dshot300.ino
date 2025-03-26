@@ -8,7 +8,7 @@
  */
 
 #include <Arduino.h>
-#include "DShotRMT.h"
+#include <DShotRMT.h>
 
 // USB serial port needed for this example
 const auto USB_SERIAL_BAUD = 115200;
@@ -51,5 +51,8 @@ uint16_t readSerialThrottle()
     if (USB_Serial.available() > 0)
     {
         return USB_Serial.readStringUntil('\n').toInt();
+    } else
+    {
+      return FAILSAFE_THROTTLE;
     }
 }

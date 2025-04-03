@@ -2,6 +2,8 @@
 
 ## DShot ESP32 Library utilizing RMT
 
+# Rewrite to utilize ESP-IDF 5 (new rmt_tx.h / rmt_rx.h)
+
 ### The DShot Protocol
 The DSHOT protocol consists of transmitting 16-bit packets to the ESCs: 11-bit throttle value,  1-bit to request telemetry and a 4-bit checksum. There are three major protocol speeds: DSHOT150, DSHOT300 and DSHOT600.
 

@@ -1,99 +1,98 @@
-/*
- * Name:        DShotRMT.cpp
- * Created:     20.03.2021 00:49:15
- * Author:      derdoktor667
- */
+//------------------------------------------------------------------------------
+// Name:        DShotRMT
+// Date:        2025-04-14
+// Author:      Wastl Kraus
+// Description: ESP32 Library for controlling ESCs using the DShot protocol.
+//------------------------------------------------------------------------------
 
- #include "DShotRMT.h"
+#include "DShotRMT.h"
 
- DShotRMT::DShotRMT(uint8_t pin, DShotSpeed speed) : _pin(pin), _speed(speed), _txChannel(NULL), _rxChannel(NULL) {
-     init();
- }
- 
- void DShotRMT::init() {
-     rmt_tx_channel_config_t tx_config = {
-         .gpio_num = (gpio_num_t)_pin,
-         .clk_src = RMT_CLK_SRC_DEFAULT,
-         .resolution_hz = static_cast<uint32_t>(_speed),
-         .mem_block_symbols = 64,
-         .trans_queue_depth = 4,
-     };
- 
-     if (rmt_new_tx_channel(&tx_config, &_txChannel)) {
-         Serial.println("Failed to create TX channel");
-     }
- 
-     rmt_rx_channel_config_t rx_config = {
-         .gpio_num = (gpio_num_t)_pin,
-         .clk_src = RMT_CLK_SRC_DEFAULT,
-         .resolution_hz = static_cast<uint32_t>(_speed),
-         .mem_block_symbols = 64,
-     };
- 
-     if (rmt_new_rx_channel(&rx_config, &_rxChannel)) {
-         Serial.println("Failed to create RX channel");
-     }
- }
- 
- void DShotRMT::send(uint16_t data) {
-     if (_txChannel == NULL) {
-         Serial.println("RMT not initialized");
-         return;
-     }
- 
-     rmt_transmit_config_t tx_config = {
-         .loop_count = 0,
-     };
- 
-     if (rmt_transmit(_txChannel, NULL, &data, sizeof(data), &tx_config)) {
-         Serial.println("Failed to transmit data");
-     }
- 
-     if (rmt_tx_wait_all_done(_txChannel, portMAX_DELAY)) {
-         Serial.println("Failed to wait for TX completion");
-     }
- }
- 
- uint16_t DShotRMT::receive() {
-     if (_rxChannel == NULL) {
-         Serial.println("RMT RX not initialized");
-         return 0;
-     }
- 
-     rmt_receive_config_t rx_config = {
-         .signal_range_min_ns = 100,
-         .signal_range_max_ns = 10000,
-     };
- 
-     uint16_t received_data = 0;
-     if (rmt_receive(_rxChannel, &received_data, sizeof(received_data), &rx_config)) {
-         Serial.println("Failed to receive data");
-         return 0;
-     }
- 
-     uint16_t rpm = (received_data & 0x07FF) * 100;
-     
-     #ifdef DEBUG_DSHOT
-     Serial.print("Received RPM: ");
-     Serial.println(rpm);
-     #endif
- 
-     return rpm;
- }
- 
- void DShotRMT::switchToRxMode() {
-     if (_rxChannel == NULL) {
-         Serial.println("RX channel not initialized");
-         return;
-     }
-     // Code zur Umschaltung auf RX-Modus
- }
- 
- void DShotRMT::switchToTxMode() {
-     if (_txChannel == NULL) {
-         Serial.println("TX channel not initialized");
-         return;
-     }
-     // Code zur Umschaltung auf TX-Modus
- }
- 
+// Constructor: store GPIO pin and mode
+DShotRMT::DShotRMT(int gpio_num, DShotMode mode)
+{
+    _pin = gpio_num;
+    _mode = mode;
+    _rmt_channel = nullptr;
+}
+
+// Initializes the RMT channel with the specified settings
+void DShotRMT::begin()
+{
+    Serial.printf("DShotRMT initialized on GPIO %d at mode DSHOT%d\n", _pin, static_cast<int>(_mode));
+
+    rmt_tx_channel_config_t tx_config = {
+        static_cast<gpio_num_t>(_pin),     // gpio_num
+        RMT_CLK_SRC_DEFAULT,               // clk_src
+        64,                                // mem_block_symbols (enough symbols for DShot600)
+        static_cast<uint32_t>(_mode) * 67, // resolution_hz (67 ticks per bit)
+        4,                                 // trans_queue_depth
+    };
+
+    // Create the RMT TX channel
+    esp_err_t err = rmt_new_tx_channel(&tx_config, &_rmt_channel);
+    if (err != ESP_OK)
+    {
+        Serial.println("Failed to create RMT channel");
+        return;
+    }
+
+    // Enable the RMT channel
+    rmt_enable(_rmt_channel);
+}
+
+// Sends a DShot command (stub)
+void DShotRMT::sendDShotCommand(uint16_t command)
+{
+    Serial.print("Sending DShot command: ");
+    Serial.println(command);
+    // TODO: Encode 16-bit DShot packet and send using RMT items
+}
+
+// Builds a 16-bit DShot frame from value and telemetry flag
+uint16_t DShotRMT::buildDShotPacket(uint16_t value, bool telemetry)
+{
+    value = (value & 0x07FF) << 1; // 11-bit value, shift left by 1
+    if (telemetry)
+    {
+        value |= 1; // Set telemetry bit
+    }
+
+    // Compute checksum (XOR of upper 3 nibbles)
+    uint16_t checksum = 0;
+    uint16_t temp = value;
+    for (int i = 0; i < 3; i++)
+    {
+        checksum ^= (temp >> (4 * i)) & 0xF;
+    }
+
+    return (value << 4) | (checksum & 0xF);
+}
+
+// Encodes the 16-bit DShot packet into RMT symbols
+void DShotRMT::encodeDShotToRMT(uint16_t packet, rmt_symbol_word_t *symbols)
+{
+    const uint32_t total_ticks = 67; // 67 ticks per bit (constant for both DSHOT300/600 modes)
+    const uint32_t t1h = (total_ticks * 2) / 3;
+    const uint32_t t1l = total_ticks - t1h;
+    const uint32_t t0h = total_ticks / 3;
+    const uint32_t t0l = total_ticks - t0h;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        bool bit = (packet >> (15 - i)) & 0x01;
+        if (bit)
+        {
+            symbols[i].level0 = 1;
+            symbols[i].duration0 = t1h;
+            symbols[i].level1 = 0;
+            symbols[i].duration1 = t1l;
+        }
+        else
+        {
+            symbols[i].level0 = 1;
+            symbols[i].duration0 = t0h;
+            symbols[i].level1 = 0;
+            symbols[i].duration1 = t0l;
+        }
+    }
+}

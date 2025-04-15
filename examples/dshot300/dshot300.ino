@@ -1,11 +1,10 @@
-/*
- * Title: dshot300.ino
- * Author: derdoktor667
- * Date: 2023-04-13
- *
- * Description: A simple example of using the DShotRMT library to
- * generate a DShot300 signal for blheli_s ESCs.
- */
+//------------------------------------------------------------------------------
+// Name:        DShotRMT
+// Date:        2025-04-14
+// Author:      Wastl Kraus
+// Description: A simple example of using the DShotRMT library to
+// generate a DShot300 signal for blheli_s ESCs.
+//------------------------------------------------------------------------------
 
 #include <Arduino.h>
 #include <DShotRMT.h>
@@ -16,7 +15,7 @@ const auto USB_SERIAL_BAUD = 115200;
 
 // Define the GPIO pin connected to the motor and the DShot protocol used
 const auto MOTOR01_PIN = GPIO_NUM_17;
-const DShotSpeed DSHOT_MODE = DShotSpeed::DSHOT_300;
+const DShotMode DSHOT_MODE = DShotMode::DSHOT300;
 
 // Define the failsafe and initial throttle values
 const auto FAILSAFE_THROTTLE = 0;
@@ -39,8 +38,6 @@ void loop()
     // Set the throttle value to either the value received from the serial input or the failsafe throttle value
     auto throttle_value = (throttle_input >= 0 && throttle_input <= 2000) ? throttle_input : FAILSAFE_THROTTLE;
 
-    // Send the throttle value to the motor
-    motor01.send(throttle_value);
 }
 
 // Read the throttle value from the USB serial input

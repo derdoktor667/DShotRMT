@@ -11,7 +11,7 @@
 
 // USB serial port needed for this example
 const auto USB_SERIAL_BAUD = 115200;
-#define USB_Serial Serial
+#define USB_Serial Serial0
 
 // Define the GPIO pin connected to the motor and the DShot protocol used
 const auto MOTOR01_PIN = GPIO_NUM_17;

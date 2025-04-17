@@ -1,5 +1,7 @@
  [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml)
 
+## This is going to be deprecated soon. Rewriting for new IDF APIs. Status can be seen by using "reIDF5" branch.
+
 ## DShot ESP32 Library utilizing RMT
 
 ### The DShot Protocol

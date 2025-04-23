@@ -8,24 +8,25 @@
 #include "DShotRMT.h"
 
 // Constructor: store GPIO pin and mode
-DShotRMT::DShotRMT(int gpio_num, DShotMode mode)
+DShotRMT::DShotRMT(int gpio_num, dshot_mode_e mode, bool bidir)
 {
     _pin = gpio_num;
-    _mode = mode;
+    _dshot_mode = mode;
+    _bidir = bidir;
     _rmt_channel = nullptr;
 }
 
 // Initializes the RMT channel with the specified settings
 void DShotRMT::begin()
 {
-    Serial.printf("DShotRMT initialized on GPIO %d at mode DSHOT%d\n", _pin, static_cast<int>(_mode));
+    Serial.printf("DShotRMT initialized on GPIO %d at mode DSHOT%d\n", _pin, static_cast<int>(_dshot_mode));
 
     rmt_tx_channel_config_t tx_config = {
-        static_cast<gpio_num_t>(_pin),     // gpio_num
-        RMT_CLK_SRC_DEFAULT,               // clk_src
-        64,                                // mem_block_symbols (enough symbols for DShot600)
-        static_cast<uint32_t>(_mode) * 67, // resolution_hz (67 ticks per bit)
-        4,                                 // trans_queue_depth
+        static_cast<gpio_num_t>(_pin),           // gpio_num
+        RMT_CLK_SRC_DEFAULT,                     // clk_src
+        64,                                      // mem_block_symbols (enough symbols for DShot600)
+        static_cast<uint32_t>(_dshot_mode) * 67, // resolution_hz (67 ticks per bit)
+        4,                                       // trans_queue_depth
     };
 
     // Create the RMT TX channel

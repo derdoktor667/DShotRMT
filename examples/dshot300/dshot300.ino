@@ -6,11 +6,12 @@
 //              generate a DShot300 signal for blheli_s ESCs.
 //------------------------------------------------------------------------------
 
-#include <Arduino.h>
+#include "Arduino.h"
 #include "DShotRMT.h"
 
 // USB serial port needed for this example
 #define USB_Serial Serial0
+
 const auto USB_SERIAL_BAUD = 115200;
 
 // Define the GPIO pin connected to the motor and the DShot protocol used

@@ -5,7 +5,8 @@
 // Description: ESP32 Library for controlling ESCs using the DShot protocol.
 //------------------------------------------------------------------------------
 
-#include "DShotRMT.h"
+#include "Arduino.h"
+#include <DShotRMT.h>
 
 // Constructor: store GPIO pin and mode
 DShotRMT::DShotRMT(int gpio_num, dshot_mode_e mode, bool bidir)

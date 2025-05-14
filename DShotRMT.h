@@ -9,7 +9,7 @@
 #define DSHOT_RMT_H
 
 #include <Arduino.h>
-#include "driver/rmt_tx.h"
+#include <driver/rmt_tx.h>
 
 // The official DShot Commands
 typedef enum dshot_cmd_e
@@ -52,11 +52,14 @@ typedef enum dshot_cmd_e
     DSHOT_CMD_MAX = 47
 } dshot_cmd_t;
 
-enum dshot_mode_e
+// Enumeration for the DShot mode
+typedef enum dshot_mode_e
 {
-    DSHOT150 = 150000,
-    DSHOT300 = 300000,
-    DSHOT600 = 600000
+    DSHOT_OFF,
+    DSHOT150,
+    DSHOT300,
+    DSHOT600,
+    DSHOT1200
 } dshot_mode_t;
 
 class DShotRMT

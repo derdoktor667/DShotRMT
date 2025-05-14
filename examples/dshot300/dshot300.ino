@@ -27,32 +27,30 @@ DShotRMT motor01(MOTOR01_PIN, RMT_CHANNEL_0);
 
 void setup()
 {
-    USB_Serial.begin(USB_SERIAL_BAUD);
+  USB_Serial.begin(USB_SERIAL_BAUD);
 
-    // Start generating DShot signal for the motor
-    motor01.begin(DSHOT_MODE);
+  // Start generating DShot signal for the motor
+  motor01.begin(DSHOT_MODE);
 }
 
 void loop()
 {
-    // Read the throttle value from the USB serial input
-    auto throttle_input = readSerialThrottle();
+  // Read the throttle value from the USB serial input
+  int throttle_input = read_SerialThrottle();
 
-    // Set the throttle value to either the value received from the serial input or the failsafe throttle value
-    auto throttle_value = (throttle_input > 0) ? throttle_input : FAILSAFE_THROTTLE;
+  // Set the throttle value to either the value received from the serial input or the failsafe throttle value
+  auto throttle_value = (throttle_input > 0) ? throttle_input : FAILSAFE_THROTTLE;
 
-    // Send the throttle value to the motor
-    motor01.sendThrottleValue(throttle_value);
+  // Send the throttle value to the motor
+  motor01.sendThrottleValue(throttle_value);
 }
 
 // Read the throttle value from the USB serial input
-uint16_t readSerialThrottle()
+int read_SerialThrottle()
 {
-    if (USB_Serial.available() > 0)
-    {
-        return USB_Serial.readStringUntil('\n').toInt();
-    } else
-    {
-      return FAILSAFE_THROTTLE;
-    }
+  if (USB_Serial.available() > 0)
+  {
+    auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
+    return throttle_input;
+  }
 }

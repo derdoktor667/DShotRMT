@@ -38,13 +38,11 @@ void loop()
   // Read the throttle value from the USB serial input
   int throttle_input = read_SerialThrottle();
 
-  // Set the throttle value to either the value received from the serial input or the failsafe throttle value
-  auto throttle_value = (throttle_input > 0) ? throttle_input : FAILSAFE_THROTTLE;
-
   // Send the throttle value to the motor
-  motor01.sendThrottleValue(throttle_value);
+  motor01.sendThrottleValue(throttle_input);
 }
 
+// ...just for this example
 // Read the throttle value from the USB serial input
 int read_SerialThrottle()
 {
@@ -52,5 +50,9 @@ int read_SerialThrottle()
   {
     auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
     return throttle_input;
+  }
+  else
+  {
+    return FAILSAFE_THROTTLE;
   }
 }

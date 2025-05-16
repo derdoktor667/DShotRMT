@@ -11,7 +11,6 @@
 
 // The RMT (Remote Control) module library is used for generating the DShot signal.
 #include <driver/rmt.h>
-#include <driver/rmt_types_legacy.h>
 
 // Defines the library version
 constexpr auto DSHOT_LIB_VERSION = "0.2.4";

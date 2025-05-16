@@ -11,6 +11,7 @@
 
 // The RMT (Remote Control) module library is used for generating the DShot signal.
 #include <driver/rmt.h>
+#include <driver/rmt_types_legacy.h>
 
 // Defines the library version
 constexpr auto DSHOT_LIB_VERSION = "0.2.4";
@@ -23,7 +24,7 @@ constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended
 constexpr auto DSHOT_PAUSE_BIT = 16;
-constexpr auto F_CPU_RMT = APB_CLK_FREQ;
+constexpr auto F_CPU_RMT = ( 80*1000000 );       //unit: Hz
 constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
 constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC);
 

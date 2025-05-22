@@ -11,6 +11,18 @@
 #include <Arduino.h>
 #include <driver/rmt_tx.h>
 
+// Constants related to the DShot protocol
+constexpr auto DSHOT_CLK_DIVIDER = 8;    // Slow down RMT clock to 0.1 microseconds / 100 nanoseconds per cycle
+constexpr auto DSHOT_PACKET_LENGTH = 17; // Last pack is the pause
+constexpr auto DSHOT_THROTTLE_MIN = 48;
+constexpr auto DSHOT_THROTTLE_MAX = 2047;
+constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
+constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended
+constexpr auto DSHOT_PAUSE_BIT = 16;
+constexpr auto F_CPU_RMT = ( 80*1000000 );       //unit: Hz
+constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
+constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC);
+
 // The official DShot Commands
 typedef enum dshot_cmd_e
 {
@@ -83,7 +95,7 @@ private:
 
     rmt_channel_handle_t _rmt_channel; // Handle to the RMT TX channel
     int _pin;                          // GPIO pin used for DShot output
-    dshot_mode_e _dshot_mode;          // DShot mode
+    dshot_mode_t _dshot_mode;          // DShot mode
     bool _bidir = 0;                   // Bidirectional DShot (off by default)
 };
 

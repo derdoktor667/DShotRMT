@@ -9,7 +9,7 @@
 #include <DShotRMT.h>
 
 // Constructor: store GPIO pin and mode
-DShotRMT::DShotRMT(int gpio_num, dshot_mode_e mode, bool bidir)
+DShotRMT::DShotRMT(int gpio_num, dshot_mode_t mode, bool bidir)
 {
     _pin = gpio_num;
     _dshot_mode = mode;

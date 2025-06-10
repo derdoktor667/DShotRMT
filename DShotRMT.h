@@ -23,7 +23,7 @@ constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 constexpr auto DSHOT_PAUSE = 21; // 21-bit is recommended
 constexpr auto DSHOT_PAUSE_BIT = 16;
-constexpr auto F_CPU_RMT = ( 80*1000000 );       //unit: Hz
+constexpr auto F_CPU_RMT = (80 * 1000 * 1000); // unit: Hz
 constexpr auto RMT_CYCLES_PER_SEC = (F_CPU_RMT / DSHOT_CLK_DIVIDER);
 constexpr auto RMT_CYCLES_PER_ESP_CYCLE = (F_CPU / RMT_CYCLES_PER_SEC);
 

@@ -15,7 +15,7 @@ const auto USB_SERIAL_BAUD = 115200;
 #define USB_Serial Serial
 
 // Define the GPIO pin connected to the motor and the DShot protocol used
-const auto MOTOR01_PIN = GPIO_NUM_4;
+const auto MOTOR01_PIN = GPIO_NUM_17;
 const auto DSHOT_MODE = DSHOT300;
 
 // Define the failsafe and initial throttle values
@@ -31,6 +31,9 @@ void setup()
 
   // Start generating DShot signal for the motor
   motor01.begin(DSHOT_MODE);
+
+  Serial.println("DShotRMT Demo started.");
+  Serial.println("Enter a throttle value (0–2047):");
 }
 
 void loop()
@@ -46,13 +49,16 @@ void loop()
 // Read the throttle value from the USB serial input
 int read_SerialThrottle()
 {
+  static int last_throttle = INITIAL_THROTTLE;
+
   if (USB_Serial.available() > 0)
   {
     auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
-    return throttle_input;
+    last_throttle = throttle_input;
+    Serial.print("Throttle set to: ");
+    Serial.println(last_throttle);
+    Serial.println(" ");
+    Serial.println("Enter a throttle value (0–2047):");
   }
-  else
-  {
-    return FAILSAFE_THROTTLE;
-  }
+  return last_throttle;
 }

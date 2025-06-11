@@ -1,64 +1,68 @@
-/*
- * Title: dshot300.ino
- * Author: derdoktor667
- * Date: 2023-04-13
- *
- * Description: A simple example of using the DShotRMT library to
- * generate a DShot300 signal for blheli_s escs.
+/**
+ * @file dshot300.ino
+ * @brief Demo sketch for continuous DShot signal using ESP32 and DShotRMT library
+ * @author Wastl Kraus
+ * @date 2025-06-07
+ * @license MIT
  */
 
 #include <Arduino.h>
 #include <DShotRMT.h>
 
-// USB serial port needed for this example
-const auto USB_SERIAL_BAUD = 115200;
+// USB serial port settings
 #define USB_Serial Serial
+const uint32_t USB_SERIAL_BAUD = 115200;
 
-// Define the GPIO pin connected to the motor and the DShot protocol used
-const auto MOTOR01_PIN = GPIO_NUM_17;
-const auto DSHOT_MODE = DSHOT300;
+// Motor configuration
+const gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
+const dshot_mode_t DSHOT_MODE = DSHOT300;
 
-// Define the failsafe and initial throttle values
-const auto FAILSAFE_THROTTLE = 999;
-const auto INITIAL_THROTTLE = 48;
-
-// Initialize a DShotRMT object for the motor
-DShotRMT motor01(MOTOR01_PIN, RMT_CHANNEL_0);
+// Create DShotRMT instance
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE);
 
 void setup()
 {
   USB_Serial.begin(USB_SERIAL_BAUD);
 
-  // Start generating DShot signal for the motor
-  motor01.begin(DSHOT_MODE);
+  // Wait for serial port
+  while (!USB_Serial)
+    delay(10);
 
-  Serial.println("DShotRMT Demo started.");
-  Serial.println("Enter a throttle value (0–2047):");
+  USB_Serial.println("DShotRMT Demo started.");
+  USB_Serial.println("Enter a throttle value (48–2047):");
+
+  motor01.begin();
+
+  // Arm ESC with minimum throttle
+  motor01.setThrottle(DSHOT_THROTTLE_MIN);
 }
 
 void loop()
 {
-  // Read the throttle value from the USB serial input
-  int throttle_input = read_SerialThrottle();
+  // Simple as can be
+  int throttle_input = readSerialThrottle();
 
-  // Send the throttle value to the motor
-  motor01.sendThrottleValue(throttle_input);
+  motor01.setThrottle(throttle_input);
 }
 
-// ...just for this example
-// Read the throttle value from the USB serial input
-int read_SerialThrottle()
+// Reads throttle value from serial input
+int readSerialThrottle()
 {
-  static int last_throttle = INITIAL_THROTTLE;
+  static int last_throttle = DSHOT_THROTTLE_MIN;
 
   if (USB_Serial.available() > 0)
   {
-    auto throttle_input = (USB_Serial.readStringUntil('\n')).toInt();
+    String input = USB_Serial.readStringUntil('\n');
+    int throttle_input = input.toInt();
+
+    // Clamp the value to the DShot range
+    throttle_input = constrain(throttle_input, 48, 2047);
     last_throttle = throttle_input;
-    Serial.print("Throttle set to: ");
-    Serial.println(last_throttle);
-    Serial.println(" ");
-    Serial.println("Enter a throttle value (0–2047):");
+
+    USB_Serial.print("Throttle set to: ");
+    USB_Serial.println(last_throttle);
+
+    USB_Serial.println("Enter a throttle value (48–2047):");
   }
   return last_throttle;
 }

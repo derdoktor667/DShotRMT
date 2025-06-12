@@ -10,12 +10,12 @@
 #include <DShotRMT.h>
 
 // USB serial port settings
-#define USB_Serial Serial
-const uint32_t USB_SERIAL_BAUD = 115200;
+#define USB_Serial Serial0
+constexpr auto USB_SERIAL_BAUD = 115200;
 
 // Motor configuration
-const gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
-const dshot_mode_t DSHOT_MODE = DSHOT300;
+constexpr auto MOTOR01_PIN = GPIO_NUM_17;
+constexpr auto DSHOT_MODE = DSHOT300;
 
 // Create DShotRMT instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE);
@@ -48,6 +48,7 @@ void loop()
 // Reads throttle value from serial input
 int readSerialThrottle()
 {
+  //
   static int last_throttle = DSHOT_THROTTLE_MIN;
 
   if (USB_Serial.available() > 0)
@@ -64,5 +65,6 @@ int readSerialThrottle()
 
     USB_Serial.println("Enter a throttle value (48–2047):");
   }
+
   return last_throttle;
 }

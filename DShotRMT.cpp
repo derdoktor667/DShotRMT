@@ -13,7 +13,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
 
 void DShotRMT::begin()
 {
-    rmt_tx_channel_config_t tx_config = {
+    rmt_tx_channel_config_t rmt_tx_channel_config = {
         .gpio_num = _gpio,
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = DEFAULT_RES_HZ,
@@ -23,8 +23,8 @@ void DShotRMT::begin()
             .invert_out = _isBidirectional,
             .with_dma = false}};
 
-    rmt_new_tx_channel(&tx_config, &_channel);
-    rmt_enable(_channel);
+    rmt_new_tx_channel(&rmt_tx_channel_config, &_rmt_channel);
+    rmt_enable(_rmt_channel);
 
     // Create encoder only once
     if (!_encoder)
@@ -33,19 +33,22 @@ void DShotRMT::begin()
         rmt_new_copy_encoder(&enc_cfg, &_encoder);
     }
 
-    _tx_config.loop_count = -1; // Infinite loop
-    _tx_config.flags.eot_level = 0;
+    _transmit_config.loop_count = -1; // Infinite loop
+    _transmit_config.flags.eot_level = 0;
 }
 
 void DShotRMT::setThrottle(uint16_t throttle, bool telemetry)
 {
+    // Send only new Throttle values
+    static uint16_t _lastThrottle = 0;
+
     // Clamp to 11 bits
     throttle &= 0x07FF;
-    if (throttle == _lastThrottle && telemetry == _lastTelemetry)
+
+    if (throttle == _lastThrottle)
         return;
 
     _lastThrottle = throttle;
-    _lastTelemetry = telemetry;
 
     // Build 16-bit DShot packet
     uint16_t packet = (throttle << 1) | (telemetry ? 1 : 0);
@@ -59,10 +62,10 @@ void DShotRMT::setThrottle(uint16_t throttle, bool telemetry)
     buildFrameSymbols(packet, symbols, count);
 
     // Transmit
-    rmt_disable(_channel); // Ensure safe restart
-    rmt_enable(_channel);
+    rmt_disable(_rmt_channel); // Ensure safe restart
+    rmt_enable(_rmt_channel);
 
-    rmt_transmit(_channel, _encoder, symbols, count * sizeof(rmt_symbol_word_t), &_tx_config);
+    rmt_transmit(_rmt_channel, _encoder, symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config);
 }
 
 void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count)

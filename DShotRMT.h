@@ -42,12 +42,9 @@ private:
     dshot_mode_t _mode;
     bool _isBidirectional;
 
-    rmt_channel_handle_t _channel = nullptr;
+    rmt_channel_handle_t _rmt_channel = nullptr;
     rmt_encoder_handle_t _encoder = nullptr;
-    rmt_transmit_config_t _tx_config = {};
-
-    uint16_t _lastThrottle = 0;
-    bool _lastTelemetry = false;
+    rmt_transmit_config_t _transmit_config = {};
 
     void buildFrameSymbols(uint16_t frame, rmt_symbol_word_t *symbols, size_t &count);
 };

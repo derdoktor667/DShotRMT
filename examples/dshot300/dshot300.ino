@@ -1,8 +1,8 @@
 /**
  * @file dshot300.ino
- * @brief Demo sketch for continuous DShot signal using ESP32 and DShotRMT library
+ * @brief Demo sketch for DShotRMT library
  * @author Wastl Kraus
- * @date 2025-06-07
+ * @date 2025-06-11
  * @license MIT
  */
 
@@ -17,24 +17,25 @@ constexpr auto USB_SERIAL_BAUD = 115200;
 constexpr auto MOTOR01_PIN = GPIO_NUM_17;
 constexpr auto DSHOT_MODE = DSHOT300;
 
-// Create DShotRMT instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE);
+// BiDirectional DShot Support
+constexpr auto IS_BIDIRECTIONAL = true;
+
+// Setup Motor Pin, DShot Mode and optional BiDirectional Support
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 void setup()
 {
   USB_Serial.begin(USB_SERIAL_BAUD);
 
-  // Wait for serial port
-  while (!USB_Serial)
-    delay(10);
-
-  USB_Serial.println("DShotRMT Demo started.");
-  USB_Serial.println("Enter a throttle value (48–2047):");
-
+  // Initialize DShot Signal
   motor01.begin();
 
   // Arm ESC with minimum throttle
   motor01.setThrottle(DSHOT_THROTTLE_MIN);
+
+  //
+  USB_Serial.println("DShotRMT Demo started.");
+  USB_Serial.println("Enter a throttle value (48–2047):");
 }
 
 void loop()

@@ -48,9 +48,23 @@ void loop()
   // Now send the value
   motor01.setThrottle(throttle_input);
 
-  // BiDirectional DShot: print out the received eRPMs
+  // BiDirectional DShot: print out the received eRPMs every 2 seconds
   if (IS_BIDIRECTIONAL)
   {
+    static unsigned long last_print_time = 0;
+    unsigned long now = millis();
+
+    if (now - last_print_time >= 2000)
+    {
+      last_print_time = now;
+
+      uint32_t erpm = motor01.getERPM();
+
+      USB_Serial.print("Sent Throttle: ");
+      USB_Serial.print(throttle_input);
+      USB_Serial.print(" | eRPM: ");
+      USB_Serial.println(erpm);
+    }
   }
 }
 
@@ -66,7 +80,7 @@ int readSerialThrottle()
     int throttle_input = input.toInt();
 
     // Clamp the value to the DShot range
-    throttle_input = constrain(throttle_input, 48, 2047);
+    throttle_input = constrain(throttle_input, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
     last_throttle = throttle_input;
 
     USB_Serial.print("Throttle set to: ");

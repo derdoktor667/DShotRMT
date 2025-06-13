@@ -12,9 +12,10 @@
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
     : _gpio(gpio), _mode(mode), _isBidirectional(isBidirectional) {}
 
-//
+// Sets up RMT TX and RX channels as well as encoder configuration
 void DShotRMT::begin()
 {
+    // RX RMT Channel Configuration (for BiDirectional DShot)
     if (_isBidirectional)
     {
         rmt_rx_channel_config_t rmt_rx_channel_config = {
@@ -28,8 +29,12 @@ void DShotRMT::begin()
 
         rmt_new_rx_channel(&rmt_rx_channel_config, &_rmt_rx_channel);
         rmt_enable(_rmt_rx_channel);
+
+        _receive_config.signal_range_min_ns = 100;
+        _receive_config.signal_range_max_ns = 10000;
     }
 
+    // TX RMT Channel Configuration
     rmt_tx_channel_config_t rmt_tx_channel_config = {
         .gpio_num = _gpio,
         .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
@@ -44,22 +49,23 @@ void DShotRMT::begin()
     rmt_new_tx_channel(&rmt_tx_channel_config, &_rmt_tx_channel);
     rmt_enable(_rmt_tx_channel);
 
-    // Create new encoder
+    // Use a copy encoder to send raw symbols
     if (!_dshot_encoder)
     {
         rmt_copy_encoder_config_t enc_cfg = {};
         rmt_new_copy_encoder(&enc_cfg, &_dshot_encoder);
     }
 
+    // Configure transmission looping
     _transmit_config.loop_count = -1;
     _transmit_config.flags.eot_level = _isBidirectional;
 }
 
-//
+// Encodes and transmits a valid DShot Throttle value (48 - 2047)
 void DShotRMT::setThrottle(uint16_t throttle)
 {
-    // Fake 10 Bit transformation to be sure
-    throttle = throttle & 0b0000011111111111;
+    // Safety first - double check input range and 10 bit "translation"
+    throttle = (constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX)) & 0b0000011111111111;
 
     // Has Throttle really changed?
     if (throttle == _lastThrottle)
@@ -67,43 +73,88 @@ void DShotRMT::setThrottle(uint16_t throttle)
 
     _lastThrottle = throttle;
 
-    // Prepare Throttle paket
-    dshot_packet = (throttle << 1) | (_isBidirectional ? 1 : 0);
+    // Assemble raw DShot packet and compute checksum
+    _tx_packet = (throttle << 1) | (_isBidirectional ? 1 : 0);
 
-    // CRC Calculation
-    uint16_t crc = 0;
+    uint16_t crc = _isBidirectional
+                       ? (~(_tx_packet ^ (_tx_packet >> 4) ^ (_tx_packet >> 8))) & 0x0F
+                       : (_tx_packet ^ (_tx_packet >> 4) ^ (_tx_packet >> 8)) & 0x0F;
 
-    if (_isBidirectional)
-    {
-        // Calculate checksum in inverted/BiDirectional Mode
-        crc = (~(dshot_packet ^ (dshot_packet >> 4) ^ (dshot_packet >> 8))) & 0x0F;
-    }
-    else
-    {
-        //
-        crc = (dshot_packet ^ (dshot_packet >> 4) ^ (dshot_packet >> 8)) & 0x0F;
-    }
+    _tx_packet = (_tx_packet << 4) | crc;
 
-    // attach CRC to DShot Paket
-    dshot_packet = (dshot_packet << 4) | crc;
-
-    // Encode DShot Paket
-    rmt_symbol_word_t symbols[DSHOT_BITS_PER_FRAME] = {}; // 16 DShot Bits + Pause Bit
+    // Encode RMT symbols
     size_t count = 0;
+    encodeDShotTX(_tx_packet, _tx_symbols, count);
 
-    buildFrameSymbols(dshot_packet, symbols, count);
-    // Reset RMT Signnal loop before sending new value
+    // Restart transmission with new data
     rmt_disable(_rmt_tx_channel);
     rmt_enable(_rmt_tx_channel);
 
-    // Finally transmit the complete DShot Paket
-    rmt_transmit(_rmt_tx_channel, _dshot_encoder, symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config);
+    rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config);
 }
 
-//
-void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count)
+// --- Get eRPM from ESC ---
+// Receives and decodes a response frame from ESC containing eRPM info
+uint32_t DShotRMT::getERPM()
 {
-    // Always start from the top
+    static size_t rx_size = sizeof(_rx_symbols);
+
+    if (_rmt_rx_channel == nullptr)
+        return _last_erpm;
+
+    // Attempt to receive a new frame
+    if (!rmt_receive(_rmt_rx_channel, _rx_symbols, rx_size, &_receive_config))
+        return _last_erpm;
+
+    uint16_t received_bits = 0;
+    _received_packet = 0;
+
+    // Decode raw RMT encoded bits
+    for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
+    {
+        rmt_symbol_word_t symbols = _rx_symbols[i];
+
+        // Validate signal polarity
+        if (symbols.level0 != 1 || symbols.level1 != 0)
+            break;
+
+        uint32_t total_ticks = symbols.duration0 + symbols.duration1;
+        bool bit = (symbols.duration0 > (total_ticks / 2));
+
+        _received_packet <<= 1;
+        _received_packet |= bit ? 1 : 0;
+
+        received_bits++;
+    }
+
+    if (received_bits < 16)
+        return _last_erpm;
+
+    // Extract data & checksum from packet
+    uint16_t packet_data = _received_packet >> 4;
+    uint8_t recalc_packet_crc = (packet_data ^ (packet_data >> 4) ^ (packet_data >> 8)) & 0x0F;
+    uint8_t packet_crc = _received_packet & 0x0F;
+
+    if (recalc_packet_crc != packet_crc)
+        return _last_erpm;
+
+    // Assume received value is DShot eRPM
+    uint16_t throttle = packet_data >> 1;
+
+    // Filter noise values
+    if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
+        return _last_erpm;
+
+    // Approximate eRPM (ESC dependent, scale factor can be tuned)
+    _last_erpm = throttle * 100;
+    return _last_erpm;
+}
+
+// --- Encode DShot TX Frame ---
+// Converts a 16-bit packet into a valid DShot Frame for RMT
+void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count)
+{
+    // Always start encoding from the top
     count = 0;
 
     //
@@ -113,11 +164,6 @@ void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbo
 
     switch (_mode)
     {
-    case DSHOT_OFF:
-        ticks_per_bit = 0;
-        ticks_zero_high = 0;
-        ticks_one_high = 0;
-        break;
     case DSHOT150:
         ticks_per_bit = 64;
         ticks_zero_high = 24;
@@ -137,6 +183,13 @@ void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbo
         ticks_per_bit = 8;
         ticks_zero_high = 3;
         ticks_one_high = 6;
+        break;
+    // Safety first
+    case DSHOT_OFF:
+    default:
+        ticks_per_bit = 0;
+        ticks_zero_high = 0;
+        ticks_one_high = 0;
         break;
     }
 

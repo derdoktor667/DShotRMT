@@ -19,8 +19,8 @@ void DShotRMT::begin()
     {
         rmt_rx_channel_config_t rmt_rx_channel_config = {
             .gpio_num = _gpio,
-            .clk_src = RMT_CLK_SRC_DEFAULT,
-            .resolution_hz = DEFAULT_RES_HZ,
+            .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
+            .resolution_hz = DSHOT_RMT_RESOLUTION,
             .mem_block_symbols = 64,
             .flags = {
                 .invert_in = false,
@@ -32,8 +32,8 @@ void DShotRMT::begin()
 
     rmt_tx_channel_config_t rmt_tx_channel_config = {
         .gpio_num = _gpio,
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = DEFAULT_RES_HZ,
+        .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
+        .resolution_hz = DSHOT_RMT_RESOLUTION,
         .mem_block_symbols = 64,
         .trans_queue_depth = 1,
         .flags = {
@@ -88,11 +88,10 @@ void DShotRMT::setThrottle(uint16_t throttle)
     dshot_packet = (dshot_packet << 4) | crc;
 
     // Encode DShot Paket
-    rmt_symbol_word_t symbols[32] = {};
+    rmt_symbol_word_t symbols[DSHOT_BITS_PER_FRAME] = {}; // 16 DShot Bits + Pause Bit
     size_t count = 0;
 
     buildFrameSymbols(dshot_packet, symbols, count);
-
     // Reset RMT Signnal loop before sending new value
     rmt_disable(_rmt_tx_channel);
     rmt_enable(_rmt_tx_channel);
@@ -104,12 +103,21 @@ void DShotRMT::setThrottle(uint16_t throttle)
 //
 void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count)
 {
+    // Always start from the top
+    count = 0;
+
+    //
     uint32_t ticks_per_bit = 0;
     uint32_t ticks_zero_high = 0;
     uint32_t ticks_one_high = 0;
 
     switch (_mode)
     {
+    case DSHOT_OFF:
+        ticks_per_bit = 0;
+        ticks_zero_high = 0;
+        ticks_one_high = 0;
+        break;
     case DSHOT150:
         ticks_per_bit = 64;
         ticks_zero_high = 24;
@@ -125,11 +133,18 @@ void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbo
         ticks_zero_high = 6;
         ticks_one_high = 12;
         break;
+    case DSHOT1200:
+        ticks_per_bit = 8;
+        ticks_zero_high = 3;
+        ticks_one_high = 6;
+        break;
     }
 
+    //
     uint32_t ticks_zero_low = ticks_per_bit - ticks_zero_high;
     uint32_t ticks_one_low = ticks_per_bit - ticks_one_high;
 
+    // Fill the 16 DShot-Bits Array with selected timings
     for (int i = 15; i >= 0; i--)
     {
         bool bit = (dshot_packet >> i) & 0x01;
@@ -140,6 +155,7 @@ void DShotRMT::buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbo
         count++;
     }
 
+    // Append the Pause Bits
     symbols[count].level0 = 0;
     symbols[count].duration0 = ticks_per_bit * PAUSE_BITS;
     symbols[count].level1 = 0;

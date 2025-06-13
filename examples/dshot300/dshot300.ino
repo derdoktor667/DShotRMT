@@ -17,7 +17,7 @@ constexpr auto USB_SERIAL_BAUD = 115200;
 constexpr auto MOTOR01_PIN = GPIO_NUM_17;
 constexpr auto DSHOT_MODE = DSHOT300;
 
-// BiDirectional DShot Support
+// BiDirectional DShot Support (default: false)
 constexpr auto IS_BIDIRECTIONAL = true;
 
 // Setup Motor Pin, DShot Mode and optional BiDirectional Support
@@ -25,6 +25,7 @@ DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 void setup()
 {
+  // Start the USB Serial Port
   USB_Serial.begin(USB_SERIAL_BAUD);
 
   // Initialize DShot Signal
@@ -34,16 +35,23 @@ void setup()
   motor01.setThrottle(DSHOT_THROTTLE_MIN);
 
   //
+  USB_Serial.println("**********************");
   USB_Serial.println("DShotRMT Demo started.");
-  USB_Serial.println("Enter a throttle value (48–2047):");
+  USB_Serial.println("Enter a throttle value (48 – 2047):");
 }
 
 void loop()
 {
-  // Simple as can be
+  // Read value input from Serial
   int throttle_input = readSerialThrottle();
 
+  // Now send the value
   motor01.setThrottle(throttle_input);
+
+  // BiDirectional DShot: print out the received eRPMs
+  if (IS_BIDIRECTIONAL)
+  {
+  }
 }
 
 // Reads throttle value from serial input
@@ -63,8 +71,8 @@ int readSerialThrottle()
 
     USB_Serial.print("Throttle set to: ");
     USB_Serial.println(last_throttle);
-
-    USB_Serial.println("Enter a throttle value (48–2047):");
+    USB_Serial.println("***********************************");
+    USB_Serial.println("Enter a throttle value (48 – 2047):");
   }
 
   return last_throttle;

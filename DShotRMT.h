@@ -49,6 +49,5 @@ private:
     rmt_encoder_handle_t _dshot_encoder = nullptr;
     rmt_transmit_config_t _transmit_config = {};
 
-    void buildFrameSymbols(uint16_t frame, rmt_symbol_word_t *symbols, size_t &count);
-    bool decodeTelemetrySymbol(const rmt_symbol_word_t *symbols, size_t count, uint16_t &result);
+    void buildFrameSymbols(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count);
 };

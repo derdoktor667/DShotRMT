@@ -97,57 +97,74 @@ void DShotRMT::setThrottle(uint16_t throttle)
 // Receives and decodes a response frame from ESC containing eRPM info
 uint32_t DShotRMT::getERPM()
 {
-    static size_t rx_size = sizeof(_rx_symbols);
-
-    if (_rmt_rx_channel == nullptr)
-        return _last_erpm;
-
-    // Attempt to receive a new frame
-    if (!rmt_receive(_rmt_rx_channel, _rx_symbols, rx_size, &_receive_config))
-        return _last_erpm;
-
-    uint16_t received_bits = 0;
-    _received_packet = 0;
-
-    // Decode raw RMT encoded bits
-    for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
+    if (_isBidirectional)
     {
-        rmt_symbol_word_t symbols = _rx_symbols[i];
+        static size_t rx_size = sizeof(_rx_symbols);
 
-        // Validate signal polarity
-        if (symbols.level0 != 1 || symbols.level1 != 0)
-            break;
+        if (_rmt_rx_channel == nullptr)
+            return _last_erpm;
 
-        uint32_t total_ticks = symbols.duration0 + symbols.duration1;
-        bool bit = (symbols.duration0 > (total_ticks / 2));
+        // Attempt to receive a new frame
+        if (!rmt_receive(_rmt_rx_channel, _rx_symbols, rx_size, &_receive_config))
+            return _last_erpm;
 
-        _received_packet <<= 1;
-        _received_packet |= bit ? 1 : 0;
+        uint16_t received_bits = 0;
+        _received_packet = 0;
 
-        received_bits++;
+        // Decode raw RMT encoded bits
+        for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
+        {
+            rmt_symbol_word_t symbols = _rx_symbols[i];
+
+            // Validate signal polarity
+            if (symbols.level0 != 1 || symbols.level1 != 0)
+                break;
+
+            uint32_t total_ticks = symbols.duration0 + symbols.duration1;
+            bool bit = (symbols.duration0 > (total_ticks / 2));
+
+            _received_packet <<= 1;
+            _received_packet |= bit ? 1 : 0;
+
+            received_bits++;
+        }
+
+        if (received_bits < 16)
+            return _last_erpm;
+
+        // Extract data & checksum from packet
+        uint16_t packet_data = _received_packet >> 4;
+        uint8_t recalc_packet_crc = (packet_data ^ (packet_data >> 4) ^ (packet_data >> 8)) & 0x0F;
+        uint8_t packet_crc = _received_packet & 0x0F;
+
+        if (recalc_packet_crc != packet_crc)
+            return _last_erpm;
+
+        // Assume received value is DShot eRPM
+        uint16_t throttle = packet_data >> 1;
+
+        // Filter noise values
+        if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
+            return _last_erpm;
+
+        // Approximate eRPM (ESC dependent, scale factor can be tuned)
+        _last_erpm = throttle * 100;
+        return _last_erpm;
     }
-
-    if (received_bits < 16)
-        return _last_erpm;
-
-    // Extract data & checksum from packet
-    uint16_t packet_data = _received_packet >> 4;
-    uint8_t recalc_packet_crc = (packet_data ^ (packet_data >> 4) ^ (packet_data >> 8)) & 0x0F;
-    uint8_t packet_crc = _received_packet & 0x0F;
-
-    if (recalc_packet_crc != packet_crc)
-        return _last_erpm;
-
-    // Assume received value is DShot eRPM
-    uint16_t throttle = packet_data >> 1;
-
-    // Filter noise values
-    if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
-        return _last_erpm;
-
-    // Approximate eRPM (ESC dependent, scale factor can be tuned)
-    _last_erpm = throttle * 100;
+    // Nothing to do here
     return _last_erpm;
+}
+
+// Translate eRPM value to RPM taking magnet count as parameter
+uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
+{
+    uint8_t pole_count = magnet_count / 2;
+
+    if (pole_count == 0)
+        pole_count = 1;
+
+    uint32_t rpm = getERPM() / pole_count;
+    return rpm;
 }
 
 // --- Encode DShot TX Frame ---

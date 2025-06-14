@@ -20,6 +20,9 @@ constexpr auto DSHOT_MODE = DSHOT300;
 // BiDirectional DShot Support (default: false)
 constexpr auto IS_BIDIRECTIONAL = true;
 
+// Motor Magnet count for RPM calculation
+constexpr auto MOTOR01_MAGNET_COUNT = 14;
+
 // Setup Motor Pin, DShot Mode and optional BiDirectional Support
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
@@ -37,7 +40,7 @@ void setup()
   //
   USB_Serial.println("**********************");
   USB_Serial.println("DShotRMT Demo started.");
-  USB_Serial.println("Enter a throttle value (48 – 2047):");
+  USB_Serial.println("Enter a throttle value (48–2047):");
 }
 
 void loop()
@@ -58,12 +61,12 @@ void loop()
     {
       last_print_time = now;
 
-      uint32_t erpm = motor01.getERPM();
+      uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
 
-      USB_Serial.print("Sent Throttle: ");
+      USB_Serial.print("Throttle: ");
       USB_Serial.print(throttle_input);
-      USB_Serial.print(" | eRPM: ");
-      USB_Serial.println(erpm);
+      USB_Serial.print(" | RPM: ");
+      USB_Serial.println(rpm);
     }
   }
 }
@@ -86,7 +89,7 @@ int readSerialThrottle()
     USB_Serial.print("Throttle set to: ");
     USB_Serial.println(last_throttle);
     USB_Serial.println("***********************************");
-    USB_Serial.println("Enter a throttle value (48 – 2047):");
+    USB_Serial.println("Enter a throttle value (48–2047):");
   }
 
   return last_throttle;

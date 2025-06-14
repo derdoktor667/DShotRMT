@@ -55,18 +55,16 @@ public:
     // Initializes the RMT TX and RX channels
     void begin();
 
-    // Sets a new throttle value (0-2047) and sends it repeatedly
+    // Sets a new throttle value (48-2047) and sends it repeatedly
     void setThrottle(uint16_t throttle);
 
-    // Receives and decodes the latest eRPM value from ESC, if available
+    // Receives and decodes the latest value from ESC, if available
     uint32_t getERPM();
+    uint32_t getMotorRPM(uint8_t magnet_count);
 
     // Accessors for GPIO and DShot mode
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
-
-    // Stores the last valid eRPM received from the ESC
-    uint32_t _last_erpm = 0;
 
 private:
     // Converts a 16-bit DShot packet into RMT symbols and appends pause
@@ -96,4 +94,7 @@ private:
     // --- RMT Symbol Buffer ---
     rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE] = {};
     rmt_symbol_word_t _tx_symbols[TX_BUFFER_SIZE] = {};
+
+    // Stores the last valid eRPM received from the ESC
+    uint32_t _last_erpm = 0;
 };

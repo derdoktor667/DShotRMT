@@ -67,6 +67,12 @@ public:
     dshot_mode_t getDShotMode() const { return _mode; }
 
 private:
+    // Calculate the checksum for throttle value
+    uint16_t calculateCRC(uint16_t dshot_packet);
+
+    // Assamble DShot Paket (10 bit throttle + 1 bit telemetry request + 4 bit crc)
+    uint16_t assambleDShotPaket(uint16_t value);
+
     // Converts a 16-bit DShot packet into RMT symbols and appends pause
     void encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count);
 
@@ -79,6 +85,7 @@ private:
     uint16_t _lastThrottle = DSHOT_FULL_PACKET;
     uint16_t _received_packet = DSHOT_NULL_PACKET;
     uint16_t _tx_packet = DSHOT_NULL_PACKET;
+    uint16_t _packet_crc = DSHOT_NULL_PACKET;
 
     // --- RMT Channel ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;

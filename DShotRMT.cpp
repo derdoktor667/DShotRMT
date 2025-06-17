@@ -73,14 +73,8 @@ void DShotRMT::setThrottle(uint16_t throttle)
 
     _lastThrottle = throttle;
 
-    // Assemble raw DShot packet and compute checksum
-    _tx_packet = (throttle << 1) | (_isBidirectional ? 1 : 0);
-
-    uint16_t crc = _isBidirectional
-                       ? (~(_tx_packet ^ (_tx_packet >> 4) ^ (_tx_packet >> 8))) & 0x0F
-                       : (_tx_packet ^ (_tx_packet >> 4) ^ (_tx_packet >> 8)) & 0x0F;
-
-    _tx_packet = (_tx_packet << 4) | crc;
+    // Convert throttle value to DShot Paket Format
+    _tx_packet = assambleDShotPaket(_lastThrottle);
 
     // Encode RMT symbols
     size_t count = 0;
@@ -165,6 +159,38 @@ uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
 
     uint32_t rpm = getERPM() / pole_count;
     return rpm;
+}
+
+// Calculate CRC for DShot Paket
+uint16_t DShotRMT::calculateCRC(uint16_t dshot_packet)
+{
+    // Clear container before new calculation
+    _packet_crc = DSHOT_NULL_PACKET;
+
+    // CRC is inverted for biDirectional DSHot
+    _packet_crc = _isBidirectional
+                      ? (~(dshot_packet ^ (dshot_packet >> 4) ^ (dshot_packet >> 8))) & 0x0F
+                      : (dshot_packet ^ (dshot_packet >> 4) ^ (dshot_packet >> 8)) & 0x0F;
+
+    return _packet_crc;
+}
+
+// Assamble DShot Paket (10 bit throttle + 1 bit telemetry request + 4 bit crc)
+uint16_t DShotRMT::assambleDShotPaket(uint16_t value)
+{
+    // Clear container
+    _tx_packet = DSHOT_NULL_PACKET;
+
+    // dummy 10bit convertion
+    _tx_packet = value & 0b0000011111111111;
+
+    // Assemble raw DShot packet and add checksum
+    _tx_packet = (value << 1) | (_isBidirectional ? 1 : 0);
+    _packet_crc = calculateCRC(_tx_packet);
+
+    _tx_packet = (_tx_packet << 4) | _packet_crc;
+
+    return _tx_packet;
 }
 
 // --- Encode DShot TX Frame ---

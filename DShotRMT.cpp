@@ -64,8 +64,8 @@ void DShotRMT::begin()
 // Encodes and transmits a valid DShot Throttle value (48 - 2047)
 void DShotRMT::setThrottle(uint16_t throttle)
 {
-    // Safety first - double check input range and 10 bit "translation"
-    throttle = (constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX)) & 0b0000011111111111;
+    // Safety first - double check input range and 11 bit "translation"
+    throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
 
     // Has Throttle really changed?
     if (throttle == _lastThrottle)
@@ -181,7 +181,7 @@ uint16_t DShotRMT::assambleDShotPaket(uint16_t value)
     // Clear container
     _tx_packet = DSHOT_NULL_PACKET;
 
-    // dummy 10bit convertion
+    // dummy 11bit convertion
     _tx_packet = value & 0b0000011111111111;
 
     // Assemble raw DShot packet and add checksum

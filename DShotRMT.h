@@ -85,7 +85,7 @@ private:
     uint16_t _lastThrottle = DSHOT_FULL_PACKET;
     uint16_t _received_packet = DSHOT_NULL_PACKET;
     uint16_t _tx_packet = DSHOT_NULL_PACKET;
-    uint16_t _packet_crc = DSHOT_NULL_PACKET;
+    uint16_t _packet_crc = 0;
 
     // --- RMT Channel ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;

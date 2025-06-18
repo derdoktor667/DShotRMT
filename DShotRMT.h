@@ -9,9 +9,11 @@
 #pragma once
 
 #include <Arduino.h>
+#include <dshot_commands.h>
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
+#include <driver/rmt_types.h>
 
 // --- DShot Protocol Constants ---
 // Constants to define timing and encoding rules for DShot Protocol

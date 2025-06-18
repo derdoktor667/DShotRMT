@@ -18,7 +18,7 @@ void DShotRMT::begin()
     // RX RMT Channel Configuration (for BiDirectional DShot)
     if (_isBidirectional)
     {
-        rmt_rx_channel_config_t rmt_rx_channel_config = {
+        _rmt_rx_channel_config = {
             .gpio_num = _gpio,
             .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
             .resolution_hz = DSHOT_RMT_RESOLUTION,
@@ -27,15 +27,15 @@ void DShotRMT::begin()
                 .invert_in = false,
                 .with_dma = false}};
 
-        rmt_new_rx_channel(&rmt_rx_channel_config, &_rmt_rx_channel);
+        rmt_new_rx_channel(&_rmt_rx_channel_config, &_rmt_rx_channel);
         rmt_enable(_rmt_rx_channel);
 
-        _receive_config.signal_range_min_ns = 100;
-        _receive_config.signal_range_max_ns = 10000;
+        _receive_config.signal_range_min_ns = 1000;
+        _receive_config.signal_range_max_ns = 15000;
     }
 
     // TX RMT Channel Configuration
-    rmt_tx_channel_config_t rmt_tx_channel_config = {
+    _rmt_tx_channel_config = {
         .gpio_num = _gpio,
         .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
         .resolution_hz = DSHOT_RMT_RESOLUTION,
@@ -46,7 +46,7 @@ void DShotRMT::begin()
             .invert_out = _isBidirectional,
             .with_dma = false}};
 
-    rmt_new_tx_channel(&rmt_tx_channel_config, &_rmt_tx_channel);
+    rmt_new_tx_channel(&_rmt_tx_channel_config, &_rmt_tx_channel);
     rmt_enable(_rmt_tx_channel);
 
     // Use a copy encoder to send raw symbols
@@ -80,10 +80,8 @@ void DShotRMT::setThrottle(uint16_t throttle)
     size_t count = 0;
     encodeDShotTX(_tx_packet, _tx_symbols, count);
 
-    // Restart transmission with new data
     rmt_disable(_rmt_tx_channel);
     rmt_enable(_rmt_tx_channel);
-
     rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config);
 }
 

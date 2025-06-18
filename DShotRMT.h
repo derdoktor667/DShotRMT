@@ -29,10 +29,10 @@ static constexpr auto NO_ERPM_SIGNAL = 0;
 
 // RMT configuration parameters
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
-static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz
+static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz - 0.1 µs Tick
 
 static constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-static constexpr auto RX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME + 4; // Padding for RX decoding
+static constexpr auto RX_BUFFER_SIZE = 32; // Padding for RX decoding
 
 // --- DShot Mode Selection ---
 // Select the appropriate bit timing for the protocol
@@ -92,6 +92,8 @@ private:
     // --- RMT Channel ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;
     rmt_channel_handle_t _rmt_tx_channel = nullptr;
+    rmt_rx_channel_config_t _rmt_rx_channel_config = {};
+    rmt_tx_channel_config_t _rmt_tx_channel_config = {};
 
     // --- DShot RMT Encoder ---
     rmt_encoder_handle_t _dshot_encoder = nullptr;

@@ -4,8 +4,7 @@
 // Author:  	derdoktor667
 //
 
-#ifndef _DSHOTRMT_h
-#define _DSHOTRMT_h
+#pragma once
 
 #include <Arduino.h>
 
@@ -197,5 +196,3 @@ private:
 
     void sendRmtPaket(const dshot_packet_t &dshot_packet); // Sends a DShot packet via RMT.
 };
-
-#endif

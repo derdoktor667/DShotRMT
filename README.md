@@ -49,6 +49,7 @@ The calculation of the checksum is basically the same as before, but the inverte
 crc = (~(value ^ (value >> 4) ^ (value >> 8))) & 0x0F;
 ```
 
+...I have to rework the receiver part of the code. RX Frame encoding is weak.
 ---
 
 ## RMT on the ESP32

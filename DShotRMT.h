@@ -22,6 +22,7 @@ static constexpr auto DSHOT_THROTTLE_MIN = 48;
 static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_BITS_PER_FRAME = 17;
 static constexpr auto PAUSE_BITS = 21;
+static constexpr auto SWITCH_PAUSE = 4;
 
 static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;

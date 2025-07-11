@@ -91,6 +91,11 @@ uint32_t DShotRMT::getERPM()
 {
     if (_isBidirectional)
     {
+        _receive_config.signal_range_min_ns = 1000;
+        _receive_config.signal_range_max_ns = 15000;
+
+        rmt_enable(_rmt_rx_channel);
+
         static size_t rx_size = sizeof(_rx_symbols);
 
         if (_rmt_rx_channel == nullptr)
@@ -251,7 +256,7 @@ void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, 
 
     // Append the Pause Bits
     symbols[count].level0 = 0;
-    symbols[count].duration0 = ticks_per_bit * PAUSE_BITS;
+    symbols[count].duration0 = ticks_per_bit * (_isBidirectional ? SWITCH_PAUSE : PAUSE_BITS);
     symbols[count].level1 = 0;
     symbols[count].duration1 = 0;
     count++;

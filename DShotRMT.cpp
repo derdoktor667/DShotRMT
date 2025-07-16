@@ -28,10 +28,10 @@ void DShotRMT::begin()
                 .with_dma = false}};
 
         rmt_new_rx_channel(&_rmt_rx_channel_config, &_rmt_rx_channel);
-        rmt_enable(_rmt_rx_channel);
+        // rmt_enable(_rmt_rx_channel);
 
-        _receive_config.signal_range_min_ns = 1000;
-        _receive_config.signal_range_max_ns = 15000;
+        _receive_config.signal_range_min_ns = 300;
+        _receive_config.signal_range_max_ns = 5000;
     }
 
     // TX RMT Channel Configuration
@@ -47,7 +47,7 @@ void DShotRMT::begin()
             .with_dma = false}};
 
     rmt_new_tx_channel(&_rmt_tx_channel_config, &_rmt_tx_channel);
-    rmt_enable(_rmt_tx_channel);
+    // rmt_enable(_rmt_tx_channel);
 
     // Use a copy encoder to send raw symbols
     if (!_dshot_encoder)
@@ -57,7 +57,7 @@ void DShotRMT::begin()
     }
 
     // Configure transmission looping
-    _transmit_config.loop_count = -1;
+    _transmit_config.loop_count = 0;
     _transmit_config.flags.eot_level = _isBidirectional;
 }
 
@@ -68,8 +68,8 @@ void DShotRMT::setThrottle(uint16_t throttle)
     throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
 
     // Has Throttle really changed?
-    if (throttle == _lastThrottle)
-        return;
+    // if (throttle == _lastThrottle)
+    //     return;
 
     _lastThrottle = throttle;
 
@@ -91,11 +91,6 @@ uint32_t DShotRMT::getERPM()
 {
     if (_isBidirectional)
     {
-        _receive_config.signal_range_min_ns = 1000;
-        _receive_config.signal_range_max_ns = 15000;
-
-        rmt_enable(_rmt_rx_channel);
-
         static size_t rx_size = sizeof(_rx_symbols);
 
         if (_rmt_rx_channel == nullptr)

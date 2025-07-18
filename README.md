@@ -29,7 +29,7 @@ Data is transmitted MSB-first. Pulse timing depends on the selected DShot mode.
 
 Each frame is followed by a 21-bit time pause. This helps ESCs detect separate frames.
 
-![DShotRMT](https://raw.githubusercontent.com/derdoktor667/refs/heads/main/dshot300.png)
+![DShotRMT](https://raw.githubusercontent.com/derdoktor667/refs/heads/main/img/dshot300.png)
 
 ---
 

@@ -71,10 +71,6 @@ void DShotRMT::setThrottle(uint16_t throttle)
     // Safety first - double check input range and 11 bit "translation"
     throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
 
-    // Has Throttle really changed?
-    // if (throttle == _lastThrottle)
-    //     return;
-
     _lastThrottle = throttle;
 
     // Convert throttle value to DShot Paket Format
@@ -84,11 +80,11 @@ void DShotRMT::setThrottle(uint16_t throttle)
     size_t count = 0;
     encodeDShotTX(_tx_packet, _tx_symbols, count);
 
-    //
+    // Send the packet
     rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config);
 
-    if (_isBidirectional)
-        esp_rom_delay_us(120);
+    // Take a break
+    esp_rom_delay_us(120);
 }
 
 // --- Get eRPM from ESC ---
@@ -107,46 +103,6 @@ uint32_t DShotRMT::getERPM()
         //
         _last_erpm = decodeDShotRX(_rx_symbols, DSHOT_BITS_PER_FRAME);
         return _last_erpm;
-
-        // uint16_t received_bits = 0;
-        // _received_packet = 0;
-
-        // // Decode raw RMT encoded bits
-        // for (int i = 0; i < DSHOT_BITS_PER_FRAME && i < rx_size; ++i)
-        // {
-        //     rmt_symbol_word_t symbols = _rx_symbols[i];
-
-        //     // Validate signal polarity
-        //     if (symbols.level0 != 1 || symbols.level1 != 0)
-        //         break;
-
-        //     uint32_t total_ticks = symbols.duration0 + symbols.duration1;
-        //     bool bit = (symbols.duration0 > symbols.duration1);
-
-        //     _received_packet <<= 1;
-        //     _received_packet |= bit ? 1 : 0;
-
-        //     received_bits++;
-        // }
-
-        // // Extract data & checksum from packet
-        // uint16_t packet_data = _received_packet >> 4;
-        // uint8_t recalc_packet_crc = (packet_data ^ (packet_data >> 4) ^ (packet_data >> 8)) & 0x0F;
-        // uint8_t packet_crc = _received_packet & 0x0F;
-
-        // if (recalc_packet_crc != packet_crc)
-        //     return _last_erpm;
-
-        // // Assume received value is DShot eRPM
-        // uint16_t throttle = packet_data >> 1;
-
-        // // Filter noise values
-        // if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
-        //     return _last_erpm;
-
-        // // Approximate eRPM (ESC dependent, scale factor can be tuned)
-        // _last_erpm = throttle * 100;
-        // return _last_erpm;
     }
 
     // Nothing to do here

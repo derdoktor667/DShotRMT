@@ -57,7 +57,7 @@ public:
     // Initializes the RMT TX and RX channels
     void begin();
 
-    // Sets a new throttle value (48-2047) and sends it repeatedly
+    // Sets a new throttle value (48-2047) and sends it
     void setThrottle(uint16_t throttle);
 
     // Receives and decodes the latest value from ESC, if available
@@ -87,10 +87,10 @@ private:
     bool _isBidirectional;
 
     // --- DShot Packets Container ---
-    uint16_t _lastThrottle = DSHOT_FULL_PACKET;
+    uint16_t _lastThrottle = DSHOT_NULL_PACKET;
     uint16_t _received_packet = DSHOT_NULL_PACKET;
     uint16_t _tx_packet = DSHOT_NULL_PACKET;
-    uint16_t _packet_crc = 0;
+    uint8_t _packet_crc = 0;
 
     // --- RMT Channel ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;

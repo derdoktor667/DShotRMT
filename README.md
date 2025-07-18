@@ -29,6 +29,8 @@ Data is transmitted MSB-first. Pulse timing depends on the selected DShot mode.
 
 Each frame is followed by a 21-bit time pause. This helps ESCs detect separate frames.
 
+![DShotRMT](https://raw.githubusercontent.com/derdoktor667/refs/heads/main/dshot300.png)
+
 ---
 
 ## Checksum Calculation
@@ -49,7 +51,7 @@ The calculation of the checksum is basically the same as before, but the inverte
 crc = (~(value ^ (value >> 4) ^ (value >> 8))) & 0x0F;
 ```
 
-...I have to rework the receiver part of the code. RX Frame encoding is weak.
+...biDirectional DShot is experimental. Further Hardware testing needed.
 ---
 
 ## RMT on the ESP32

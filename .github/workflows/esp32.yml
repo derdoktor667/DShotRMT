@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout Repository
       uses: actions/checkout@main
 
-    - name: Install repo as library
+    - name: Install Repository as Library
       run: |
         mkdir -p "$HOME/Arduino/libraries"
         ln -s "$PWD" "$HOME/Arduino/libraries/."
@@ -22,11 +22,9 @@ jobs:
       run: |
         curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
         arduino-cli core update-index
-        arduino-cli core update-index --additional-urls https://dl.espressif.com/dl/package_esp32_index.json
-        arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-        arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+        arduino-cli core install esp32:esp32
     
-    - name: Compile sketch
+    - name: Compile Sketch
       run: |
         arduino-cli compile --fqbn esp32:esp32:esp32 ${{ github.workspace }}/examples/dshot300
       env:

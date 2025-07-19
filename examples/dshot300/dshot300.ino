@@ -26,6 +26,13 @@ constexpr auto MOTOR01_MAGNET_COUNT = 14;
 // Setup Motor Pin, DShot Mode and optional BiDirectional Support
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
+// Prints RPM and throttle every 2 seconds if BiDirectional is enabled
+void printRPMPeriodically(uint16_t throttle);
+
+// Reads throttle value from serial input
+uint16_t readSerialThrottle();
+
+//
 void setup()
 {
   // Start the USB Serial Port
@@ -37,45 +44,31 @@ void setup()
   // Arm ESC with minimum throttle
   motor01.setThrottle(DSHOT_THROTTLE_MIN);
 
-  //
   USB_SERIAL.println("**********************");
   USB_SERIAL.println("DShotRMT Demo started.");
   USB_SERIAL.println("Enter a throttle value (48–2047):");
 }
 
+//
 void loop()
 {
   // Read value input from Serial
-  int throttle_input = readSerialThrottle();
+  uint16_t throttle_input = readSerialThrottle();
 
-  // Now send the value
+  // Send the value to the ESC
   motor01.setThrottle(throttle_input);
 
-  // BiDirectional DShot: print out the received eRPMs every 2 seconds
+  // Print RPM if BiDirectional DShot is enabled
   if (IS_BIDIRECTIONAL)
   {
-    static unsigned long last_print_time = 0;
-    unsigned long now = millis();
-
-    if (now - last_print_time >= 2000)
-    {
-      last_print_time = now;
-
-      uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
-
-      USB_SERIAL.print("Throttle: ");
-      USB_SERIAL.print(throttle_input);
-      USB_SERIAL.print(" | RPM: ");
-      USB_SERIAL.println(rpm);
-    }
+    printRPMPeriodically(throttle_input);
   }
 }
 
 // Reads throttle value from serial input
-int readSerialThrottle()
+uint16_t readSerialThrottle()
 {
-  //
-  static int last_throttle = DSHOT_THROTTLE_MIN;
+  static uint16_t last_throttle = DSHOT_THROTTLE_MIN;
 
   if (USB_SERIAL.available() > 0)
   {
@@ -84,13 +77,40 @@ int readSerialThrottle()
 
     // Clamp the value to the DShot range
     throttle_input = constrain(throttle_input, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-    last_throttle = throttle_input;
 
-    USB_SERIAL.print("Throttle set to: ");
-    USB_SERIAL.println(last_throttle);
-    USB_SERIAL.println("***********************************");
+    if (throttle_input < DSHOT_THROTTLE_MIN || throttle_input > DSHOT_THROTTLE_MAX)
+    {
+      USB_SERIAL.println("Invalid input. Please enter a value between 48 and 2047");
+    }
+    else
+    {
+      last_throttle = throttle_input;
+      USB_SERIAL.print("Throttle set to: ");
+      USB_SERIAL.println(last_throttle);
+    }
+
+    USB_SERIAL.println("*********************************");
     USB_SERIAL.println("Enter a throttle value (48–2047):");
   }
 
   return last_throttle;
+}
+
+// Prints RPM and throttle every 2 seconds
+void printRPMPeriodically(uint16_t throttle)
+{
+  static unsigned long last_print_time = 0;
+  unsigned long now = millis();
+
+  if (now - last_print_time >= 2000)
+  {
+    last_print_time = now;
+
+    uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
+
+    USB_SERIAL.print("Throttle: ");
+    USB_SERIAL.print(throttle);
+    USB_SERIAL.print(" | RPM: ");
+    USB_SERIAL.println(rpm);
+  }
 }

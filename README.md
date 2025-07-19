@@ -2,8 +2,8 @@
 
 ## DShotRMT - ESP32 Library (Rewrite for ESP-IDF 5)
 
-This is a complete rewrite of the original DShotRMT library to support the new ESP-IDF 5 RMT encoder API (`rmt_tx.h`).  
-The library sends continuous DShot frames with a configurable pause between them and supports all standard DShot modes (150, 300, 600).
+This is a complete rewrite of the original DShotRMT library to support the new ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
+The library sends continuous DShot frames with a pause between them and supports all standard DShot modes (150, 300, 600).
 
 ### Now with BiDirectional DShot Support!!!
 
@@ -27,7 +27,7 @@ Data is transmitted MSB-first. Pulse timing depends on the selected DShot mode.
 | 300   | 300 kbit/s  | 2.50  | 1.25   | 3.33          | ~53.28          |
 | 600   | 600 kbit/s  | 1.25  | 0.625  | 1.67          | ~26.72          |
 
-Each frame is followed by a 21-bit time pause. This helps ESCs detect separate frames.
+Each frame is followed by a pause. This helps ESCs detect separate frames.
 
 ![DShotRMT](https://raw.githubusercontent.com/derdoktor667/DShotRMT/refs/heads/main/img/dshot300.png)
 

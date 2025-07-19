@@ -1,4 +1,4 @@
-name: Arduino CI
+name: DShotRMT Example Sketch
 
 on:
   push:

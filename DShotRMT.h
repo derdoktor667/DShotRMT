@@ -15,13 +15,10 @@
 #include <driver/rmt_rx.h>
 
 // --- DShot Protocol Constants ---
-// Constants to define timing and encoding rules for DShot Protocol
 static constexpr auto DSHOT_THROTTLE_FAILSAVE = 0;
 static constexpr auto DSHOT_THROTTLE_MIN = 48;
 static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto PAUSE_BITS = 21;
-static constexpr auto SWITCH_PAUSE = 4;
 
 static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
@@ -34,8 +31,15 @@ static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz Clock
 static constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
 static constexpr auto RX_BUFFER_SIZE = 32; // Padding for RX decoding
 
+// DShot Packet
+typedef struct dshot_packet_s
+{
+    uint16_t throttle_value : 11;
+    bool telemetric_request : 1;
+    uint16_t checksum : 4;
+} dshot_packet_t;
+
 // --- DShot Mode Selection ---
-// Select the appropriate bit timing for the protocol
 typedef enum dshot_mode_e
 {
     DSHOT_OFF,
@@ -46,13 +50,11 @@ typedef enum dshot_mode_e
 } dshot_mode_t;
 
 // --- DShotRMT Class ---
-// This class provides an abstraction for sending and optionally receiving DShot frames.
-// It uses ESP32's RMT peripheral for precise timing control, including BiDirectional RX.
 class DShotRMT
 {
 public:
     // Constructor: initializes configuration state
-    DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool isBidirectional = false);
+    DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool isBidirectional = false, uint8_t pauseDuration = 120);
 
     // Initializes the RMT TX and RX channels
     void begin();
@@ -63,16 +65,18 @@ public:
     // Receives and decodes the latest value from ESC, if available
     uint32_t getERPM();
     uint32_t getMotorRPM(uint8_t magnet_count);
-
-    // Accessors for GPIO and DShot mode
+    
+    // Accessors for GPIO and DShot Settings
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
+    uint8_t getPauseDuration() const { return _pauseDuration; }
+    void setPauseDuration(uint8_t pauseDuration) { _pauseDuration = pauseDuration; }
 
 private:
-    // Calculate the checksum for throttle value
+    // Calculates the checksum for throttle value
     uint16_t calculateCRC(uint16_t dshot_packet);
 
-    // Assamble DShot Paket (10 bit throttle + 1 bit telemetry request + 4 bit crc)
+    // Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit crc)
     uint16_t assambleDShotPaket(uint16_t value);
 
     // Converts a 16-bit DShot packet into RMT symbols and appends pause
@@ -81,18 +85,20 @@ private:
     // Decodes the ESC answer
     uint16_t decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t count);
 
-    // --- Configuration Parameter ---
+    // --- Configuration Parameters ---
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _isBidirectional;
+    uint8_t _pauseDuration;
 
     // --- DShot Packets Container ---
     uint16_t _lastThrottle = DSHOT_NULL_PACKET;
-    uint16_t _received_packet = DSHOT_NULL_PACKET;
+    uint16_t _rx_packet = DSHOT_NULL_PACKET;
     uint16_t _tx_packet = DSHOT_NULL_PACKET;
     uint8_t _packet_crc = 0;
+    dshot_packet_t _dshot_packet = {};
 
-    // --- RMT Channel ---
+    // --- RMT Channel Handles ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;
     rmt_channel_handle_t _rmt_tx_channel = nullptr;
     rmt_rx_channel_config_t _rmt_rx_channel_config = {};
@@ -105,7 +111,7 @@ private:
     rmt_receive_config_t _receive_config = {};
     rmt_transmit_config_t _transmit_config = {};
 
-    // --- RMT Symbol Buffer ---
+    // --- RMT Symbol Buffers ---
     rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE] = {};
     rmt_symbol_word_t _tx_symbols[TX_BUFFER_SIZE] = {};
 

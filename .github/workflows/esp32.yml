@@ -1,32 +1,30 @@
-name: DShotRMT Example Sketch
+name: Build DShotRMT Example Sketch
 
 on:
   push:
     branches:
-      - main
+      - '*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@main
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install Repository as Library
-      run: |
-        mkdir -p "$HOME/Arduino/libraries"
-        ln -s "$PWD" "$HOME/Arduino/libraries/."
+      - name: Set up Arduino CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
 
-    - name: Install Arduino CLI
-      run: |
-        curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-        arduino-cli core update-index
-        arduino-cli core install esp32:esp32
-    
-    - name: Compile Sketch
-      run: |
-        arduino-cli compile --fqbn esp32:esp32:esp32 ${{ github.workspace }}/examples/dshot300
-      env:
-        ARDUINO_LIBRARY_PATH: ${{ github.workspace }}/libraries
-        ARDUINO_DATA_PATH: ${{ github.workspace }}/arduino-data
+      - name: Install DShotRMT as library
+        run: |
+          mkdir -p $HOME/Arduino/libraries
+          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
+
+      - name: Compile dshot300.ino example
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 examples/dshot300/dshot300.ino
+          

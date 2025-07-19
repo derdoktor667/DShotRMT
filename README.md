@@ -1,25 +1,70 @@
 [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml)
 
-## DShotRMT - ESP32 Library (Rewrite for ESP-IDF 5)
+# DShotRMT - ESP32 Library (Rewrite for ESP-IDF 5)
 
-This is a complete rewrite of the original DShotRMT library to support the new ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
-The library sends continuous DShot frames with a pause between them and supports all standard DShot modes (150, 300, 600).
+A modern, robust C++ library for generating DShot signals on the ESP32 using the new ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
+Supports all standard DShot modes (150, 300, 600) and features continuous frame transmission with configurable pause.  
+**Now with BiDirectional DShot support!**
 
-### Now with BiDirectional DShot Support!!!
-
-The old Version without encoding (rmt.h) is still available by using "oldAPI" Branch.
+> The legacy version (using the old `rmt.h` API) is still available in the `oldAPI` branch.
 
 ---
 
-## The DShot Protocol
+## 🚀 Features
 
-The DShot protocol transmits 16-bit packets to brushless ESCs:
+- **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600
+- **BiDirectional DShot:** Experimental support for telemetry and RPM feedback
+- **Continuous Frames:** Hardware-timed, CPU-independent signal generation
+- **Configurable Pause:** Ensures ESCs can reliably detect frame boundaries
+- **Simple API:** Easy integration into your Arduino or ESP-IDF project
 
-- 11-bit throttle value
-- 1-bit telemetry request
-- 4-bit checksum
+---
 
-Data is transmitted MSB-first. Pulse timing depends on the selected DShot mode.
+## 📦 Installation
+
+Clone this repository and add it to your Arduino libraries or ESP-IDF components.
+
+```sh
+git clone https://github.com/derdoktor667/DShotRMT.git
+```
+
+---
+
+## ⚡ Quick Start
+
+```cpp
+#include <DShotRMT.h>
+
+constexpr gpio_num_t MOTOR_PIN = GPIO_NUM_17;
+constexpr dshot_mode_t MODE = DSHOT300;
+constexpr bool BIDIRECTIONAL = true;
+
+DShotRMT motor(MOTOR_PIN, MODE, BIDIRECTIONAL);
+
+void setup() {
+    Serial.begin(115200);
+    motor.begin();
+    motor.setThrottle(1000); // Set throttle value (48–2047)
+}
+
+void loop() {
+    // Optionally read RPM if bidirectional mode is enabled
+    uint32_t rpm = motor.getMotorRPM(14); // 14 magnets
+    Serial.println(rpm);
+}
+```
+
+---
+
+## 📚 DShot Protocol Overview
+
+DShot transmits 16-bit packets to brushless ESCs:
+
+- **11 bits:** Throttle value
+- **1 bit:** Telemetry request
+- **4 bits:** Checksum (CRC)
+
+Data is sent MSB-first. Pulse timing depends on the selected DShot mode.
 
 | DSHOT | Bitrate     | TH1   | TH0    | Bit Time (µs) | Frame Time (µs) |
 |-------|-------------|-------|--------|---------------|-----------------|
@@ -27,80 +72,74 @@ Data is transmitted MSB-first. Pulse timing depends on the selected DShot mode.
 | 300   | 300 kbit/s  | 2.50  | 1.25   | 3.33          | ~53.28          |
 | 600   | 600 kbit/s  | 1.25  | 0.625  | 1.67          | ~26.72          |
 
-Each frame is followed by a pause. This helps ESCs detect separate frames.
+Each frame is followed by a pause to help ESCs detect separate frames.
 
 ![DShotRMT](https://raw.githubusercontent.com/derdoktor667/DShotRMT/refs/heads/main/img/dshot300.png)
 
 ---
 
-## Checksum Calculation
+## 🔒 Checksum Calculation
 
-The checksum is calculated over the first 12 bits (throttle + bit):
+The checksum is calculated over the first 12 bits (throttle + telemetry):
 
 ```c
 crc = (value ^ (value >> 4) ^ (value >> 8)) & 0x0F;
 ```
 
 ### Bidirectional DSHOT
-Bidirectional DSHOT is also known as inverted DSHOT, because the signal level is inverted, so 1 is low and a 0 is high. This is done in order to let the ESC know, that we are operating in bidirectional mode and that it should be sending back telemetry packages.
 
-#### Calculating the Bidirectional CRC
-The calculation of the checksum is basically the same as before, but the inverted:
+Bidirectional DSHOT (sometimes called "inverted DSHOT") inverts the signal level:  
+A logical '1' is low, and a '0' is high. This signals the ESC to send telemetry packets back.
+
+**Bidirectional CRC:**
 
 ```c
 crc = (~(value ^ (value >> 4) ^ (value >> 8))) & 0x0F;
 ```
 
-...biDirectional DShot is experimental. Further Hardware testing needed.
+> **Note:** Bidirectional DShot is experimental. Further hardware testing is needed.
+
 ---
 
-## RMT on the ESP32
+## 🛠️ ESP32 RMT Peripheral
 
-The RMT (Remote Control) is a peripheral designed to generate accurate and stable signals to control external devices such as LEDs, motors, and other peripherals. It is well suited for generating the DShot signals in a high-performance and accurate way on the ESP32 platform.
-
-### Advantages:
-
+The RMT (Remote Control) peripheral generates accurate, hardware-timed signals for controlling external devices.  
+Perfect for DShot:  
 - Hardware-timed pulses  
-- CPU-independent signal generation  
+- CPU-independent  
 - Loop mode with inter-frame pause  
 - Reliable under system load
 
 ---
 
-## About This Library
+## 📝 API Reference
 
-This C++ library provides a simple class to generate DShot signals using any RMT-capable GPIO.  
-It uses a `copy_encoder` to continuously send a prebuilt symbol buffer. New throttle values are applied only when they change.
+- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional, uint8_t pauseDuration = 120)`
+- `void begin()`
+- `void setThrottle(uint16_t throttle)`
+- `uint32_t getERPM()`
+- `uint32_t getMotorRPM(uint8_t magnet_count)`
 
-### Supported Modes (optional BiDirectional):
-
-- DSHOT150  
-- DSHOT300 (default)  
-- DSHOT600
-
-### Frame Structure:
-
-- 16-bit DShot data  
-- 21-bit times worth of pause
+See [examples/dshot300/dshot300.ino](examples/dshot300/dshot300.ino) for a full demo.
 
 ---
 
-## References
+## 📖 References
 
-- [DSHOT – the missing Handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)  
-- [DSHOT in the Dark](https://dmrlawson.co.uk/index.php/2017/12/04/dshot-in-the-dark/)  
+- [DSHOT – the missing Handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
+- [DSHOT in the Dark](https://dmrlawson.co.uk/index.php/2017/12/04/dshot-in-the-dark/)
 - [ESP32 Technical Reference Manual](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf)
 
 ---
 
-## License
+## 📄 License
 
-MIT License – see LICENSE
+MIT License – see [LICENSE](LICENSE)
 
 ---
 
-## Author
+## 👤 Author
 
-Wastl Kraus  
+**Wastl Kraus**  
 GitHub: [@derdoktor667](https://github.com/derdoktor667)  
 Website: [wir-sind-die-matrix.de](https://wir-sind-die-matrix.de)

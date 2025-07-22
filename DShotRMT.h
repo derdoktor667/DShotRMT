@@ -15,24 +15,24 @@
 #include <driver/rmt_rx.h>
 
 // --- DShot Protocol Constants ---
-static constexpr auto DSHOT_THROTTLE_FAILSAVE = 0;
-static constexpr auto DSHOT_THROTTLE_MIN = 48;
-static constexpr auto DSHOT_THROTTLE_MAX = 2047;
-static constexpr auto DSHOT_BITS_PER_FRAME = 16;
+static constexpr uint16_t DSHOT_THROTTLE_FAILSAVE = 0;
+static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;
+static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;
+static constexpr uint8_t DSHOT_BITS_PER_FRAME = 16;
 
-static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
-static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
-static constexpr auto NO_ERPM_SIGNAL = 0;
+static constexpr uint16_t DSHOT_NULL_PACKET = 0x0000;
+static constexpr uint16_t DSHOT_FULL_PACKET = 0xFFFF;
+static constexpr uint16_t NO_ERPM_SIGNAL = 0;
 
 // RMT configuration parameters
-static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
-static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz Clock
+static constexpr rmt_clock_source_t DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
+static constexpr uint32_t DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz Clock
 
-static constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-static constexpr auto RX_BUFFER_SIZE = 32; // Padding for RX decoding
+static constexpr size_t TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
+static constexpr size_t RX_BUFFER_SIZE = 32; // Padding for RX decoding
 
-// DShot Packet
-typedef struct dshot_packet_s
+// DShot Packet structure
+typedef struct
 {
     uint16_t throttle_value : 11;
     bool telemetric_request : 1;
@@ -40,7 +40,7 @@ typedef struct dshot_packet_s
 } dshot_packet_t;
 
 // --- DShot Mode Selection ---
-typedef enum dshot_mode_e
+typedef enum
 {
     DSHOT_OFF,
     DSHOT150,
@@ -65,21 +65,21 @@ public:
     // Receives and decodes the latest value from ESC, if available
     uint32_t getERPM();
     uint32_t getMotorRPM(uint8_t magnet_count);
-    
-    // Accessors for GPIO and DShot Settings
+
+    // Accessors for GPIO and DShot settings
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
     uint8_t getPauseDuration() const { return _pauseDuration; }
     void setPauseDuration(uint8_t pauseDuration) { _pauseDuration = pauseDuration; }
 
 private:
-    // Calculates the checksum for throttle value
+    // Calculates the checksum for a DShot packet
     uint16_t calculateCRC(uint16_t dshot_packet);
 
-    // Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit crc)
+    // Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
     uint16_t assambleDShotPaket(uint16_t value);
 
-    // Converts a 16-bit DShot packet into RMT symbols and appends pause
+    // Converts a 16-bit DShot packet into RMT symbols
     void encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count);
 
     // Decodes the ESC answer
@@ -96,7 +96,6 @@ private:
     uint16_t _rx_packet = DSHOT_NULL_PACKET;
     uint16_t _tx_packet = DSHOT_NULL_PACKET;
     uint8_t _packet_crc = 0;
-    dshot_packet_t _dshot_packet = {};
 
     // --- RMT Channel Handles ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;

@@ -11,13 +11,14 @@
 // --- DShotRMT Class ---
 // This class provides an abstraction for sending and optionally receiving DShot frames.
 // It uses ESP32's RMT peripheral for precise timing control, including BiDirectional RX.
+
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional, uint8_t pauseDuration)
     : _gpio(gpio), _mode(mode), _isBidirectional(isBidirectional), _pauseDuration(pauseDuration) {}
 
-// Sets up RMT TX and RX channels as well as encoder configuration
+// Initializes RMT TX and RX channels and encoder configuration
 void DShotRMT::begin()
 {
-    // RX RMT Channel Configuration (for BiDirectional DShot)
+    // Configure RX RMT Channel for BiDirectional DShot
     if (_isBidirectional)
     {
         _rmt_rx_channel_config = {
@@ -42,7 +43,7 @@ void DShotRMT::begin()
         _receive_config.signal_range_max_ns = 5000;
     }
 
-    // TX RMT Channel Configuration
+    // Configure TX RMT Channel
     _rmt_tx_channel_config = {
         .gpio_num = _gpio,
         .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
@@ -51,7 +52,7 @@ void DShotRMT::begin()
         .trans_queue_depth = 10,
     };
 
-    // Configure transmission looping
+    // Transmission configuration
     _transmit_config.loop_count = 0;
     _transmit_config.flags.eot_level = _isBidirectional;
 
@@ -66,7 +67,7 @@ void DShotRMT::begin()
         return;
     }
 
-    // Use a copy encoder to send raw symbols
+    // Create copy encoder for raw symbol transmission
     if (!_dshot_encoder)
     {
         rmt_copy_encoder_config_t enc_cfg = {};
@@ -78,112 +79,109 @@ void DShotRMT::begin()
     }
 }
 
-// Encodes and transmits a valid DShot Throttle value (48 - 2047)
+// Encodes and transmits a valid DShot throttle value (48 - 2047)
 void DShotRMT::setThrottle(uint16_t throttle)
 {
-    // Safety first - double check input range and 11 bit "translation"
-    throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
+    // Clamp input range and mask to 11 bits
+    throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0x7FF;
 
     _lastThrottle = throttle;
 
-    // Convert throttle value to DShot Paket Format
+    // Convert throttle value to DShot packet format
     _tx_packet = assambleDShotPaket(_lastThrottle);
 
     // Encode RMT symbols
     size_t count = 0;
     encodeDShotTX(_tx_packet, _tx_symbols, count);
 
-    // Send the packet
+    // Transmit the packet
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config) != 0)
     {
         Serial.println("Failed to transmit DShot packet");
         return;
     }
 
-    // Take a break
+    // Pause between frames
     esp_rom_delay_us(_pauseDuration);
 }
 
-// --- Get eRPM from ESC ---
 // Receives and decodes a response frame from ESC containing eRPM info
 uint32_t DShotRMT::getERPM()
 {
     if (_isBidirectional)
     {
         if (_rmt_rx_channel == nullptr)
+            Serial.println("No bidirectional DShot support.");
             return _last_erpm;
 
-        // Attempt to receive a new frame
+        // Try to receive a new frame
         if (!rmt_receive(_rmt_rx_channel, _rx_symbols, sizeof(_rx_symbols), &_receive_config))
+            Serial.println("No valid DShot frame received");
             return _last_erpm;
 
         _last_erpm = decodeDShotRX(_rx_symbols, DSHOT_BITS_PER_FRAME);
         return _last_erpm;
     }
 
-    // Nothing to do here
+    // No RX possible in non-bidirectional mode
     return _last_erpm;
 }
 
-// Translate eRPM value to RPM taking magnet count as parameter
+// Converts eRPM value to RPM using magnet count
 uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
 {
     uint8_t pole_count = magnet_count / 2;
-
     if (pole_count == 0)
         pole_count = 1;
 
-    uint32_t rpm = getERPM() / pole_count;
-    return rpm;
+    return getERPM() / pole_count;
 }
 
-// Calculate CRC for DShot Paket
+// Calculates CRC for DShot packet
 uint16_t DShotRMT::calculateCRC(uint16_t dshot_packet)
 {
-    uint16_t _packet = (dshot_packet << 1) | (_isBidirectional ? 1 : 0);
+    uint16_t packet = (dshot_packet << 1) | (_isBidirectional ? 1 : 0);
 
-    // Clear container before new calculation
+    // Reset CRC container
     _packet_crc = DSHOT_NULL_PACKET;
 
     // CRC calculation for DShot (4 bits)
-    _packet_crc = ((_packet ^ (_packet >> 4) ^ (_packet >> 8)) & 0b0000000000001111);
+    _packet_crc = ((packet ^ (packet >> 4) ^ (packet >> 8)) & 0xF);
 
-    // CRC is inverted for biDirectional DShot
+    // CRC is inverted for bidirectional DShot
     if (_isBidirectional)
-        _packet_crc = (~_packet_crc) & 0b0000000000001111;
+        _packet_crc = (~_packet_crc) & 0xF;
 
     return _packet_crc;
 }
 
-// Assamble DShot Paket (11 bit throttle + 1 bit telemetry request + 4 bit crc)
+// Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
 uint16_t DShotRMT::assambleDShotPaket(uint16_t value)
 {
-    // Dummy conversion to 11 bits
-    uint16_t _value = value & 0b0000011111111111;
+    uint16_t throttle = value & 0x7FF;
 
-    // Clear container
+    // Reset packet container
     _tx_packet = DSHOT_NULL_PACKET;
 
     // Assemble raw DShot packet and add checksum
-    _packet_crc = calculateCRC(_value);
+    _packet_crc = calculateCRC(throttle);
 
-    _tx_packet = (_value << 1) | (_isBidirectional ? 1 : 0);
+    _tx_packet = (throttle << 1) | (_isBidirectional ? 1 : 0);
     _tx_packet = (_tx_packet << 4) | _packet_crc;
 
     return _tx_packet;
 }
 
-// --- Encode DShot TX Frame ---
-// Converts a 16-bit packet into a valid DShot Frame for RMT
+// Converts a 16-bit packet into a valid DShot frame for RMT
 void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count)
 {
-    // Always start encoding from the top
     count = 0;
 
     uint32_t ticks_per_bit = 0;
     uint32_t ticks_zero_high = 0;
     uint32_t ticks_one_high = 0;
 
+    // Select timing based on DShot mode
     switch (_mode)
     {
     case DSHOT150:
@@ -217,10 +215,10 @@ void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, 
     uint32_t ticks_zero_low = ticks_per_bit - ticks_zero_high;
     uint32_t ticks_one_low = ticks_per_bit - ticks_one_high;
 
-    // Fill the 16 DShot-Bits Array with selected timings
+    // Fill the 16 DShot bits array with selected timings
     for (int i = 15; i >= 0; i--)
     {
-        bool bit = (dshot_packet >> i) & 0b0000000000000001;
+        bool bit = (dshot_packet >> i) & 0x1;
         if (_isBidirectional)
         {
             symbols[count].level0 = 0;
@@ -242,35 +240,33 @@ void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, 
 // Decodes a response frame from ESC containing eRPM info
 uint16_t DShotRMT::decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t count)
 {
-    // Container for received frame
-    uint16_t _rec_frame = DSHOT_NULL_PACKET;
+    uint16_t received_frame = DSHOT_NULL_PACKET;
 
-    // Fill the Frame bit by bit
+    // Build the frame bit by bit
     for (size_t i = 0; i < DSHOT_BITS_PER_FRAME && i < count; ++i)
     {
         bool bit = (symbols[i].duration0 < symbols[i].duration1);
-        _rec_frame = (_rec_frame << 1) | bit;
+        received_frame = (received_frame << 1) | bit;
     }
 
-    // Cut the received CRC for checking
-    uint16_t _temp = _rec_frame >> 4;
+    // Extract CRC and payload
+    uint16_t payload = received_frame >> 4;
+    uint8_t crc_received = received_frame & 0xF;
 
-    // Store the received CRC
-    uint8_t crc_recv = _rec_frame & 0b0000000000001111;
-
-    // Calculate CRC for received frame again
-    uint8_t crc_calc = (_temp ^ (_temp >> 4) ^ (_temp >> 8)) & 0b0000000000001111;
-
+    // Calculate CRC for received frame
+    uint8_t crc_calculated = (payload ^ (payload >> 4) ^ (payload >> 8)) & 0xF;
     if (_isBidirectional)
-        crc_calc = (~crc_calc) & 0b0000000000001111;
+        crc_calculated = (~crc_calculated) & 0xF;
 
-    // Checking CRC
-    if (crc_recv != crc_calc)
+    // Check CRC
+    if (crc_received != crc_calculated)
+    {
         Serial.println("RX - CRC check failed.");
         return _last_erpm;
+    }
 
-    // Cut "telemetric" bit leaving "raw" value
-    uint16_t raw = _temp >> 1;
+    // Remove telemetry bit, keep raw value
+    uint16_t raw = payload >> 1;
 
     return _last_erpm = raw;
 }

@@ -32,15 +32,15 @@ static constexpr size_t TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
 static constexpr size_t RX_BUFFER_SIZE = 32; // Padding for RX decoding
 
 // DShot Packet structure
-typedef struct
+typedef struct dshot_packet_s
 {
     uint16_t throttle_value : 11;
     bool telemetric_request : 1;
-    uint16_t checksum : 4;
+    uint8_t checksum : 4;
 } dshot_packet_t;
 
 // --- DShot Mode Selection ---
-typedef enum
+typedef enum dshot_mode_s
 {
     DSHOT_OFF,
     DSHOT150,
@@ -72,19 +72,20 @@ public:
     uint8_t getPauseDuration() const { return _pauseDuration; }
     void setPauseDuration(uint8_t pauseDuration) { _pauseDuration = pauseDuration; }
 
-private:
+protected:
     // Calculates the checksum for a DShot packet
-    uint16_t calculateCRC(uint16_t dshot_packet);
+    void calculateCRC(dshot_packet_t *dshot_packet);
 
-    // Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
-    uint16_t assambleDShotPaket(uint16_t value);
+    // Parses the DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
+    uint16_t parseDShotPacket(const dshot_packet_t *dshot_packet) const;
 
     // Converts a 16-bit DShot packet into RMT symbols
-    void encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count);
+    void encodeDShotTX(dshot_packet_t *dshot_packet, rmt_symbol_word_t *symbols, size_t &count);
 
     // Decodes the ESC answer
     uint16_t decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t count);
 
+private:
     // --- Configuration Parameters ---
     gpio_num_t _gpio;
     dshot_mode_t _mode;
@@ -92,10 +93,8 @@ private:
     uint8_t _pauseDuration;
 
     // --- DShot Packets Container ---
-    uint16_t _lastThrottle = DSHOT_NULL_PACKET;
     uint16_t _rx_packet = DSHOT_NULL_PACKET;
-    uint16_t _tx_packet = DSHOT_NULL_PACKET;
-    uint8_t _packet_crc = 0;
+    dshot_packet_t _dshot_packet = {};
 
     // --- RMT Channel Handles ---
     rmt_channel_handle_t _rmt_rx_channel = nullptr;

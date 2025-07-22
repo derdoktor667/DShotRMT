@@ -41,6 +41,8 @@ void DShotRMT::begin()
 
         _receive_config.signal_range_min_ns = 300;
         _receive_config.signal_range_max_ns = 5000;
+
+        _dshot_packet.telemetric_request = _isBidirectional;
     }
 
     // Configure TX RMT Channel
@@ -82,17 +84,15 @@ void DShotRMT::begin()
 // Encodes and transmits a valid DShot throttle value (48 - 2047)
 void DShotRMT::setThrottle(uint16_t throttle)
 {
-    // Clamp input range and mask to 11 bits
-    throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0x7FF;
+    // Clamp input range for packet
+    _dshot_packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
 
-    _lastThrottle = throttle;
-
-    // Convert throttle value to DShot packet format
-    _tx_packet = assambleDShotPaket(_lastThrottle);
+    // Calculate CRC for every throttle value
+    calculateCRC(&_dshot_packet);
 
     // Encode RMT symbols
     size_t count = 0;
-    encodeDShotTX(_tx_packet, _tx_symbols, count);
+    encodeDShotTX(&_dshot_packet, _tx_symbols, count);
 
     // Transmit the packet
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config) != 0)
@@ -111,13 +111,17 @@ uint32_t DShotRMT::getERPM()
     if (_isBidirectional)
     {
         if (_rmt_rx_channel == nullptr)
+        {
             Serial.println("No bidirectional DShot support.");
             return _last_erpm;
+        }
 
         // Try to receive a new frame
         if (!rmt_receive(_rmt_rx_channel, _rx_symbols, sizeof(_rx_symbols), &_receive_config))
+        {
             Serial.println("No valid DShot frame received");
             return _last_erpm;
+        }
 
         _last_erpm = decodeDShotRX(_rx_symbols, DSHOT_BITS_PER_FRAME);
         return _last_erpm;
@@ -138,44 +142,34 @@ uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
 }
 
 // Calculates CRC for DShot packet
-uint16_t DShotRMT::calculateCRC(uint16_t dshot_packet)
+void DShotRMT::calculateCRC(dshot_packet_t *dshot_packet)
 {
-    uint16_t packet = (dshot_packet << 1) | (_isBidirectional ? 1 : 0);
+    uint16_t packet = (dshot_packet->throttle_value << 1) | (dshot_packet->telemetric_request);
 
     // Reset CRC container
-    _packet_crc = DSHOT_NULL_PACKET;
+    dshot_packet->checksum = DSHOT_NULL_PACKET;
 
     // CRC calculation for DShot (4 bits)
-    _packet_crc = ((packet ^ (packet >> 4) ^ (packet >> 8)) & 0xF);
+    dshot_packet->checksum = ((packet ^ (packet >> 4) ^ (packet >> 8)) & 0b0000000000001111);
 
     // CRC is inverted for bidirectional DShot
-    if (_isBidirectional)
-        _packet_crc = (~_packet_crc) & 0xF;
-
-    return _packet_crc;
+    if (dshot_packet->telemetric_request)
+        dshot_packet->checksum = (~dshot_packet->checksum) & 0b0000000000001111;
 }
 
 // Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
-uint16_t DShotRMT::assambleDShotPaket(uint16_t value)
+uint16_t DShotRMT::parseDShotPacket(const dshot_packet_t *dshot_packet) const
 {
-    uint16_t throttle = value & 0x7FF;
-
-    // Reset packet container
-    _tx_packet = DSHOT_NULL_PACKET;
-
-    // Assemble raw DShot packet and add checksum
-    _packet_crc = calculateCRC(throttle);
-
-    _tx_packet = (throttle << 1) | (_isBidirectional ? 1 : 0);
-    _tx_packet = (_tx_packet << 4) | _packet_crc;
-
-    return _tx_packet;
+    uint16_t parsed_packet = ((dshot_packet->throttle_value << 1) | (dshot_packet->telemetric_request)) & 0b0000111111111111;
+    return ((parsed_packet << 4) | (dshot_packet->checksum)) & 0b1111111111111111;
 }
 
 // Converts a 16-bit packet into a valid DShot frame for RMT
-void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, size_t &count)
+void DShotRMT::encodeDShotTX(dshot_packet_t *dshot_packet, rmt_symbol_word_t *symbols, size_t &count)
 {
     count = 0;
+
+    uint16_t frame_bits = parseDShotPacket(dshot_packet);
 
     uint32_t ticks_per_bit = 0;
     uint32_t ticks_zero_high = 0;
@@ -205,20 +199,16 @@ void DShotRMT::encodeDShotTX(uint16_t dshot_packet, rmt_symbol_word_t *symbols, 
         ticks_one_high = 6;
         break;
     case DSHOT_OFF:
-    default:
-        ticks_per_bit = 0;
-        ticks_zero_high = 0;
-        ticks_one_high = 0;
-        break;
+        return;
     }
 
     uint32_t ticks_zero_low = ticks_per_bit - ticks_zero_high;
     uint32_t ticks_one_low = ticks_per_bit - ticks_one_high;
 
-    // Fill the 16 DShot bits array with selected timings
+    // Convert the parsed dshot frame to rmt_tx data
     for (int i = 15; i >= 0; i--)
     {
-        bool bit = (dshot_packet >> i) & 0x1;
+        bool bit = (frame_bits >> i) & 0x1;
         if (_isBidirectional)
         {
             symbols[count].level0 = 0;
@@ -251,12 +241,12 @@ uint16_t DShotRMT::decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t coun
 
     // Extract CRC and payload
     uint16_t payload = received_frame >> 4;
-    uint8_t crc_received = received_frame & 0xF;
+    uint8_t crc_received = received_frame & 0b0000000000001111;
 
     // Calculate CRC for received frame
-    uint8_t crc_calculated = (payload ^ (payload >> 4) ^ (payload >> 8)) & 0xF;
+    uint8_t crc_calculated = (payload ^ (payload >> 4) ^ (payload >> 8)) & 0b0000000000001111;
     if (_isBidirectional)
-        crc_calculated = (~crc_calculated) & 0xF;
+        crc_calculated = (~crc_calculated) & 0b0000000000001111;
 
     // Check CRC
     if (crc_received != crc_calculated)
@@ -265,8 +255,6 @@ uint16_t DShotRMT::decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t coun
         return _last_erpm;
     }
 
-    // Remove telemetry bit, keep raw value
-    uint16_t raw = payload >> 1;
-
-    return _last_erpm = raw;
+    // Remove telemetry bit
+    return _last_erpm = payload >> 1;
 }

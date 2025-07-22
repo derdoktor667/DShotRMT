@@ -13,18 +13,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Arduino CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          arduino-cli core update-index
-          arduino-cli core install esp32:esp32
-
-      - name: Install DShotRMT as library
-        run: |
-          mkdir -p $HOME/Arduino/libraries
-          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
-
-      - name: Compile dshot300.ino example
-        run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32 examples/dshot300/dshot300.ino
-          
+      - name: Compile dshot300.ino Example
+        uses: arduino/compile-sketches@v1
+        with:
+          fqbn: esp32:esp32:esp32
+          sketch-paths: examples/dshot300/dshot300.ino
+          libraries: .

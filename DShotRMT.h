@@ -54,7 +54,7 @@ class DShotRMT
 {
 public:
     // Constructor: initializes configuration state
-    DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool isBidirectional = false, uint8_t pauseDuration = 120);
+    DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool isBidirectional = false);
 
     // Initializes the RMT TX and RX channels
     void begin();
@@ -69,8 +69,7 @@ public:
     // Accessors for GPIO and DShot settings
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
-    uint8_t getPauseDuration() const { return _pauseDuration; }
-    void setPauseDuration(uint8_t pauseDuration) { _pauseDuration = pauseDuration; }
+    uint8_t getFrameLenght() const { return _frameLenght; }
 
 protected:
     // Calculates the checksum for a DShot packet
@@ -90,7 +89,7 @@ private:
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _isBidirectional;
-    uint8_t _pauseDuration;
+    uint16_t _frameLenght;
 
     // --- DShot Packets Container ---
     uint16_t _rx_packet = DSHOT_NULL_PACKET;

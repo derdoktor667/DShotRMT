@@ -12,8 +12,38 @@
 // This class provides an abstraction for sending and optionally receiving DShot frames.
 // It uses ESP32's RMT peripheral for precise timing control, including BiDirectional RX.
 
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional, uint8_t pauseDuration)
-    : _gpio(gpio), _mode(mode), _isBidirectional(isBidirectional), _pauseDuration(pauseDuration) {}
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
+    : _gpio(gpio), _mode(mode), _isBidirectional(isBidirectional)
+{
+
+    // Setting up fixed DShot Frame length
+    switch (_mode)
+    {
+    case DSHOT_OFF:
+        _frameLenght = 0;
+        break;
+    case DSHOT150:
+        _frameLenght = 128;
+        break;
+    case DSHOT300:
+        _frameLenght = 64;
+        break;
+    case DSHOT600:
+        _frameLenght = 32;
+        break;
+    case DSHOT1200:
+        _frameLenght = 16;
+        break;
+    default:
+        break;
+    }
+
+    // DShot Frame length incl. DShot answer duration
+    if (_isBidirectional)
+    {
+        _frameLenght += _frameLenght;
+    }
+}
 
 // Initializes RMT TX and RX channels and encoder configuration
 void DShotRMT::begin()
@@ -85,13 +115,11 @@ void DShotRMT::begin()
 void DShotRMT::setThrottle(uint16_t throttle)
 {
     // Simple timer
-    static long last_time = 0;
+    static unsigned long last_time = NULL;
 
-    // Keep a pause between the frames
-    if (micros() - last_time >= _pauseDuration)
+    // Ensure frame lenght for compatibility
+    if (micros() - last_time >= _frameLenght)
     {
-        last_time = micros();
-
         // Clamp input range for throttle value
         _dshot_packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
 
@@ -99,7 +127,7 @@ void DShotRMT::setThrottle(uint16_t throttle)
         calculateCRC(&_dshot_packet);
 
         // Encode RMT symbols
-        size_t count = 0;
+        size_t count = NULL;
         encodeDShotTX(&_dshot_packet, _tx_symbols, count);
 
         // Transmit the packet
@@ -108,6 +136,9 @@ void DShotRMT::setThrottle(uint16_t throttle)
             Serial.println("Failed to transmit DShot packet");
             return;
         }
+
+        // Timestamp
+        last_time = micros();
     }
 }
 

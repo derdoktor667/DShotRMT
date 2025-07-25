@@ -84,25 +84,31 @@ void DShotRMT::begin()
 // Encodes and transmits a valid DShot throttle value (48 - 2047)
 void DShotRMT::setThrottle(uint16_t throttle)
 {
-    // Clamp input range for packet
-    _dshot_packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
+    // Simple timer
+    static long last_time = 0;
 
-    // Calculate CRC for every throttle value
-    calculateCRC(&_dshot_packet);
-
-    // Encode RMT symbols
-    size_t count = 0;
-    encodeDShotTX(&_dshot_packet, _tx_symbols, count);
-
-    // Transmit the packet
-    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config) != 0)
+    // Keep a pause between the frames
+    if (micros() - last_time >= _pauseDuration)
     {
-        Serial.println("Failed to transmit DShot packet");
-        return;
-    }
+        last_time = micros();
 
-    // Pause between frames
-    esp_rom_delay_us(_pauseDuration);
+        // Clamp input range for throttle value
+        _dshot_packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;
+
+        // Calculate CRC for every throttle value
+        calculateCRC(&_dshot_packet);
+
+        // Encode RMT symbols
+        size_t count = 0;
+        encodeDShotTX(&_dshot_packet, _tx_symbols, count);
+
+        // Transmit the packet
+        if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, count * sizeof(rmt_symbol_word_t), &_transmit_config) != 0)
+        {
+            Serial.println("Failed to transmit DShot packet");
+            return;
+        }
+    }
 }
 
 // Receives and decodes a response frame from ESC containing eRPM info

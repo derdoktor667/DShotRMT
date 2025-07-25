@@ -19,6 +19,7 @@ static constexpr uint16_t DSHOT_THROTTLE_FAILSAVE = 0;
 static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;
 static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;
 static constexpr uint8_t DSHOT_BITS_PER_FRAME = 16;
+static constexpr uint8_t DSHOT_SWITCH_TIME = 21;
 
 static constexpr uint16_t DSHOT_NULL_PACKET = 0x0000;
 static constexpr uint16_t DSHOT_FULL_PACKET = 0xFFFF;
@@ -69,7 +70,7 @@ public:
     // Accessors for GPIO and DShot settings
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
-    uint8_t getFrameLenght() const { return _frameLenght; }
+    uint8_t getFrameLenght() const { return _frameLength; }
 
 protected:
     // Calculates the checksum for a DShot packet
@@ -86,10 +87,10 @@ protected:
 
 private:
     // --- Configuration Parameters ---
-    gpio_num_t _gpio;
-    dshot_mode_t _mode;
-    bool _isBidirectional;
-    uint16_t _frameLenght;
+    gpio_num_t _gpio = GPIO_NUM_NC;
+    dshot_mode_t _mode = DSHOT_OFF;
+    bool _isBidirectional = false;
+    uint16_t _frameLength = NULL;
 
     // --- DShot Packets Container ---
     uint16_t _rx_packet = DSHOT_NULL_PACKET;
@@ -113,5 +114,5 @@ private:
     rmt_symbol_word_t _tx_symbols[TX_BUFFER_SIZE] = {};
 
     // Stores the last valid eRPM received from the ESC
-    uint16_t _last_erpm = 0;
+    uint16_t _last_erpm = NULL;
 };

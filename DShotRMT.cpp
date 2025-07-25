@@ -20,19 +20,19 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
     switch (_mode)
     {
     case DSHOT_OFF:
-        _frameLenght = 0;
+        _frameLength = 0;
         break;
     case DSHOT150:
-        _frameLenght = 128;
+        _frameLength = 128;
         break;
     case DSHOT300:
-        _frameLenght = 64;
+        _frameLength = 64;
         break;
     case DSHOT600:
-        _frameLenght = 32;
+        _frameLength = 32;
         break;
     case DSHOT1200:
-        _frameLenght = 16;
+        _frameLength = 16;
         break;
     default:
         break;
@@ -41,8 +41,11 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
     // DShot Frame length incl. DShot answer duration
     if (_isBidirectional)
     {
-        _frameLenght += _frameLenght;
+        _frameLength += _frameLength;
     }
+
+    // Add frame tolerance
+    _frameLength = _frameLength + DSHOT_SWITCH_TIME;
 }
 
 // Initializes RMT TX and RX channels and encoder configuration
@@ -118,7 +121,7 @@ void DShotRMT::setThrottle(uint16_t throttle)
     static unsigned long last_time = NULL;
 
     // Ensure frame lenght for compatibility
-    if (micros() - last_time >= _frameLenght)
+    if (micros() - last_time >= _frameLength)
     {
         // Clamp input range for throttle value
         _dshot_packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111;

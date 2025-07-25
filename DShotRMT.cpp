@@ -184,13 +184,13 @@ uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
 // Calculates CRC for DShot packet
 void DShotRMT::calculateCRC(dshot_packet_t *dshot_packet)
 {
-    uint16_t packet = (dshot_packet->throttle_value << 1) | (dshot_packet->telemetric_request);
+    _parsed_dshot_tx_packet = (dshot_packet->throttle_value << 1) | (dshot_packet->telemetric_request);
 
     // Reset CRC container
     dshot_packet->checksum = DSHOT_NULL_PACKET;
 
     // CRC calculation for DShot (4 bits)
-    dshot_packet->checksum = ((packet ^ (packet >> 4) ^ (packet >> 8)) & 0b0000000000001111);
+    dshot_packet->checksum = ((_parsed_dshot_tx_packet ^ (_parsed_dshot_tx_packet >> 4) ^ (_parsed_dshot_tx_packet >> 8)) & 0b0000000000001111);
 
     // CRC is inverted for bidirectional DShot
     if (dshot_packet->telemetric_request)
@@ -198,10 +198,10 @@ void DShotRMT::calculateCRC(dshot_packet_t *dshot_packet)
 }
 
 // Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
-uint16_t DShotRMT::parseDShotPacket(const dshot_packet_t *dshot_packet) const
+uint16_t DShotRMT::parseDShotPacket(const dshot_packet_t *dshot_packet)
 {
-    uint16_t parsed_packet = ((dshot_packet->throttle_value << 1) | (dshot_packet->telemetric_request)) & 0b0000111111111111;
-    return ((parsed_packet << 4) | (dshot_packet->checksum)) & 0b1111111111111111;
+    _parsed_dshot_tx_packet = ((dshot_packet->throttle_value << 1) | (dshot_packet->telemetric_request)) & 0b0000111111111111;
+    return ((_parsed_dshot_tx_packet << 4) | (dshot_packet->checksum)) & 0b1111111111111111;
 }
 
 // Converts a 16-bit packet into a valid DShot frame for RMT

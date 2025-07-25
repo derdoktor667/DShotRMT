@@ -71,13 +71,14 @@ public:
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
     uint16_t getFrameLenght() const { return _frameLength; }
+    uint16_t getDShotPacket() const { return _parsed_dshot_tx_packet; }
 
-protected:
+private:
     // Calculates the checksum for a DShot packet
     void calculateCRC(dshot_packet_t *dshot_packet);
 
     // Parses the DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
-    uint16_t parseDShotPacket(const dshot_packet_t *dshot_packet) const;
+    uint16_t parseDShotPacket(const dshot_packet_t *dshot_packet);
 
     // Converts a 16-bit DShot packet into RMT symbols
     void encodeDShotTX(dshot_packet_t *dshot_packet, rmt_symbol_word_t *symbols, size_t &count);
@@ -85,8 +86,7 @@ protected:
     // Decodes the ESC answer
     uint16_t decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t count);
 
-private:
-    // --- Configuration Parameters ---
+// --- Configuration Parameters ---
     gpio_num_t _gpio = GPIO_NUM_NC;
     dshot_mode_t _mode = DSHOT_OFF;
     bool _isBidirectional = false;
@@ -94,6 +94,7 @@ private:
 
     // --- DShot Packets Container ---
     uint16_t _rx_packet = DSHOT_NULL_PACKET;
+    uint16_t _parsed_dshot_tx_packet = DSHOT_NULL_PACKET;
     dshot_packet_t _dshot_packet = {};
 
     // --- RMT Channel Handles ---

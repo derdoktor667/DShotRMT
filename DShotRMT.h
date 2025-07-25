@@ -70,7 +70,7 @@ public:
     // Accessors for GPIO and DShot settings
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
-    uint8_t getFrameLenght() const { return _frameLength; }
+    uint16_t getFrameLenght() const { return _frameLength; }
 
 protected:
     // Calculates the checksum for a DShot packet

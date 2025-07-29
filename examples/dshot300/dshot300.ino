@@ -73,12 +73,10 @@ uint16_t readSerialThrottle()
         String input = USB_SERIAL.readStringUntil('\n');
         int throttle_input = input.toInt();
 
-        // Clamp the value to the DShot range
-        throttle_input = constrain(throttle_input, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-
         if (throttle_input < DSHOT_THROTTLE_MIN || throttle_input > DSHOT_THROTTLE_MAX)
         {
             USB_SERIAL.println("Invalid input. Please enter a value between 48 and 2047.");
+            return last_throttle;
         }
         else
         {

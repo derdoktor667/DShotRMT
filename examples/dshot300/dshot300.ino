@@ -46,7 +46,7 @@ void setup()
 
     USB_SERIAL.println("**********************");
     USB_SERIAL.println("DShotRMT Demo started.");
-    USB_SERIAL.println("Enter a throttle value (48–2047):");
+    USB_SERIAL.println("Enter a throttle value (48 – 2047):");
 }
 
 //
@@ -88,7 +88,7 @@ uint16_t readSerialThrottle()
         }
 
         USB_SERIAL.println("*********************************");
-        USB_SERIAL.println("Enter a throttle value (48–2047):");
+        USB_SERIAL.println("Enter a throttle value (48 – 2047):");
     }
 
     return last_throttle;

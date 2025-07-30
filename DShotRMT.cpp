@@ -15,37 +15,14 @@
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
     : _gpio(gpio), _mode(mode), _isBidirectional(isBidirectional)
 {
+    // Fixed Timings for compatibility
+    _frame_time = dshot_times.frameLength + DSHOT_SWITCH_TIME;
 
-    // Setting up fixed DShot Frame length
-    switch (_mode)
-    {
-    case DSHOT_OFF:
-        _frameLength = 0;
-        break;
-    case DSHOT150:
-        _frameLength = 128;
-        break;
-    case DSHOT300:
-        _frameLength = 64;
-        break;
-    case DSHOT600:
-        _frameLength = 32;
-        break;
-    case DSHOT1200:
-        _frameLength = 16;
-        break;
-    default:
-        break;
-    }
-
-    // DShot Frame length incl. DShot answer duration
+    // DShot Frame answer padding
     if (_isBidirectional)
     {
-        _frameLength += _frameLength;
+        _frame_time += _frame_time;
     }
-
-    // Add frame tolerance
-    _frameLength = _frameLength + DSHOT_SWITCH_TIME;
 }
 
 // Initializes RMT TX and RX channels and encoder configuration
@@ -86,7 +63,7 @@ void DShotRMT::begin()
         .trans_queue_depth = TX_BUFFER_SIZE};
 
     // Transmission configuration
-    _transmit_config.loop_count = 0;
+    _transmit_config.loop_count = NULL;
     _transmit_config.flags.eot_level = _isBidirectional;
 
     if (rmt_new_tx_channel(&_rmt_tx_channel_config, &_rmt_tx_channel) != 0)
@@ -131,7 +108,7 @@ void DShotRMT::setThrottle(uint16_t throttle)
     encodeDShotTX(packet, tx_symbols);
 
     // Ensure frame lenght for compatibility
-    if (micros() - last_time >= _frameLength)
+    if (micros() - last_time >= _frame_time)
     {
         // Transmit the packet
         if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config) != 0)
@@ -206,40 +183,7 @@ uint16_t DShotRMT::parseDShotPacket(const dshot_packet_t dshot_packet)
 // Converts a 16-bit packet into a valid DShot frame for RMT
 void DShotRMT::encodeDShotTX(dshot_packet_t dshot_packet, rmt_symbol_word_t *symbols)
 {
-    uint16_t ticks_per_bit = 0;
-    uint16_t ticks_zero_high = 0;
-    uint16_t ticks_one_high = 0;
-
-    // Select timing based on DShot mode
-    switch (_mode)
-    {
-    case DSHOT150:
-        ticks_per_bit = 64;
-        ticks_zero_high = 24;
-        ticks_one_high = 48;
-        break;
-    case DSHOT300:
-        ticks_per_bit = 32;
-        ticks_zero_high = 12;
-        ticks_one_high = 24;
-        break;
-    case DSHOT600:
-        ticks_per_bit = 16;
-        ticks_zero_high = 6;
-        ticks_one_high = 12;
-        break;
-    case DSHOT1200:
-        ticks_per_bit = 8;
-        ticks_zero_high = 3;
-        ticks_one_high = 6;
-        break;
-    case DSHOT_OFF:
-        return;
-    }
-
-    uint16_t ticks_zero_low = ticks_per_bit - ticks_zero_high;
-    uint16_t ticks_one_low = ticks_per_bit - ticks_one_high;
-
+    // Encoding to "raw" DShot Packet
     uint16_t frame_bits = parseDShotPacket(dshot_packet);
 
     // Always start with the "first" bit
@@ -252,16 +196,16 @@ void DShotRMT::encodeDShotTX(dshot_packet_t dshot_packet, rmt_symbol_word_t *sym
         if (_isBidirectional)
         {
             symbols[count].level0 = 0;
-            symbols[count].duration0 = bit ? ticks_one_high : ticks_zero_high;
+            symbols[count].duration0 = bit ? dshot_times.ticks_one_high : dshot_times.ticks_zero_high;
             symbols[count].level1 = 1;
-            symbols[count].duration1 = bit ? ticks_one_low : ticks_zero_low;
+            symbols[count].duration1 = bit ? dshot_times.ticks_one_low : dshot_times.ticks_zero_low;
         }
         else
         {
             symbols[count].level0 = 1;
-            symbols[count].duration0 = bit ? ticks_one_high : ticks_zero_high;
+            symbols[count].duration0 = bit ? dshot_times.ticks_one_high : dshot_times.ticks_zero_high;
             symbols[count].level1 = 0;
-            symbols[count].duration1 = bit ? ticks_one_low : ticks_zero_low;
+            symbols[count].duration1 = bit ? dshot_times.ticks_one_low : dshot_times.ticks_zero_low;
         }
         count++;
     }

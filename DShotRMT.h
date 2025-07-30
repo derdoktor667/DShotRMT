@@ -37,10 +37,30 @@ typedef enum dshot_mode_s
     DSHOT150,
     DSHOT300,
     DSHOT600,
-    DSHOT1200,
-    COUNTER
+    DSHOT1200
 } dshot_mode_t;
 
+// --- DShot Timings ---
+typedef struct dshot_timing_s
+{
+    uint16_t frameLength;
+    uint16_t ticks_per_bit;
+    uint16_t ticks_one_high;
+    uint16_t ticks_zero_high;
+    uint16_t ticks_zero_low;
+    uint16_t ticks_one_low;
+} dshot_timing_t;
+
+// DShot Pulse Length Settings
+const dshot_timing_t dshot_timings[] = {
+    {0, 0, 0, 0, 0, 0},        // DSHOT_OFF
+    {128, 64, 48, 24, 40, 16}, // DSHOT150
+    {64, 32, 24, 12, 20, 8},   // DSHOT300
+    {32, 16, 12, 6, 10, 4},    // DSHOT600
+    {16, 8, 6, 3, 5, 2}        // DSHOT1200
+};
+
+//
 // --- DShotRMT Class ---
 class DShotRMT
 {
@@ -61,11 +81,17 @@ public:
     // Accessors for GPIO and DShot settings
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
-    uint16_t getFrameLenght() const { return _frameLength; }
+
+    // --- Configuration Parameters ---
+    gpio_num_t _gpio = GPIO_NUM_NC;
+    dshot_mode_t _mode = DSHOT_OFF;
+    bool _isBidirectional = false;
+    uint16_t _frame_time;
+    const dshot_timing_t &dshot_times = dshot_timings[_mode];
 
 private:
     static constexpr uint8_t DSHOT_BITS_PER_FRAME = 16;
-    static constexpr uint8_t DSHOT_SWITCH_TIME = 21;
+    static constexpr uint8_t DSHOT_SWITCH_TIME = 42;
 
     static constexpr uint16_t DSHOT_NULL_PACKET = 0b000000000000000;
     static constexpr uint16_t DSHOT_FULL_PACKET = 0b111111111111111;
@@ -90,12 +116,6 @@ private:
 
     // Decodes the ESC answer
     uint16_t decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t count);
-
-    // --- Configuration Parameters ---
-    gpio_num_t _gpio = GPIO_NUM_NC;
-    dshot_mode_t _mode = DSHOT_OFF;
-    bool _isBidirectional = false;
-    uint16_t _frameLength = NULL;
 
     // --- DShot Packets Container ---
     uint16_t _rx_packet = DSHOT_NULL_PACKET;

@@ -32,6 +32,7 @@ void printRPMPeriodically(uint16_t throttle);
 // Reads throttle value from serial input
 uint16_t readSerialThrottle();
 
+//
 void setup()
 {
     // Start the USB Serial Port
@@ -48,6 +49,7 @@ void setup()
     USB_SERIAL.println("Enter a throttle value (48–2047):");
 }
 
+//
 void loop()
 {
     // Read value input from Serial
@@ -96,17 +98,16 @@ uint16_t readSerialThrottle()
 void printRPMPeriodically(uint16_t throttle)
 {
     static unsigned long last_print_time = 0;
-    unsigned long now = millis();
 
-    if (now - last_print_time >= 2000)
+    if (millis() - last_print_time >= 2000)
     {
-        last_print_time = now;
-
         uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
 
         USB_SERIAL.print("Throttle: ");
         USB_SERIAL.print(throttle);
         USB_SERIAL.print(" | RPM: ");
         USB_SERIAL.println(rpm);
+
+        last_print_time = millis();
     }
 }

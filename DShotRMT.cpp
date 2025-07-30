@@ -1,244 +1,288 @@
 /**
  * @file DShotRMT.cpp
- * @brief DShot signal generation using ESP32 RMT with continuous repeat and pause between frames, including BiDirectional support
+ * @brief DShot signal generation using ESP32 RMT with bidirectional support
  * @author Wastl Kraus
  * @date 2025-06-11
  * @license MIT
  */
 
-#include <DShotRMT.h>
+#include "DShotRMT.h"
 
-// --- DShotRMT Class ---
-// This class provides an abstraction for sending and optionally receiving DShot frames.
-// It uses ESP32's RMT peripheral for precise timing control, including BiDirectional RX.
+// --- DShot Timings ---
+const dshot_timing_t DSHOT_TIMINGS[] = {
+    {0, 0, 0, 0, 0, 0},        // DSHOT_OFF
+    {128, 64, 48, 24, 40, 16}, // DSHOT150
+    {64, 32, 24, 12, 20, 8},   // DSHOT300
+    {32, 16, 12, 6, 10, 4},    // DSHOT600
+    {16, 8, 6, 3, 5, 2}        // DSHOT1200
+};
 
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)
-    : _gpio(gpio), _mode(mode), _isBidirectional(isBidirectional)
+//
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
+    : _gpio(gpio), _mode(mode)
+    , _is_bidirectional(is_bidirectional)
+    , _timing_config(DSHOT_TIMINGS[mode])
+    , _rmt_tx_channel(nullptr)
+    , _rmt_rx_channel(nullptr)
+    , _dshot_encoder(nullptr)
+    , _last_erpm(0)
+    , _last_transmission_time(0)
 {
-    // Fixed Timings for compatibility
-    _frame_time = dshot_times.frameLength + DSHOT_SWITCH_TIME;
+    // Calculate frame time including switch time
+    _frame_time_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
 
-    // DShot Frame answer padding
-    if (_isBidirectional)
+    // Double up frame time for bidirectional mode
+    if (_is_bidirectional)
     {
-        _frame_time += _frame_time;
+        _frame_time_us += _frame_time_us;
     }
 }
 
-// Initializes RMT TX and RX channels and encoder configuration
-void DShotRMT::begin()
+//
+bool DShotRMT::begin()
 {
-    // Configure RX RMT Channel for BiDirectional DShot
-    if (_isBidirectional)
+    if (!_initTXChannel())
     {
-        _rmt_rx_channel_config = {
-            .gpio_num = _gpio,
-            .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
-            .resolution_hz = DSHOT_RMT_RESOLUTION,
-            .mem_block_symbols = DSHOT_SYMBOLS_SIZE,
-        };
-
-        if (rmt_new_rx_channel(&_rmt_rx_channel_config, &_rmt_rx_channel) != 0)
-        {
-            Serial.println("Failed to create RX channel");
-            return;
-        }
-
-        if (rmt_enable(_rmt_rx_channel) != 0)
-        {
-            Serial.println("Failed to enable RX channel");
-            return;
-        }
-
-        _receive_config.signal_range_min_ns = 300;
-        _receive_config.signal_range_max_ns = 5000;
+        Serial.println("Failed to initialize TX channel");
+        return DSHOT_ERROR;
     }
 
-    // Configure TX RMT Channel
-    _rmt_tx_channel_config = {
-        .gpio_num = _gpio,
-        .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
-        .resolution_hz = DSHOT_RMT_RESOLUTION,
-        .mem_block_symbols = DSHOT_SYMBOLS_SIZE,
-        .trans_queue_depth = TX_BUFFER_SIZE};
-
-    // Transmission configuration
-    _transmit_config.loop_count = NULL;
-    _transmit_config.flags.eot_level = _isBidirectional;
-
-    if (rmt_new_tx_channel(&_rmt_tx_channel_config, &_rmt_tx_channel) != 0)
+    if (!_initRXChannel() && _is_bidirectional)
     {
-        Serial.println("Failed to create TX channel");
-        return;
+        Serial.println("Failed to initialize RX channel");
+        return DSHOT_ERROR;
     }
 
-    if (rmt_enable(_rmt_tx_channel) != 0)
+    if (!_initDShotEncoder())
     {
-        Serial.println("Failed to enable TX channel");
-        return;
+        Serial.println("Failed to initialize encoder");
+        return DSHOT_ERROR;
     }
 
-    // Create copy encoder for raw symbol transmission
-    if (!_dshot_encoder)
-    {
-        rmt_copy_encoder_config_t enc_cfg = {};
-        if (rmt_new_copy_encoder(&enc_cfg, &_dshot_encoder) != 0)
-        {
-            Serial.println("Failed to create copy encoder");
-            return;
-        }
-    }
+    return DSHOT_OK;
 }
 
-// Encodes and transmits a valid DShot throttle value (48 - 2047)
-void DShotRMT::setThrottle(uint16_t throttle)
+//
+bool DShotRMT::setThrottle(uint16_t throttle)
 {
-    // Simple timer
-    static unsigned long last_time = NULL;
 
-    //
+    // DShot Frame Container
     dshot_packet_t packet = {};
 
-    packet.throttle_value = (constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX) & 0b0000011111111111);
-    packet.telemetric_request = _isBidirectional;
-    packet.checksum = calculateCRC(packet);
+    // Create DShot packet
+    packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+    packet.telemetric_request = _is_bidirectional;
+    packet.checksum = _calculateCRC(packet);
 
-    // DShot transcoding
-    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME] = {};
-    encodeDShotTX(packet, tx_symbols);
-
-    // Ensure frame lenght for compatibility
-    if (micros() - last_time >= _frame_time)
+    if (!_sendDShotFrame(packet))
     {
-        // Transmit the packet
-        if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config) != 0)
-        {
-            Serial.println("Failed to transmit DShot packet");
-            return;
-        }
-
-        // Timestamp
-        last_time = micros();
+        return DSHOT_ERROR;
     }
 }
 
-// Receives and decodes a response frame from ESC containing eRPM info
+//
 uint32_t DShotRMT::getERPM()
 {
-    if (_isBidirectional)
+    if (!_is_bidirectional || !_rmt_rx_channel)
     {
-        if (_rmt_rx_channel == nullptr)
-        {
-            Serial.println("No bidirectional DShot support.");
-            return _last_erpm;
-        }
-
-        // Try to receive a new frame
-        if (!rmt_receive(_rmt_rx_channel, _rx_symbols, DSHOT_SYMBOLS_SIZE, &_receive_config))
-        {
-            Serial.println("No valid DShot frame received");
-            return _last_erpm;
-        }
-
-        _last_erpm = decodeDShotRX(_rx_symbols, DSHOT_BITS_PER_FRAME);
         return _last_erpm;
     }
 
-    // No RX possible in non-bidirectional mode
+    // Try to receive telemetry data
+    if (!rmt_receive(_rmt_rx_channel, _rx_symbols, DSHOT_SYMBOLS_SIZE, &_receive_config))
+    {
+        return _last_erpm;
+    }
+
+    // Decode the response
+    uint16_t new_erpm = _decodeDShotFrame(_rx_symbols, DSHOT_BITS_PER_FRAME);
+    if (new_erpm != 0)
+    {
+        _last_erpm = new_erpm;
+    }
+
     return _last_erpm;
 }
 
-// Converts eRPM value to RPM using magnet count
+//
 uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
 {
-    uint8_t pole_count = magnet_count / 2;
-    if (pole_count == 0)
-        pole_count = 1;
-
-    return getERPM() / pole_count;
+    uint8_t pole_pairs = max(1, magnet_count / 2);
+    return getERPM() / pole_pairs;
 }
 
-// Calculates CRC for DShot packet
-uint16_t DShotRMT::calculateCRC(dshot_packet_t dshot_packet)
+//
+bool DShotRMT::_initTXChannel()
 {
-    uint16_t crc = (dshot_packet.throttle_value << 1) | (dshot_packet.telemetric_request);
+    // --- RMT TX Config ---
+    _tx_channel_config.gpio_num = _gpio;
+    _tx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
+    _tx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
+    _tx_channel_config.mem_block_symbols = DSHOT_SYMBOLS_SIZE;
+    _tx_channel_config.trans_queue_depth = TX_BUFFER_SIZE;
 
-    // CRC calculation for DShot (4 bits)
-    dshot_packet.checksum = ((crc ^ (crc >> 4) ^ (crc >> 8)) & 0b0000000000001111);
+    _transmit_config.loop_count = 0;
 
-    // CRC is inverted for bidirectional DShot
-    if (dshot_packet.telemetric_request)
-        dshot_packet.checksum = (~dshot_packet.checksum) & 0b0000000000001111;
+    // ...it's a trap
+    _transmit_config.flags.eot_level = _is_bidirectional ? 1 : 0;
 
-    return dshot_packet.checksum;
-}
-
-// Assembles DShot packet (11 bit throttle + 1 bit telemetry request + 4 bit CRC)
-uint16_t DShotRMT::parseDShotPacket(const dshot_packet_t dshot_packet)
-{
-    uint16_t raw = (((dshot_packet.throttle_value << 1) | (dshot_packet.telemetric_request)) & 0b0000111111111111);
-    return (((raw << 4) | (dshot_packet.checksum)) & 0b1111111111111111);
-}
-
-// Converts a 16-bit packet into a valid DShot frame for RMT
-void DShotRMT::encodeDShotTX(dshot_packet_t dshot_packet, rmt_symbol_word_t *symbols)
-{
-    // Encoding to "raw" DShot Packet
-    uint16_t frame_bits = parseDShotPacket(dshot_packet);
-
-    // Always start with the "first" bit
-    size_t count = NULL;
-
-    // Convert the parsed dshot frame to rmt_tx data
-    for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; i--)
+    // Creates and activate RMT TX Channel
+    if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
     {
-        bool bit = (frame_bits >> i) & 0b0000000000000001;
-        if (_isBidirectional)
+        return DSHOT_ERROR;
+    }
+
+    return rmt_enable(_rmt_tx_channel) == 0;
+}
+
+//
+bool DShotRMT::_initRXChannel()
+{
+    // --- RMT RX Config ---
+    _rx_channel_config.gpio_num = _gpio;
+    _rx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
+    _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
+    _rx_channel_config.mem_block_symbols = DSHOT_SYMBOLS_SIZE;
+
+    _receive_config.signal_range_min_ns = 300;
+    _receive_config.signal_range_max_ns = 5000;
+
+    // Create and activate RMT TX Channel
+    if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
+    {
+        return DSHOT_ERROR;
+    }
+
+    return rmt_enable(_rmt_rx_channel) == 0;
+}
+
+//
+bool DShotRMT::_initDShotEncoder()
+{
+    // Creates a dummy encoder
+    rmt_copy_encoder_config_t encoder_config = {};
+    return rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) == 0;
+}
+
+//
+bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
+{
+    //
+    if (!_timer_signal())
+    {
+        return DSHOT_ERROR;
+    }
+
+    // Encodes packet directly into RMT Buffer
+    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
+    _encodeDShotFrame(packet, tx_symbols);
+
+    // Trigger RMT Transmit
+    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config) != 0)
+    {
+        Serial.println("Failed to transmit DShot packet");
+        return DSHOT_ERROR;
+    }
+
+    _timer_reset();
+    return DSHOT_OK;
+}
+
+//
+uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
+{
+    uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
+    uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
+
+    // Invert CRC for bidirectional DShot
+    if (packet.telemetric_request)
+    {
+        crc = (~crc) & 0b0000000000001111;
+    }
+
+    return crc;
+}
+
+//
+uint16_t DShotRMT::_assembleDShotFrame(const dshot_packet_t &packet)
+{
+    // Parses DShot Frame
+    uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
+    return (data << 4) | packet.checksum;
+}
+
+//
+void DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+{
+    {
+        // Encoding to "raw" DShot Packet
+        uint16_t frame_bits = _assembleDShotFrame(packet);
+
+        // Convert the parsed dshot frame to rmt_tx data
+        for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
         {
-            symbols[count].level0 = 0;
-            symbols[count].duration0 = bit ? dshot_times.ticks_one_high : dshot_times.ticks_zero_high;
-            symbols[count].level1 = 1;
-            symbols[count].duration1 = bit ? dshot_times.ticks_one_low : dshot_times.ticks_zero_low;
+            // Encode RMT symbols bitwise (MSB first) - tricky
+            bool bit = (frame_bits >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
+            if (_is_bidirectional)
+            {
+                symbols[i].level0 = 0;
+                symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+                symbols[i].level1 = 1;
+                symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
+            }
+            else
+            {
+                symbols[i].level0 = 1;
+                symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+                symbols[i].level1 = 0;
+                symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
+            }
         }
-        else
-        {
-            symbols[count].level0 = 1;
-            symbols[count].duration0 = bit ? dshot_times.ticks_one_high : dshot_times.ticks_zero_high;
-            symbols[count].level1 = 0;
-            symbols[count].duration1 = bit ? dshot_times.ticks_one_low : dshot_times.ticks_zero_low;
-        }
-        count++;
     }
 }
 
-// Decodes a response frame from ESC containing eRPM info
-uint16_t DShotRMT::decodeDShotRX(const rmt_symbol_word_t *symbols, uint32_t count)
+//
+uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t symbol_count)
 {
-    uint16_t received_frame = DSHOT_NULL_PACKET;
+    uint16_t received_frame = 0;
 
-    // Build the frame bit by bit
-    for (size_t i = 0; i < DSHOT_BITS_PER_FRAME && i < count; ++i)
+    // Decode each symbol to reconstruct the frame
+    for (size_t i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
     {
-        bool bit = (symbols[i].duration0 < symbols[i].duration1);
+        bool bit = symbols[i].duration0 < symbols[i].duration1;
         received_frame = (received_frame << 1) | bit;
     }
 
-    // Extract CRC and payload
-    uint16_t payload = received_frame >> 4;
-    uint8_t crc_received = received_frame & 0b0000000000001111;
+    // Extract payload and CRC
+    uint16_t data = received_frame >> 4;
+    uint8_t received_crc = received_frame & 0b0000000000001111;
 
     // Calculate CRC for received frame
-    uint8_t crc_calculated = (payload ^ (payload >> 4) ^ (payload >> 8)) & 0b0000000000001111;
-    if (_isBidirectional)
-        crc_calculated = (~crc_calculated) & 0b0000000000001111;
-
-    // Check CRC
-    if (crc_received != crc_calculated)
+    uint8_t calculated_crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
+    if (_is_bidirectional)
     {
-        Serial.println("RX - CRC check failed.");
-        return _last_erpm;
+        calculated_crc = (~calculated_crc) & 0b0000000000001111;
     }
 
-    // Remove telemetry bit
-    return _last_erpm = payload >> 1;
+    // Compare CRC
+    if (received_crc != calculated_crc)
+    {
+        Serial.println("RX CRC Check failed");
+        return 0b0000000000000000;
+    }
+
+    // Remove telemetry bit and return eRPM
+    return data >> 1;
+}
+
+//
+bool DShotRMT::_timer_signal()
+{
+    return (micros() - _last_transmission_time) >= _frame_time_us;
+}
+
+//
+void DShotRMT::_timer_reset()
+{
+    _last_transmission_time = micros();
 }

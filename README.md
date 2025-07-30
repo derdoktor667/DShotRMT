@@ -114,7 +114,7 @@ Perfect for DShot:
 
 ## 📝 API Reference
 
-- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional, uint8_t pauseDuration = 120)`
+- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)`
 - `void begin()`
 - `void setThrottle(uint16_t throttle)`
 - `uint32_t getERPM()`

@@ -32,6 +32,7 @@ void printRPMPeriodically(uint16_t throttle);
 // Reads throttle value from serial input
 uint16_t readSerialThrottle();
 
+//
 void setup()
 {
     // Start the USB Serial Port
@@ -45,9 +46,10 @@ void setup()
 
     USB_SERIAL.println("**********************");
     USB_SERIAL.println("DShotRMT Demo started.");
-    USB_SERIAL.println("Enter a throttle value (48–2047):");
+    USB_SERIAL.println("Enter a throttle value (48 – 2047):");
 }
 
+//
 void loop()
 {
     // Read value input from Serial
@@ -73,12 +75,10 @@ uint16_t readSerialThrottle()
         String input = USB_SERIAL.readStringUntil('\n');
         int throttle_input = input.toInt();
 
-        // Clamp the value to the DShot range
-        throttle_input = constrain(throttle_input, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-
         if (throttle_input < DSHOT_THROTTLE_MIN || throttle_input > DSHOT_THROTTLE_MAX)
         {
             USB_SERIAL.println("Invalid input. Please enter a value between 48 and 2047.");
+            return last_throttle;
         }
         else
         {
@@ -88,7 +88,7 @@ uint16_t readSerialThrottle()
         }
 
         USB_SERIAL.println("*********************************");
-        USB_SERIAL.println("Enter a throttle value (48–2047):");
+        USB_SERIAL.println("Enter a throttle value (48 – 2047):");
     }
 
     return last_throttle;
@@ -98,17 +98,16 @@ uint16_t readSerialThrottle()
 void printRPMPeriodically(uint16_t throttle)
 {
     static unsigned long last_print_time = 0;
-    unsigned long now = millis();
 
-    if (now - last_print_time >= 2000)
+    if (millis() - last_print_time >= 2000)
     {
-        last_print_time = now;
-
         uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
 
         USB_SERIAL.print("Throttle: ");
         USB_SERIAL.print(throttle);
         USB_SERIAL.print(" | RPM: ");
         USB_SERIAL.println(rpm);
+
+        last_print_time = millis();
     }
 }

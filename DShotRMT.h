@@ -77,7 +77,7 @@ public:
     // Sets the throttle value and transmits
     bool setThrottle(uint16_t throttle);
 
-    // Sends a DShot Command
+    // Sends a valid DShot Command
     bool sendDShotCommand(uint16_t command);
 
     // Gets eRPM from ESC telemetry
@@ -89,7 +89,7 @@ public:
     //
     gpio_num_t getGPIO() const { return _gpio; }
     dshot_mode_t getDShotMode() const { return _mode; }
-    bool is_bidirectional() const { return _is_bidirectional; }
+    bool isBidirectional() const { return _is_bidirectional; }
 
 private:
     // --- Config ---
@@ -117,14 +117,14 @@ private:
     uint16_t _last_erpm;
     unsigned long _last_transmission_time;
 
-    //
+    // 
     bool _initTXChannel();
     bool _initRXChannel();
     bool _initDShotEncoder();
 
     uint16_t _calculateCRC(const dshot_packet_t &packet);
     uint16_t _assembleDShotFrame(const dshot_packet_t &packet);
-    void _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
+    bool _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t symbol_count);
     bool _sendDShotFrame(const dshot_packet_t &packet);
 

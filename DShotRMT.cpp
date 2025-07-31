@@ -19,7 +19,8 @@ const dshot_timing_t DSHOT_TIMINGS[] = {
 
 //
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
-    : _gpio(gpio), _mode(mode)
+    : _gpio(gpio)
+    , _mode(mode)
     , _is_bidirectional(is_bidirectional)
     , _timing_config(DSHOT_TIMINGS[mode])
     , _rmt_tx_channel(nullptr)
@@ -62,10 +63,9 @@ bool DShotRMT::begin()
     return DSHOT_OK;
 }
 
-//
+// Sets the throttle value and transmits
 bool DShotRMT::setThrottle(uint16_t throttle)
 {
-
     // DShot Frame Container
     dshot_packet_t packet = {};
 
@@ -78,6 +78,32 @@ bool DShotRMT::setThrottle(uint16_t throttle)
     {
         return DSHOT_ERROR;
     }
+
+    return DSHOT_OK;
+}
+
+// DShot Commands
+bool DShotRMT::sendDShotCommand(uint16_t command)
+{
+    // DShot Frame Container
+    dshot_packet_t packet = {};
+
+    if ((command < DSHOT_CMD_MOTOR_STOP) || command > DSHOT_CMD_MAX)
+    {
+        return DSHOT_ERROR;
+    }
+
+    // Create DShot packet
+    packet.throttle_value = command;
+    packet.telemetric_request = _is_bidirectional;
+    packet.checksum = _calculateCRC(packet);
+
+    if (!_sendDShotFrame(packet))
+    {
+        return DSHOT_ERROR;
+    }
+
+    return DSHOT_OK;
 }
 
 //
@@ -203,40 +229,47 @@ uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
     return crc;
 }
 
-//
+// Create a "raw" DShot Frame
 uint16_t DShotRMT::_assembleDShotFrame(const dshot_packet_t &packet)
 {
-    // Parses DShot Frame
+    // Check packet
+    uint16_t crc_calculated = _calculateCRC(packet);
+    uint16_t crc_in_packet = packet.checksum;
+
+    if (crc_calculated != crc_in_packet)
+    {
+        return DSHOT_ERROR;
+    }
+    
+    // Parses DShot Packet
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
     return (data << 4) | packet.checksum;
 }
 
-//
-void DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+// Converts DShot Frame 
+bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
-    {
-        // Encoding to "raw" DShot Packet
-        uint16_t frame_bits = _assembleDShotFrame(packet);
+    // Encoding to "raw" DShot Packet
+    uint16_t frame_bits = _assembleDShotFrame(packet);
 
-        // Convert the parsed dshot frame to rmt_tx data
-        for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
+    // Convert the parsed dshot frame to rmt_tx data
+    for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
+    {
+        // Encode RMT symbols bitwise (MSB first) - tricky
+        bool bit = (frame_bits >> ((DSHOT_BITS_PER_FRAME - 1) - i)) & 0b0000000000000001;
+        if (_is_bidirectional)
         {
-            // Encode RMT symbols bitwise (MSB first) - tricky
-            bool bit = (frame_bits >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
-            if (_is_bidirectional)
-            {
-                symbols[i].level0 = 0;
-                symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-                symbols[i].level1 = 1;
-                symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
-            }
-            else
-            {
-                symbols[i].level0 = 1;
-                symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-                symbols[i].level1 = 0;
-                symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
-            }
+            symbols[i].level0 = 0;
+            symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+            symbols[i].level1 = 1;
+            symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
+        }
+        else
+        {
+            symbols[i].level0 = 1;
+            symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+            symbols[i].level1 = 0;
+            symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
         }
     }
 }
@@ -275,13 +308,13 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t sy
     return data >> 1;
 }
 
-//
+// Timer is ringing
 bool DShotRMT::_timer_signal()
 {
-    return (micros() - _last_transmission_time) >= _frame_time_us;
+    return ((micros() - _last_transmission_time) >= _frame_time_us);
 }
 
-//
+// Timer restart
 void DShotRMT::_timer_reset()
 {
     _last_transmission_time = micros();

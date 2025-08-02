@@ -13,6 +13,7 @@
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
+#include <hw_defaults.h>
 
 static constexpr bool DSHOT_OK = 0;
 static constexpr bool DSHOT_ERROR = 1;

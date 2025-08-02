@@ -65,12 +65,28 @@ bool DShotRMT::begin()
 //
 bool DShotRMT::setThrottle(uint16_t throttle)
 {
-
     // DShot Frame Container
     dshot_packet_t packet = {};
 
     // Create DShot packet
     packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+    packet.telemetric_request = _is_bidirectional;
+    packet.checksum = _calculateCRC(packet);
+
+    if (!_sendDShotFrame(packet))
+    {
+        return DSHOT_ERROR;
+    }
+}
+
+//
+bool DShotRMT::sendDShotCommand(uint16_t command)
+{
+    // DShot Frame Container
+    dshot_packet_t packet = {};
+
+    // Create DShot packet
+    packet.throttle_value = constrain(command, DSHOT_CMD_MOTOR_STOP, DSHOT_CMD_MAX);
     packet.telemetric_request = _is_bidirectional;
     packet.checksum = _calculateCRC(packet);
 

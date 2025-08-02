@@ -16,10 +16,12 @@ constexpr uint32_t USB_SERIAL_BAUD = 115200;
 // Motor configuration
 constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
 constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
-constexpr uint8_t MOTOR01_MAGNET_COUNT = 14;
 
-// BiDirectional DShot Signal (default: false)
+// BiDirectional DShot Support (default: false)
 constexpr bool IS_BIDIRECTIONAL = false;
+
+// Motor magnet count for RPM calculation
+constexpr uint8_t MOTOR01_MAGNET_COUNT = 14;
 
 // Setup Motor Pin, DShot Mode and optional BiDirectional Support
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
@@ -38,6 +40,9 @@ void setup()
 
     // Initialize DShot Signal
     motor01.begin();
+
+    // Arm ESC with minimum throttle
+    motor01.setThrottle(DSHOT_THROTTLE_MIN);
 
     USB_SERIAL.println("**********************");
     USB_SERIAL.println("DShotRMT Demo started.");

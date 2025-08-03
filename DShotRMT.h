@@ -13,6 +13,7 @@
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
+#include <hw_defaults.h>
 
 static constexpr bool DSHOT_OK = 0;
 static constexpr bool DSHOT_ERROR = 1;
@@ -23,7 +24,7 @@ static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;
 static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;
 
 static constexpr uint8_t DSHOT_BITS_PER_FRAME = 16;
-static constexpr uint8_t DSHOT_SWITCH_TIME = 21;
+static constexpr uint8_t DSHOT_SWITCH_TIME = 300; // 30us
 static constexpr uint16_t DSHOT_NULL_PACKET = 0b0000000000000000;
 
 // --- RMT Config Constants ---
@@ -65,6 +66,7 @@ typedef struct
 // --- DShot Timing Config ---
 extern const dshot_timing_t DSHOT_TIMINGS[];
 
+//
 class DShotRMT
 {
 public:
@@ -122,12 +124,12 @@ private:
     bool _initRXChannel();
     bool _initDShotEncoder();
 
+    uint16_t _sendDShotFrame(const dshot_packet_t &packet);
     uint16_t _calculateCRC(const dshot_packet_t &packet);
     uint16_t _assembleDShotFrame(const dshot_packet_t &packet);
-    void _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
+    bool _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t symbol_count);
-    bool _sendDShotFrame(const dshot_packet_t &packet);
 
     bool _timer_signal();
-    void _timer_reset();
+    bool _timer_reset();
 };

@@ -10,18 +10,18 @@
 #include <DShotRMT.h>
 
 // USB serial port settings
-constexpr auto &USB_SERIAL = Serial0;
-constexpr uint32_t USB_SERIAL_BAUD = 115200;
+static constexpr HardwareSerial &USB_SERIAL = Serial0;
+static constexpr uint32_t USB_SERIAL_BAUD = 115200;
 
 // Motor configuration
-constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
-constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
+static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
+static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
-constexpr bool IS_BIDIRECTIONAL = false;
+static constexpr bool IS_BIDIRECTIONAL = false;
 
 // Motor magnet count for RPM calculation
-constexpr uint8_t MOTOR01_MAGNET_COUNT = 14;
+static constexpr uint8_t MOTOR01_MAGNET_COUNT = 14;
 
 // Setup Motor Pin, DShot Mode and optional BiDirectional Support
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);

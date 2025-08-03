@@ -10,11 +10,11 @@
 #include <DShotRMT.h>
 
 // USB serial port settings
-static constexpr auto &USB_SERIAL = Serial0;
+static constexpr HardwareSerial &USB_SERIAL = Serial0;
 static constexpr uint32_t USB_SERIAL_BAUD = 115200;
 
 // Motor configuration
-static constexpr gpio_num_t MOTOR01_PIN = PIN_UART2_RX;
+static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)

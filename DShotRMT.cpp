@@ -9,7 +9,8 @@
 #include "DShotRMT.h"
 
 // --- DShot Timings ---
-const dshot_timing_t DSHOT_TIMINGS[] = {
+// frame_length_us, ticks_per_bit, ticks_one_high, ticks_zero_high, ticks_zero_low, ticks_one_low
+constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {0, 0, 0, 0, 0, 0},        // DSHOT_OFF
     {128, 64, 48, 24, 40, 16}, // DSHOT150
     {64, 32, 24, 12, 20, 8},   // DSHOT300
@@ -18,15 +19,16 @@ const dshot_timing_t DSHOT_TIMINGS[] = {
 };
 
 //
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
-    : _gpio(gpio), _mode(mode)
-    , _is_bidirectional(is_bidirectional)
-    , _timing_config(DSHOT_TIMINGS[mode])
-    , _rmt_tx_channel(nullptr)
-    , _rmt_rx_channel(nullptr)
-    , _dshot_encoder(nullptr)
-    , _last_erpm(0)
-    , _last_transmission_time(0)
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
+     _gpio(gpio),
+     _mode(mode),
+     _is_bidirectional(is_bidirectional),
+     _timing_config(DSHOT_TIMINGS[mode]),
+     _rmt_tx_channel(nullptr),
+     _rmt_rx_channel(nullptr),
+     _dshot_encoder(nullptr),
+     _last_erpm(0),
+     _last_transmission_time(0)
 {
     // Calculate frame time including switch time
     _frame_time_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
@@ -38,21 +40,24 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
     }
 }
 
-//
+// Init DShotRMT
 bool DShotRMT::begin()
 {
+    // Init TX Channel
     if (!_initTXChannel())
     {
         Serial.println("Failed to initialize TX channel");
         return DSHOT_ERROR;
     }
 
+    // Init RX Channel
     if (!_initRXChannel() && _is_bidirectional)
     {
         Serial.println("Failed to initialize RX channel");
         return DSHOT_ERROR;
     }
 
+    // Init DShot Decoder
     if (!_initDShotEncoder())
     {
         Serial.println("Failed to initialize encoder");
@@ -77,6 +82,8 @@ bool DShotRMT::setThrottle(uint16_t throttle)
     {
         return DSHOT_ERROR;
     }
+
+    return DSHOT_OK;
 }
 
 //
@@ -94,6 +101,7 @@ bool DShotRMT::sendDShotCommand(uint16_t command)
     {
         return DSHOT_ERROR;
     }
+    return DSHOT_OK;
 }
 
 //
@@ -180,28 +188,30 @@ bool DShotRMT::_initDShotEncoder()
     return rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) == 0;
 }
 
-//
-bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
+// Use RMT to transmit a prepared DShot packet and returns it
+uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    //
-    if (!_timer_signal())
-    {
-        return DSHOT_ERROR;
-    }
-
     // Encodes packet directly into RMT Buffer
     rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
     _encodeDShotFrame(packet, tx_symbols);
+
+    //
+    if (!_timer_signal())
+    {
+        return DSHOT_NULL_PACKET;
+    }
 
     // Trigger RMT Transmit
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config) != 0)
     {
         Serial.println("Failed to transmit DShot packet");
-        return DSHOT_ERROR;
+        return DSHOT_NULL_PACKET;
     }
 
+    // Time Stamp
     _timer_reset();
-    return DSHOT_OK;
+
+    return _assembleDShotFrame(packet);
 }
 
 //
@@ -228,33 +238,32 @@ uint16_t DShotRMT::_assembleDShotFrame(const dshot_packet_t &packet)
 }
 
 //
-void DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+bool DShotRMT::_encodeDShotFrame(const dshot_packet_t& packet, rmt_symbol_word_t* symbols)
 {
-    {
-        // Encoding to "raw" DShot Packet
-        uint16_t frame_bits = _assembleDShotFrame(packet);
+    // Encoding to "raw" DShot Packet
+    uint16_t frame_bits = _assembleDShotFrame(packet);
 
-        // Convert the parsed dshot frame to rmt_tx data
-        for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
+    // Convert the parsed dshot frame to rmt_tx data
+    for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
+    {
+        // Encode RMT symbols bitwise (MSB first) - tricky
+        bool bit = (frame_bits >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
+        if (_is_bidirectional)
         {
-            // Encode RMT symbols bitwise (MSB first) - tricky
-            bool bit = (frame_bits >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
-            if (_is_bidirectional)
-            {
-                symbols[i].level0 = 0;
-                symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-                symbols[i].level1 = 1;
-                symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
-            }
-            else
-            {
-                symbols[i].level0 = 1;
-                symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-                symbols[i].level1 = 0;
-                symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
-            }
+            symbols[i].level0 = 0;
+            symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+            symbols[i].level1 = 1;
+            symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
+        }
+        else
+        {
+            symbols[i].level0 = 1;
+            symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+            symbols[i].level1 = 0;
+            symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
         }
     }
+    return DSHOT_OK;
 }
 
 //
@@ -298,7 +307,9 @@ bool DShotRMT::_timer_signal()
 }
 
 //
-void DShotRMT::_timer_reset()
+bool DShotRMT::_timer_reset()
 {
+    // Timestamp update
     _last_transmission_time = micros();
+    return DSHOT_OK;
 }

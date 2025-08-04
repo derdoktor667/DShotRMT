@@ -19,25 +19,25 @@ constexpr dshot_timing_t DSHOT_TIMINGS[] = {
 };
 
 //
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
-     _gpio(gpio),
-     _mode(mode),
-     _is_bidirectional(is_bidirectional),
-     _timing_config(DSHOT_TIMINGS[mode]),
-     _rmt_tx_channel(nullptr),
-     _rmt_rx_channel(nullptr),
-     _dshot_encoder(nullptr),
-     _last_erpm(0),
-     _last_transmission_time(0)
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional) : _gpio(gpio),
+                                                                                _mode(mode),
+                                                                                _is_bidirectional(is_bidirectional),
+                                                                                _timing_config(DSHOT_TIMINGS[mode]),
+                                                                                _rmt_tx_channel(nullptr),
+                                                                                _rmt_rx_channel(nullptr),
+                                                                                _dshot_encoder(nullptr),
+                                                                                _last_erpm(0),
+                                                                                _last_transmission_time(0),
+                                                                                _current_packet(0)
 {
-    // Calculate frame time including switch time
-    _frame_time_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
-
     // Double up frame time for bidirectional mode
     if (_is_bidirectional)
     {
-        _frame_time_us += _frame_time_us;
+        _frame_time_us = (_timing_config.frame_length_us << 1) + DSHOT_SWITCH_TIME;
     }
+
+    // Calculate frame time including switch time
+    _frame_time_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
 }
 
 // Init DShotRMT
@@ -75,7 +75,7 @@ bool DShotRMT::setThrottle(uint16_t throttle)
 
     // Create DShot packet
     packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-    packet.telemetric_request = _is_bidirectional;
+    packet.telemetric_request = 0;
     packet.checksum = _calculateCRC(packet);
 
     if (!_sendDShotFrame(packet))
@@ -94,13 +94,14 @@ bool DShotRMT::sendDShotCommand(uint16_t command)
 
     // Create DShot packet
     packet.throttle_value = constrain(command, DSHOT_CMD_MOTOR_STOP, DSHOT_CMD_MAX);
-    packet.telemetric_request = _is_bidirectional;
+    packet.telemetric_request = 0;
     packet.checksum = _calculateCRC(packet);
 
     if (!_sendDShotFrame(packet))
     {
         return DSHOT_ERROR;
     }
+
     return DSHOT_OK;
 }
 
@@ -156,7 +157,7 @@ bool DShotRMT::_initTXChannel()
         return DSHOT_ERROR;
     }
 
-    return rmt_enable(_rmt_tx_channel) == 0;
+    return (rmt_enable(_rmt_tx_channel) == 0);
 }
 
 //
@@ -177,7 +178,7 @@ bool DShotRMT::_initRXChannel()
         return DSHOT_ERROR;
     }
 
-    return rmt_enable(_rmt_rx_channel) == 0;
+    return (rmt_enable(_rmt_rx_channel) == 0);
 }
 
 //
@@ -211,17 +212,18 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     // Time Stamp
     _timer_reset();
 
-    return _assembleDShotFrame(packet);
+    //
+    return _parseDShotPacket(packet);
 }
 
-//
+// Calculates checksum for given package
 uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
 {
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
     uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
 
     // Invert CRC for bidirectional DShot
-    if (packet.telemetric_request)
+    if (_is_bidirectional)
     {
         crc = (~crc) & 0b0000000000001111;
     }
@@ -230,7 +232,7 @@ uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
 }
 
 //
-uint16_t DShotRMT::_assembleDShotFrame(const dshot_packet_t &packet)
+uint16_t DShotRMT::_parseDShotPacket(const dshot_packet_t &packet)
 {
     // Parses DShot Frame
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
@@ -238,10 +240,13 @@ uint16_t DShotRMT::_assembleDShotFrame(const dshot_packet_t &packet)
 }
 
 //
-bool DShotRMT::_encodeDShotFrame(const dshot_packet_t& packet, rmt_symbol_word_t* symbols)
+bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     // Encoding to "raw" DShot Packet
-    uint16_t frame_bits = _assembleDShotFrame(packet);
+    uint16_t frame_bits = _parseDShotPacket(packet);
+
+    // Updates temp buffer with encoded packet
+    _current_packet = frame_bits;
 
     // Convert the parsed dshot frame to rmt_tx data
     for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
@@ -303,6 +308,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t sy
 //
 bool DShotRMT::_timer_signal()
 {
+    // Timer triggered
     return (micros() - _last_transmission_time) >= _frame_time_us;
 }
 

@@ -32,6 +32,9 @@ void printRPMPeriodically(uint16_t throttle);
 // Reads throttle value from serial input
 uint16_t readSerialThrottle();
 
+// Prints out the dshot packet bitwise (Debug)
+void printPacket();
+
 //
 void setup()
 {
@@ -63,6 +66,9 @@ void loop()
     {
         printRPMPeriodically(throttle_input);
     }
+
+    // Prints out "raw" DShot packet
+    // printPacket();
 }
 
 // Reads throttle value from serial input
@@ -108,6 +114,33 @@ void printRPMPeriodically(uint16_t throttle)
         USB_SERIAL.print(" | RPM: ");
         USB_SERIAL.println(rpm);
 
+        last_print_time = millis();
+    }
+}
+
+//
+void printPacket()
+{
+    static unsigned long last_print_time = 0;
+
+    if (millis() - last_print_time >= 2000)
+    {
+        // Prints out actual DShot Packet bitwise
+        uint16_t packet = motor01.getDShotPacket();
+
+        for (int i = 15; i >= 0; --i)
+        {
+            if ((packet >> i) & 1)
+            {
+                USB_SERIAL.print("1");
+            }
+            else
+            {
+                USB_SERIAL.print("0");
+            }
+        }
+
+        USB_SERIAL.println("");
         last_print_time = millis();
     }
 }

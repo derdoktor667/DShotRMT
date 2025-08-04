@@ -90,7 +90,6 @@ public:
 
     //
     gpio_num_t getGPIO() const { return _gpio; }
-    dshot_mode_t getDShotMode() const { return _mode; }
     uint16_t getDShotPacket() { return _current_packet; }
     bool is_bidirectional() const { return _is_bidirectional; }
 
@@ -126,8 +125,9 @@ private:
     bool _initRXChannel();
     bool _initDShotEncoder();
 
-    uint16_t _sendDShotFrame(const dshot_packet_t &packet);
+    bool _sendDShotFrame(const dshot_packet_t &packet);
     uint16_t _calculateCRC(const dshot_packet_t &packet);
+    dshot_packet_t _buildDShotPacket(const uint16_t value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t symbol_count);

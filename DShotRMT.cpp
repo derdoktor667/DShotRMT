@@ -70,39 +70,31 @@ bool DShotRMT::begin()
 //
 bool DShotRMT::setThrottle(uint16_t throttle)
 {
-    // DShot Frame Container
-    dshot_packet_t packet = {};
-
-    // Create DShot packet
-    packet.throttle_value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-    packet.telemetric_request = 0;
-    packet.checksum = _calculateCRC(packet);
-
-    if (!_sendDShotFrame(packet))
+    // Precheck throttle value
+    if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
     {
         return DSHOT_ERROR;
     }
+    
+    //
+    dshot_packet_t packet = _buildDShotPacket(throttle);
 
-    return DSHOT_OK;
+    return (_sendDShotFrame(packet));
 }
 
 //
 bool DShotRMT::sendDShotCommand(uint16_t command)
 {
-    // DShot Frame Container
-    dshot_packet_t packet = {};
-
-    // Create DShot packet
-    packet.throttle_value = constrain(command, DSHOT_CMD_MOTOR_STOP, DSHOT_CMD_MAX);
-    packet.telemetric_request = 0;
-    packet.checksum = _calculateCRC(packet);
-
-    if (!_sendDShotFrame(packet))
+    // Precheck throttle value
+    if (command < DSHOT_CMD_MOTOR_STOP || command > DSHOT_CMD_MAX)
     {
         return DSHOT_ERROR;
     }
+    
+    //
+    dshot_packet_t packet = _buildDShotPacket(command);
 
-    return DSHOT_OK;
+    return (_sendDShotFrame(packet));
 }
 
 //
@@ -190,30 +182,30 @@ bool DShotRMT::_initDShotEncoder()
 }
 
 // Use RMT to transmit a prepared DShot packet and returns it
-uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
+bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    // Encodes packet directly into RMT Buffer
-    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
-    _encodeDShotFrame(packet, tx_symbols);
-
     //
     if (!_timer_signal())
     {
-        return DSHOT_NULL_PACKET;
+        return DSHOT_ERROR;
     }
+
+    // Encodes packet directly into RMT Buffer
+    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
+    _encodeDShotFrame(packet, tx_symbols);
 
     // Trigger RMT Transmit
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config) != 0)
     {
         Serial.println("Failed to transmit DShot packet");
-        return DSHOT_NULL_PACKET;
+        return DSHOT_ERROR;
     }
 
     // Time Stamp
     _timer_reset();
 
     //
-    return _parseDShotPacket(packet);
+    return DSHOT_OK;
 }
 
 // Calculates checksum for given package
@@ -236,23 +228,34 @@ uint16_t DShotRMT::_parseDShotPacket(const dshot_packet_t &packet)
 {
     // Parses DShot Frame
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
-    return (data << 4) | packet.checksum;
+    return (data << 4) | _calculateCRC(packet);
+}
+
+dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
+{
+    // DShot Frame Container
+    dshot_packet_t packet = {};
+
+    // Create DShot packet
+    packet.throttle_value = value;
+    packet.telemetric_request = 0;
+    packet.checksum = _calculateCRC(packet);
+
+    //
+    return packet;
 }
 
 //
 bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
-    // Encoding to "raw" DShot Packet
-    uint16_t frame_bits = _parseDShotPacket(packet);
-
-    // Updates temp buffer with encoded packet
-    _current_packet = frame_bits;
+    // Decoding "raw" DShot Packet
+    _current_packet = _parseDShotPacket(packet);
 
     // Convert the parsed dshot frame to rmt_tx data
     for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
     {
         // Encode RMT symbols bitwise (MSB first) - tricky
-        bool bit = (frame_bits >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
+        bool bit = (_current_packet >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
         if (_is_bidirectional)
         {
             symbols[i].level0 = 0;

@@ -13,10 +13,6 @@
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
-#include <hw_defaults.h>
-
-static constexpr bool DSHOT_OK = 0;
-static constexpr bool DSHOT_ERROR = 1;
 
 // --- DShot Protocol Constants ---
 static constexpr uint16_t DSHOT_THROTTLE_FAILSAFE = 0;
@@ -35,7 +31,7 @@ static constexpr size_t RX_BUFFER_SIZE = 32;
 static constexpr size_t DSHOT_SYMBOLS_SIZE = 64;
 
 // --- DShot Mode Select ---
-typedef enum
+typedef enum dshot_mode_e
 {
     DSHOT_OFF,
     DSHOT150,
@@ -45,7 +41,7 @@ typedef enum
 } dshot_mode_t;
 
 // --- DShot Packet Structure ---
-typedef struct
+typedef struct dshot_packet_s
 {
     uint16_t throttle_value : 11;
     bool telemetric_request : 1;
@@ -53,7 +49,7 @@ typedef struct
 } dshot_packet_t;
 
 // --- DShot Timing Config ---
-typedef struct
+typedef struct dshot_timing_s
 {
     uint16_t frame_length_us;
     uint16_t ticks_per_bit;
@@ -83,14 +79,18 @@ public:
     bool sendDShotCommand(uint16_t command);
 
     // Gets eRPM from ESC telemetry
-    uint32_t getERPM();
+    uint16_t getERPM();
 
     // Converts eRPM to motor RPM
     uint32_t getMotorRPM(uint8_t magnet_count);
 
-    //
-    gpio_num_t getGPIO() const { return _gpio; }
+    // Returns GPIO Pin
+    uint16_t getGPIO() const { return _gpio; }
+
+    // Returns "raw" Dshot packet sent by RMT
     uint16_t getDShotPacket() { return _current_packet; }
+
+    //
     bool is_bidirectional() const { return _is_bidirectional; }
 
 private:
@@ -98,7 +98,7 @@ private:
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
-    uint32_t _frame_time_us;
+    uint16_t _frame_time_us;
 
     // --- DShot Timings ---
     const dshot_timing_t &_timing_config;
@@ -115,10 +115,9 @@ private:
     rmt_receive_config_t _receive_config;
 
     // --- Buffers ---
-    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     uint16_t _last_erpm;
-    unsigned long _last_transmission_time;
     uint16_t _current_packet;
+    unsigned long _last_transmission_time;
 
     //
     bool _initTXChannel();
@@ -130,10 +129,20 @@ private:
     dshot_packet_t _buildDShotPacket(const uint16_t value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
-    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t symbol_count);
+    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
     bool _timer_signal();
     bool _timer_reset();
 
-    //
+    // Error Handling
+    static constexpr bool DSHOT_OK = 0;
+    static constexpr bool DSHOT_ERROR = 1;
+    static constexpr char *DSHOT_MSG_01 = "Failed to initialize TX channel!";
+    static constexpr char *DSHOT_MSG_02 = "Failed to initialize RX channe!l";
+    static constexpr char *DSHOT_MSG_03 = "Failed to initialize encoder!";
+    static constexpr char *DSHOT_MSG_04 = "RX CRC Check failed!";
+    static constexpr char *DSHOT_MSG_06 = "Throttle value not in range (48 - 2047)!";
+    static constexpr char *DSHOT_MSG_07 = "Not a valid DShot Command (0 - 47)!";
+    static constexpr char *DSHOT_MSG_08 = "Bidirectional DShot support not enabled!";
+    static constexpr char *DSHOT_MSG_09 = "RX RMT module failure!";
 };

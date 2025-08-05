@@ -46,21 +46,21 @@ bool DShotRMT::begin()
     // Init TX Channel
     if (!_initTXChannel())
     {
-        Serial.println("Failed to initialize TX channel");
+        Serial.println(DSHOT_MSG_01);
         return DSHOT_ERROR;
     }
 
     // Init RX Channel
     if (!_initRXChannel() && _is_bidirectional)
     {
-        Serial.println("Failed to initialize RX channel");
+        Serial.println(DSHOT_MSG_02);
         return DSHOT_ERROR;
     }
 
     // Init DShot Decoder
     if (!_initDShotEncoder())
     {
-        Serial.println("Failed to initialize encoder");
+        Serial.println(DSHOT_MSG_02);
         return DSHOT_ERROR;
     }
 
@@ -74,6 +74,7 @@ bool DShotRMT::setThrottle(uint16_t throttle)
     // Precheck throttle value
     if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
     {
+        Serial.println(DSHOT_MSG_06);
         return DSHOT_ERROR;
     }
 
@@ -86,9 +87,10 @@ bool DShotRMT::setThrottle(uint16_t throttle)
 //
 bool DShotRMT::sendDShotCommand(uint16_t command)
 {
-    // Precheck throttle value
+    // Precheck command value
     if (command < DSHOT_CMD_MOTOR_STOP || command > DSHOT_CMD_MAX)
     {
+        Serial.println(DSHOT_MSG_07);
         return DSHOT_ERROR;
     }
 
@@ -99,21 +101,24 @@ bool DShotRMT::sendDShotCommand(uint16_t command)
 }
 
 //
-uint32_t DShotRMT::getERPM()
+uint16_t DShotRMT::getERPM()
 {
     if (!_is_bidirectional || !_rmt_rx_channel)
     {
+        Serial.println(DSHOT_MSG_08);
         return _last_erpm;
     }
 
     // Try to receive telemetry data
+    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     if (!rmt_receive(_rmt_rx_channel, _rx_symbols, DSHOT_SYMBOLS_SIZE, &_receive_config))
     {
+        Serial.println(DSHOT_MSG_09);
         return _last_erpm;
     }
 
     // Decode the response
-    uint16_t new_erpm = _decodeDShotFrame(_rx_symbols, DSHOT_BITS_PER_FRAME);
+    uint16_t new_erpm = _decodeDShotFrame(_rx_symbols);
     if (new_erpm != 0)
     {
         _last_erpm = new_erpm;
@@ -139,12 +144,13 @@ bool DShotRMT::_initTXChannel()
     _tx_channel_config.mem_block_symbols = DSHOT_SYMBOLS_SIZE;
     _tx_channel_config.trans_queue_depth = TX_BUFFER_SIZE;
 
+    //
     _transmit_config.loop_count = 0;
 
     // ...it's a trap
     _transmit_config.flags.eot_level = _is_bidirectional ? 1 : 0;
 
-    // Creates and activate RMT TX Channel
+    // Creates and activates RMT TX Channel
     if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
     {
         return DSHOT_ERROR;
@@ -165,7 +171,7 @@ bool DShotRMT::_initRXChannel()
     _receive_config.signal_range_min_ns = 300;
     _receive_config.signal_range_max_ns = 5000;
 
-    // Create and activate RMT TX Channel
+    // Creates and activates RMT TX Channel
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
     {
         return DSHOT_ERROR;
@@ -185,16 +191,16 @@ bool DShotRMT::_initDShotEncoder()
 // Use RMT to transmit a prepared DShot packet and returns it
 bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    //
+    // Exclude calculation from timing is more stable
+    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
+    _encodeDShotFrame(packet, tx_symbols);
+
+    // Checking timer signal
     if (_timer_signal())
     {
-        // Encodes packet directly into RMT Buffer
-        rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
-        _encodeDShotFrame(packet, tx_symbols);
-
         // Trigger RMT Transmit
         rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
-        
+
         // Time Stamp
         return _timer_reset();
     }
@@ -217,14 +223,14 @@ uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
     return crc;
 }
 
-//
+// Returns bitwise parsed DShot packet
 uint16_t DShotRMT::_parseDShotPacket(const dshot_packet_t &packet)
 {
-    // Parses DShot Frame
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
     return (data << 4) | _calculateCRC(packet);
 }
 
+// Returns a "true" DShot Packet ready to roll
 dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 {
     // DShot Frame Container
@@ -239,10 +245,10 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
     return packet;
 }
 
-//
+// Encodes DShot packet into RMT buffer
 bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
-    // Decoding "raw" DShot Packet
+    // Parse actual packet into buffer
     _current_packet = _parseDShotPacket(packet);
 
     // Convert the parsed dshot frame to rmt_tx data
@@ -269,7 +275,7 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
 }
 
 //
-uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t symbol_count)
+uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
     uint16_t received_frame = 0;
 
@@ -282,10 +288,10 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t sy
 
     // Extract payload and CRC
     uint16_t data = received_frame >> 4;
-    uint8_t received_crc = received_frame & 0b0000000000001111;
+    uint16_t received_crc = received_frame & 0b0000000000001111;
 
     // Calculate CRC for received frame
-    uint8_t calculated_crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
+    uint16_t calculated_crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
     if (_is_bidirectional)
     {
         calculated_crc = (~calculated_crc) & 0b0000000000001111;
@@ -294,25 +300,23 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols, size_t sy
     // Compare CRC
     if (received_crc != calculated_crc)
     {
-        Serial.println("RX CRC Check failed");
+        Serial.println(DSHOT_MSG_04);
         return 0b0000000000000000;
     }
 
-    // Remove telemetry bit and return eRPM
+    // Removes telemetry bit and returns 10bit value
     return data >> 1;
 }
 
-//
+// Timer triggered
 bool DShotRMT::_timer_signal()
 {
-    // Timer triggered
     return (micros() - _last_transmission_time) >= _frame_time_us;
 }
 
-//
+// Updates timestamp
 bool DShotRMT::_timer_reset()
 {
-    // Timestamp update
     _last_transmission_time = micros();
     return DSHOT_OK;
 }

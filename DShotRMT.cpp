@@ -64,6 +64,7 @@ bool DShotRMT::begin()
         return DSHOT_ERROR;
     }
 
+    // All good, ready
     return DSHOT_OK;
 }
 
@@ -75,7 +76,7 @@ bool DShotRMT::setThrottle(uint16_t throttle)
     {
         return DSHOT_ERROR;
     }
-    
+
     //
     dshot_packet_t packet = _buildDShotPacket(throttle);
 
@@ -90,7 +91,7 @@ bool DShotRMT::sendDShotCommand(uint16_t command)
     {
         return DSHOT_ERROR;
     }
-    
+
     //
     dshot_packet_t packet = _buildDShotPacket(command);
 
@@ -185,27 +186,20 @@ bool DShotRMT::_initDShotEncoder()
 bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
     //
-    if (!_timer_signal())
+    if (_timer_signal())
     {
-        return DSHOT_ERROR;
+        // Encodes packet directly into RMT Buffer
+        rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
+        _encodeDShotFrame(packet, tx_symbols);
+
+        // Trigger RMT Transmit
+        rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
+        
+        // Time Stamp
+        return _timer_reset();
     }
 
-    // Encodes packet directly into RMT Buffer
-    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
-    _encodeDShotFrame(packet, tx_symbols);
-
-    // Trigger RMT Transmit
-    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config) != 0)
-    {
-        Serial.println("Failed to transmit DShot packet");
-        return DSHOT_ERROR;
-    }
-
-    // Time Stamp
-    _timer_reset();
-
-    //
-    return DSHOT_OK;
+    return DSHOT_ERROR;
 }
 
 // Calculates checksum for given package

@@ -134,4 +134,6 @@ private:
 
     bool _timer_signal();
     bool _timer_reset();
+
+    //
 };

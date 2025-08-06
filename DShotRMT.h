@@ -27,7 +27,7 @@ static constexpr uint16_t DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr rmt_clock_source_t DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr uint32_t DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz
 static constexpr size_t TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-static constexpr size_t RX_BUFFER_SIZE = 32;
+static constexpr size_t RX_BUFFER_SIZE = 64; // debug
 static constexpr size_t DSHOT_SYMBOLS_SIZE = 64;
 
 // --- DShot Mode Select ---

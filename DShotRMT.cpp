@@ -18,7 +18,7 @@ constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {16, 8, 6, 3, 5, 2}        // DSHOT1200
 };
 
-//
+// --- DShot Config ---
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional): 
     _gpio(gpio),
     _mode(mode),
@@ -28,8 +28,9 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
     _rmt_rx_channel(nullptr),
     _dshot_encoder(nullptr),
     _last_erpm(0),
-    _last_transmission_time(0),
-    _current_packet(0)
+    _current_packet(0),
+    _packet{0},
+    _last_transmission_time(0)
 {
     // Double up frame time for bidirectional mode
     if (_is_bidirectional)
@@ -39,6 +40,14 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
 
     // Calculate frame time including switch time
     _frame_time_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
+}
+
+// Easy Constructor
+DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional):
+    DShotRMT((gpio_num_t)pin_nr, 
+    mode, 
+    is_bidirectional)
+{
 }
 
 // Init DShotRMT
@@ -69,36 +78,50 @@ bool DShotRMT::begin()
     return DSHOT_OK;
 }
 
-//
+// Deprecated, use "sendThrottle() instead"
 bool DShotRMT::setThrottle(uint16_t throttle)
 {
+    return sendThrottle(throttle);
+}
+
+// Sends a valid throttle value
+bool DShotRMT::sendThrottle(uint16_t throttle)
+{
+    static uint16_t last_throttle = DSHOT_THROTTLE_MIN;
+
     // Precheck throttle value
     if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
     {
         Serial.println(DSHOT_MSG_06);
         return DSHOT_ERROR;
+    } else {
+        last_throttle = throttle;
     }
 
-    //
-    dshot_packet_t packet = _buildDShotPacket(throttle);
+    // Converts throttle value to dshot packet 
+    _packet = _buildDShotPacket(last_throttle);
 
-    return (_sendDShotFrame(packet));
+    return (_sendDShotFrame(_packet));
 }
 
-//
+// Deprecated, use "sendCommand() instead"
 bool DShotRMT::sendDShotCommand(uint16_t command)
 {
-    // Precheck command value
+    return sendCommand(command);
+}
+
+bool DShotRMT::sendCommand(uint16_t command)
+{
+    // Check for valid command
     if (command < DSHOT_CMD_MOTOR_STOP || command > DSHOT_CMD_MAX)
     {
         Serial.println(DSHOT_MSG_07);
         return DSHOT_ERROR;
     }
 
-    //
-    dshot_packet_t packet = _buildDShotPacket(command);
+    _packet = _buildDShotPacket(command);
 
-    return (_sendDShotFrame(packet));
+    return (_sendDShotFrame(_packet));
 }
 
 //

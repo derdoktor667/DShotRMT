@@ -59,24 +59,26 @@ typedef struct dshot_timing_s
     uint16_t ticks_one_low;
 } dshot_timing_t;
 
-// --- DShot Timing Config ---
 extern const dshot_timing_t DSHOT_TIMINGS[];
 
-//
+// --- DShotRMT Class ---
 class DShotRMT
 {
 public:
-    //
+    // --- DShot Config ---
     DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
+    DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
 
     // --- Init RMT Module ---
     bool begin();
 
     // Sets the throttle value and transmits
-    bool setThrottle(uint16_t throttle);
+    bool setThrottle(uint16_t throttle);    // deprecated
+    bool sendThrottle(uint16_t throttle);
 
     // Sends a DShot Command
-    bool sendDShotCommand(uint16_t command);
+    bool sendDShotCommand(uint16_t command);    // deprecated
+    bool sendCommand(uint16_t command);
 
     // Gets eRPM from ESC telemetry
     uint16_t getERPM();
@@ -117,6 +119,7 @@ private:
     // --- Buffers ---
     uint16_t _last_erpm;
     uint16_t _current_packet;
+    dshot_packet_t _packet;
     unsigned long _last_transmission_time;
 
     //

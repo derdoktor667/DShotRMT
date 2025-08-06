@@ -19,16 +19,17 @@ constexpr dshot_timing_t DSHOT_TIMINGS[] = {
 };
 
 //
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional) : _gpio(gpio),
-                                                                                _mode(mode),
-                                                                                _is_bidirectional(is_bidirectional),
-                                                                                _timing_config(DSHOT_TIMINGS[mode]),
-                                                                                _rmt_tx_channel(nullptr),
-                                                                                _rmt_rx_channel(nullptr),
-                                                                                _dshot_encoder(nullptr),
-                                                                                _last_erpm(0),
-                                                                                _last_transmission_time(0),
-                                                                                _current_packet(0)
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional): 
+    _gpio(gpio),
+    _mode(mode),
+    _is_bidirectional(is_bidirectional),
+    _timing_config(DSHOT_TIMINGS[mode]),
+    _rmt_tx_channel(nullptr),
+    _rmt_rx_channel(nullptr),
+    _dshot_encoder(nullptr),
+    _last_erpm(0),
+    _last_transmission_time(0),
+    _current_packet(0)
 {
     // Double up frame time for bidirectional mode
     if (_is_bidirectional)
@@ -60,7 +61,7 @@ bool DShotRMT::begin()
     // Init DShot Decoder
     if (!_initDShotEncoder())
     {
-        Serial.println(DSHOT_MSG_02);
+        Serial.println(DSHOT_MSG_03);
         return DSHOT_ERROR;
     }
 

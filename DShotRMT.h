@@ -90,7 +90,7 @@ public:
     uint16_t getGPIO() const { return _gpio; }
 
     // Returns "raw" Dshot packet sent by RMT
-    uint16_t getDShotPacket() { return _current_packet; }
+    uint16_t getDShotPacket() const { return _current_packet; }
 
     //
     bool is_bidirectional() const { return _is_bidirectional; }

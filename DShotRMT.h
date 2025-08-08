@@ -122,7 +122,7 @@ private:
     dshot_packet_t _packet;
     unsigned long _last_transmission_time;
 
-    //
+    // ---Helpers ---
     bool _initTXChannel();
     bool _initRXChannel();
     bool _initDShotEncoder();
@@ -134,10 +134,11 @@ private:
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
+    // --- Simple Timer ---
     bool _timer_signal();
     bool _timer_reset();
 
-    // Error Handling
+    // --- Error Handling ---
     static constexpr bool DSHOT_OK = 0;
     static constexpr bool DSHOT_ERROR = 1;
     static constexpr char *DSHOT_MSG_01 = "Failed to initialize TX channel!";

@@ -141,7 +141,7 @@ uint16_t DShotRMT::getERPM()
         return _last_erpm;
     }
 
-    // Decode the response
+    // Decodes the response
     uint16_t new_erpm = _decodeDShotFrame(_rx_symbols);
     if (new_erpm != 0)
     {
@@ -168,7 +168,7 @@ bool DShotRMT::_initTXChannel()
     _tx_channel_config.mem_block_symbols = DSHOT_SYMBOLS_SIZE;
     _tx_channel_config.trans_queue_depth = TX_BUFFER_SIZE;
 
-    //
+    // No loops, real time calculation for each frame
     _transmit_config.loop_count = 0;
 
     // ...it's a trap
@@ -215,14 +215,14 @@ bool DShotRMT::_initDShotEncoder()
 // Use RMT to transmit a prepared DShot packet and returns it
 bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    // Exclude calculation from timing is more stable
+    // Excludes calculation from timing is more stable
     rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
     _encodeDShotFrame(packet, tx_symbols);
 
     // Checking timer signal
     if (_timer_signal())
     {
-        // Trigger RMT Transmit
+        // Triggers RMT Transmit
         rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
 
         // Time Stamp
@@ -238,7 +238,7 @@ uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
     uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
 
-    // Invert CRC for bidirectional DShot
+    // Inverts CRC for bidirectional DShot
     if (_is_bidirectional)
     {
         crc = (~crc) & 0b0000000000001111;
@@ -260,7 +260,7 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
     // DShot Frame Container
     dshot_packet_t packet = {};
 
-    // Create DShot packet
+    // Creates DShot packet
     packet.throttle_value = value;
     packet.telemetric_request = 0;
     packet.checksum = _calculateCRC(packet);
@@ -275,10 +275,10 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
     // Parse actual packet into buffer
     _current_packet = _parseDShotPacket(packet);
 
-    // Convert the parsed dshot frame to rmt_tx data
+    // Converts the parsed dshot frame to rmt_tx data
     for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
     {
-        // Encode RMT symbols bitwise (MSB first) - tricky
+        // Encoded RMT symbols bitwise (MSB first) - tricky
         bool bit = (_current_packet >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
         if (_is_bidirectional)
         {
@@ -303,25 +303,25 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
     uint16_t received_frame = 0;
 
-    // Decode each symbol to reconstruct the frame
+    // Decodes each symbol to reconstruct the frame
     for (size_t i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
     {
         bool bit = symbols[i].duration0 < symbols[i].duration1;
         received_frame = (received_frame << 1) | bit;
     }
 
-    // Extract payload and CRC
+    // Extracts payload and CRC
     uint16_t data = received_frame >> 4;
     uint16_t received_crc = received_frame & 0b0000000000001111;
 
-    // Calculate CRC for received frame
+    // Calculates CRC for received frame
     uint16_t calculated_crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
     if (_is_bidirectional)
     {
         calculated_crc = (~calculated_crc) & 0b0000000000001111;
     }
 
-    // Compare CRC
+    // Compares CRC
     if (received_crc != calculated_crc)
     {
         Serial.println(DSHOT_MSG_04);

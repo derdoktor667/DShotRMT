@@ -12,9 +12,9 @@ Supports all standard DShot modes (150, 300, 600) and features continuous frame 
 
 ## 🚀 Features
 
-- **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600
-- **BiDirectional DShot:** Experimental support for telemetry and RPM feedback
-- **Continuous Frames:** Hardware-timed, CPU-independent signal generation
+- **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600, (DSHOT1200)
+- **BiDirectional DShot:** Experimental support for RPM feedback
+- **Continuous Frames:** Independent timed, Hardware signal generation
 - **Configurable Pause:** Ensures ESCs can reliably detect frame boundaries
 - **Simple API:** Easy integration into your Arduino or ESP-IDF project
 
@@ -33,25 +33,7 @@ git clone https://github.com/derdoktor667/DShotRMT.git
 ## ⚡ Quick Start
 
 ```cpp
-#include <DShotRMT.h>
-
-constexpr gpio_num_t MOTOR_PIN = GPIO_NUM_17;
-constexpr dshot_mode_t MODE = DSHOT300;
-constexpr bool BIDIRECTIONAL = true;
-
-DShotRMT motor(MOTOR_PIN, MODE, BIDIRECTIONAL);
-
-void setup() {
-    Serial.begin(115200);
-    motor.begin();
-    motor.setThrottle(1000); // Set throttle value (48–2047)
-}
-
-void loop() {
-    // Optionally read RPM if bidirectional mode is enabled
-    uint32_t rpm = motor.getMotorRPM(14); // 14 magnets
-    Serial.println(rpm);
-}
+Use "dshot300.ino" example sketch
 ```
 
 ---
@@ -104,7 +86,8 @@ crc = (~(value ^ (value >> 4) ^ (value >> 8))) & 0x0F;
 ## 🛠️ ESP32 RMT Peripheral
 
 The RMT (Remote Control) peripheral generates accurate, hardware-timed signals for controlling external devices.  
-Perfect for DShot:  
+Perfect for DShot:
+- Utilizes latest ESP-IDF APIs  
 - Hardware-timed pulses  
 - CPU-independent  
 - Loop mode with inter-frame pause  
@@ -116,11 +99,9 @@ Perfect for DShot:
 
 - `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)`
 - `void begin()`
-- `void setThrottle(uint16_t throttle)`
-- `uint32_t getERPM()`
-- `uint32_t getMotorRPM(uint8_t magnet_count)`
+- `void sendThrottle(uint16_t throttle)`
 
-See [examples/dshot300/dshot300.ino](examples/dshot300/dshot300.ino) for a full demo.
+See [examples/dshot300/dshot300.ino](examples/dshot300/dshot300.ino) for a more informations.
 
 ---
 

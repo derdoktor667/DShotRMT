@@ -14,8 +14,11 @@ static constexpr HardwareSerial &USB_SERIAL = Serial0;
 static constexpr uint32_t USB_SERIAL_BAUD = 115200;
 
 // Motor configuration
+// Pin number or GPIO_PIN
 // static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
 static constexpr uint16_t MOTOR01_PIN = 17;
+
+// Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
@@ -24,17 +27,9 @@ static constexpr bool IS_BIDIRECTIONAL = false;
 // Motor magnet count for RPM calculation
 static constexpr uint8_t MOTOR01_MAGNET_COUNT = 14;
 
-// Setup Motor Pin, DShot Mode and optional BiDirectional Support
+//
+//
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
-
-// Prints RPM if BiDirectional is enabled every ms
-void printRPMPeriodically(uint16_t timer_ms);
-
-// Reads throttle value from serial input
-uint16_t readSerialThrottle(HardwareSerial &serial);
-
-// Prints out the dshot packet bitwise every ms (Debug)
-void printTXPacket(uint16_t timer_ms);
 
 //
 void setup()
@@ -62,7 +57,7 @@ void loop()
     // Send the value to the ESC
     motor01.sendThrottle(throttle_input);
 
-    // Prints RPM every 2 if BiDirectional DShot is enabled
+    // Prints out RPM if BiDirectional DShot is enabled every 2 seconds
     printRPMPeriodically(2000);
 
     // Prints out "raw" DShot packet every 2 seconds

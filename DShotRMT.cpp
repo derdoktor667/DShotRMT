@@ -262,7 +262,7 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 
     // Creates DShot packet
     packet.throttle_value = value;
-    packet.telemetric_request = 0;
+    packet.telemetric_request = 1;  // needed to get the motor spinning
     packet.checksum = _calculateCRC(packet);
 
     //

@@ -100,7 +100,7 @@ private:
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
-    uint16_t _frame_time_us;
+    uint16_t _frame_timer_us;
 
     // --- DShot Timings ---
     const dshot_timing_t &_timing_config;

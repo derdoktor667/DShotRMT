@@ -35,11 +35,11 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
     // Double up frame time for bidirectional mode
     if (_is_bidirectional)
     {
-        _frame_time_us = (_timing_config.frame_length_us << 1) + DSHOT_SWITCH_TIME;
+        _frame_timer_us = (_timing_config.frame_length_us << 1) + DSHOT_SWITCH_TIME;
     }
 
     // Calculate frame time including switch time
-    _frame_time_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
+    _frame_timer_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
 }
 
 // Easy Constructor
@@ -335,7 +335,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 // Timer triggered
 bool DShotRMT::_timer_signal()
 {
-    return (micros() - _last_transmission_time) >= _frame_time_us;
+    return (micros() - _last_transmission_time) >= _frame_timer_us;
 }
 
 // Updates timestamp

@@ -54,29 +54,31 @@ typedef struct dshot_timing_s
     uint16_t frame_length_us;
     uint16_t ticks_per_bit;
     uint16_t ticks_one_high;
+    uint16_t ticks_one_low;
     uint16_t ticks_zero_high;
     uint16_t ticks_zero_low;
-    uint16_t ticks_one_low;
 } dshot_timing_t;
 
-// --- DShot Timing Config ---
 extern const dshot_timing_t DSHOT_TIMINGS[];
 
-//
+// --- DShotRMT Class ---
 class DShotRMT
 {
 public:
-    //
+    // --- DShot Config ---
     DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
+    DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
 
     // --- Init RMT Module ---
     bool begin();
 
     // Sets the throttle value and transmits
-    bool setThrottle(uint16_t throttle);
+    bool setThrottle(uint16_t throttle);    // deprecated
+    bool sendThrottle(uint16_t throttle);
 
     // Sends a DShot Command
-    bool sendDShotCommand(uint16_t command);
+    bool sendDShotCommand(uint16_t command);    // deprecated
+    bool sendCommand(uint16_t command);
 
     // Gets eRPM from ESC telemetry
     uint16_t getERPM();
@@ -88,7 +90,7 @@ public:
     uint16_t getGPIO() const { return _gpio; }
 
     // Returns "raw" Dshot packet sent by RMT
-    uint16_t getDShotPacket() { return _current_packet; }
+    uint16_t getDShotPacket() const { return _current_packet; }
 
     //
     bool is_bidirectional() const { return _is_bidirectional; }
@@ -98,7 +100,7 @@ private:
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
-    uint16_t _frame_time_us;
+    uint16_t _frame_timer_us;
 
     // --- DShot Timings ---
     const dshot_timing_t &_timing_config;
@@ -117,9 +119,10 @@ private:
     // --- Buffers ---
     uint16_t _last_erpm;
     uint16_t _current_packet;
+    dshot_packet_t _packet;
     unsigned long _last_transmission_time;
 
-    //
+    // ---Helpers ---
     bool _initTXChannel();
     bool _initRXChannel();
     bool _initDShotEncoder();
@@ -131,10 +134,11 @@ private:
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
+    // --- Simple Timer ---
     bool _timer_signal();
     bool _timer_reset();
 
-    // Error Handling
+    // --- Error Handling ---
     static constexpr bool DSHOT_OK = 0;
     static constexpr bool DSHOT_ERROR = 1;
     static constexpr char *DSHOT_MSG_01 = "Failed to initialize TX channel!";

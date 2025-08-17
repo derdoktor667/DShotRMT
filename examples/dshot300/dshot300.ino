@@ -13,8 +13,7 @@
 static constexpr auto &USB_SERIAL = Serial0;
 static constexpr auto USB_SERIAL_BAUD = 115200;
 
-// Motor configuration
-// Pin number or GPIO_PIN
+// Motor configuration - Pin number or GPIO_PIN
 // static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
 static constexpr auto MOTOR01_PIN = 17;
 
@@ -22,26 +21,23 @@ static constexpr auto MOTOR01_PIN = 17;
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
-static constexpr bool IS_BIDIRECTIONAL = false;
+static constexpr auto IS_BIDIRECTIONAL = false;
 
 // Motor magnet count for RPM calculation
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 //
-// Create the motor instance
+// Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 //
 void setup()
 {
-    // Start the USB Serial Port
+    // Starts the USB Serial Port
     USB_SERIAL.begin(USB_SERIAL_BAUD);
 
-    // Initialize DShot Signal
+    // Initializes DShot Signal
     motor01.begin();
-
-    // Arm ESC with minimum throttle
-    // motor01.sendThrottle(DSHOT_THROTTLE_MIN);
 
     USB_SERIAL.println("***********************************");
     USB_SERIAL.println("  === DShotRMT Demo started. ===   ");
@@ -51,18 +47,17 @@ void setup()
 //
 void loop()
 {
+    // Safety first: start with DSHOT_MIN_THROTTLE
     static auto throttle = DSHOT_THROTTLE_MIN;
     
+    // Takes "every" throttle value
     if (USB_SERIAL.available() > NULL)
     {
-        auto new_throttle = (USB_SERIAL.readStringUntil('\n').toInt());
+        throttle = (USB_SERIAL.readStringUntil('\n').toInt());
 
         USB_SERIAL.println("*********************");
         USB_SERIAL.print("Throttle set to: ");
-        USB_SERIAL.println(new_throttle);
-
-        //
-        throttle = new_throttle;
+        USB_SERIAL.println(throttle);
     }
 
     // Sends the value to the ESC
@@ -75,12 +70,12 @@ void loop()
     print_RMT_packet(2000);
 }
 
-// Prints RPM every ms
+// Prints RPM every X_ms
 void printRPMPeriodically(auto timer_ms)
 {
     if (IS_BIDIRECTIONAL)
     {
-        static unsigned long last_print_time = 0;
+        static auto last_print_time = 0;
 
         if (millis() - last_print_time >= timer_ms)
         {
@@ -97,14 +92,14 @@ void printRPMPeriodically(auto timer_ms)
 // Prints "raw" packet every ms
 void print_RMT_packet(auto timer_ms)
 {
-    static unsigned long last_print_time = 0;
+    static auto last_print_time = 0;
 
     if (millis() - last_print_time >= timer_ms)
     {
         auto packet = motor01.getDShotPacket();
 
         // Print bit by bit
-        for (int i = 15; i >= 0; --i)
+        for (auto i = 15; i >= 0; --i)
         {
             if ((packet >> i) & 1)
             {

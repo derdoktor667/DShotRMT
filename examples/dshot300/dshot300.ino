@@ -10,13 +10,13 @@
 #include <DShotRMT.h>
 
 // USB serial port settings
-static constexpr HardwareSerial &USB_SERIAL = Serial0;
-static constexpr uint32_t USB_SERIAL_BAUD = 115200;
+static constexpr auto &USB_SERIAL = Serial0;
+static constexpr auto USB_SERIAL_BAUD = 115200;
 
 // Motor configuration
 // Pin number or GPIO_PIN
 // static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
-static constexpr uint16_t MOTOR01_PIN = 17;
+static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
@@ -25,10 +25,10 @@ static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 static constexpr bool IS_BIDIRECTIONAL = false;
 
 // Motor magnet count for RPM calculation
-static constexpr uint8_t MOTOR01_MAGNET_COUNT = 14;
+static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 //
-//
+// Create the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 //
@@ -51,48 +51,32 @@ void setup()
 //
 void loop()
 {
-    // Read value input from Serial
-    uint16_t throttle_input = readSerialThrottle(USB_SERIAL);
-
-    // Send the value to the ESC
-    motor01.sendThrottle(throttle_input);
-
-    // Prints out RPM if BiDirectional DShot is enabled every 2 seconds
-    printRPMPeriodically(2000);
-
-    // Prints out "raw" DShot packet every 2 seconds
-    // printTXPacket(2000);
-}
-
-// Reads throttle value from serial input
-uint16_t readSerialThrottle(HardwareSerial &serial)
-{
-    static uint16_t last_throttle = DSHOT_THROTTLE_MIN;
-
-    if (serial.available() > NULL)
+    static auto throttle = DSHOT_THROTTLE_MIN;
+    
+    if (USB_SERIAL.available() > NULL)
     {
-        // Reads a value
-        uint16_t throttle = (serial.readStringUntil('\n').toInt());
-
-        // Check for valid throttle value
-        if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
-        {
-            USB_SERIAL.println("Throttle value not in range (48 - 2047)!");
-            return last_throttle;
-        }
-
-        last_throttle = throttle;
+        auto new_throttle = (USB_SERIAL.readStringUntil('\n').toInt());
 
         USB_SERIAL.println("*********************");
         USB_SERIAL.print("Throttle set to: ");
-        USB_SERIAL.println(last_throttle);
+        USB_SERIAL.println(new_throttle);
+
+        //
+        throttle = new_throttle;
     }
 
-    return last_throttle;
+    // Sends the value to the ESC
+    motor01.sendThrottle(throttle);
+
+    // Prints out RPM if BiDirectional DShot is enabled every 2 seconds
+    // printRPMPeriodically(2000);
+
+    // Debug: Prints out "raw" DShot packet every 2 seconds
+    print_RMT_packet(2000);
 }
 
 // Prints RPM every ms
-void printRPMPeriodically(uint16_t timer_ms)
+void printRPMPeriodically(auto timer_ms)
 {
     if (IS_BIDIRECTIONAL)
     {
@@ -100,7 +84,7 @@ void printRPMPeriodically(uint16_t timer_ms)
 
         if (millis() - last_print_time >= timer_ms)
         {
-            uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
+            auto rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
 
             USB_SERIAL.print("RPM: ");
             USB_SERIAL.println(rpm);
@@ -111,13 +95,13 @@ void printRPMPeriodically(uint16_t timer_ms)
 }
 
 // Prints "raw" packet every ms
-void printTXPacket(uint16_t timer_ms)
+void print_RMT_packet(auto timer_ms)
 {
     static unsigned long last_print_time = 0;
 
     if (millis() - last_print_time >= timer_ms)
     {
-        uint16_t packet = motor01.getDShotPacket();
+        auto packet = motor01.getDShotPacket();
 
         // Print bit by bit
         for (int i = 15; i >= 0; --i)

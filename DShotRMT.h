@@ -54,9 +54,9 @@ typedef struct dshot_timing_s
     uint16_t frame_length_us;
     uint16_t ticks_per_bit;
     uint16_t ticks_one_high;
+    uint16_t ticks_one_low;
     uint16_t ticks_zero_high;
     uint16_t ticks_zero_low;
-    uint16_t ticks_one_low;
 } dshot_timing_t;
 
 extern const dshot_timing_t DSHOT_TIMINGS[];

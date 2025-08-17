@@ -9,13 +9,13 @@
 #include "DShotRMT.h"
 
 // --- DShot Timings ---
-// frame_length_us, ticks_per_bit, ticks_one_high, ticks_zero_high, ticks_zero_low, ticks_one_low
+// frame_length_us, ticks_per_bit, ticks_one_high, ticks_one_low, ticks_zero_high, ticks_zero_low
 constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {0, 0, 0, 0, 0, 0},        // DSHOT_OFF
-    {128, 64, 48, 24, 40, 16}, // DSHOT150
-    {64, 32, 24, 12, 20, 8},   // DSHOT300
-    {32, 16, 12, 6, 10, 4},    // DSHOT600
-    {16, 8, 6, 3, 5, 2}        // DSHOT1200
+    {128, 64, 48, 16, 24, 40}, // DSHOT150
+    {64, 32, 24, 8, 12, 20},   // DSHOT300
+    {32, 16, 12, 4, 6, 10},    // DSHOT600
+    {16, 8, 6, 2, 3, 5}        // DSHOT1200
 };
 
 // --- DShot Config ---
@@ -48,9 +48,10 @@ DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional):
     mode, 
     is_bidirectional)
 {
+    // ...just to accept pin numbers and GPIO_NUMs
 }
 
-// Init DShotRMT
+// Setup and configure DShotRMT
 bool DShotRMT::begin()
 {
     // Init TX Channel
@@ -78,7 +79,7 @@ bool DShotRMT::begin()
     return DSHOT_OK;
 }
 
-// Deprecated, use "sendThrottle() instead"
+// Deprecated, use "sendThrottle()"" instead
 bool DShotRMT::setThrottle(uint16_t throttle)
 {
     return sendThrottle(throttle);
@@ -87,24 +88,17 @@ bool DShotRMT::setThrottle(uint16_t throttle)
 // Sends a valid throttle value
 bool DShotRMT::sendThrottle(uint16_t throttle)
 {
-    static uint16_t last_throttle = DSHOT_THROTTLE_MIN;
+    // Make sure throttle value is valid by force
+    auto value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
 
-    // Precheck throttle value
-    if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
-    {
-        Serial.println(DSHOT_MSG_06);
-        return DSHOT_ERROR;
-    } else {
-        last_throttle = throttle;
-    }
+    // Converts throttle value to dshot packet RMT symbols
+    _packet = _buildDShotPacket(value);
 
-    // Converts throttle value to dshot packet 
-    _packet = _buildDShotPacket(last_throttle);
-
+    // Actually send the RMT symbols
     return (_sendDShotFrame(_packet));
 }
 
-// Deprecated, use "sendCommand() instead"
+// Deprecated, use "sendCommand()"" instead
 bool DShotRMT::sendDShotCommand(uint16_t command)
 {
     return sendCommand(command);
@@ -192,8 +186,9 @@ bool DShotRMT::_initRXChannel()
     _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
     _rx_channel_config.mem_block_symbols = DSHOT_SYMBOLS_SIZE;
 
-    _receive_config.signal_range_min_ns = 300;
-    _receive_config.signal_range_max_ns = 5000;
+    // TODO: need to figure out
+    _receive_config.signal_range_min_ns = 2;
+    _receive_config.signal_range_max_ns = 128;
 
     // Creates and activates RMT TX Channel
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)

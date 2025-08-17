@@ -18,7 +18,7 @@ constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {16, 8, 6, 2, 3, 5}        // DSHOT1200
 };
 
-// --- DShot Config ---
+// --- DShot Config Constructor ---
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional): 
     _gpio(gpio),
     _mode(mode),
@@ -32,21 +32,24 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
     _packet{0},
     _last_transmission_time(0)
 {
-    // Double up frame time for bidirectional mode
+    // Calculates frame time and adds switch/pause time
+    _frame_timer_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
+
+    // Doubles up frame time for bidirectional mode
     if (_is_bidirectional)
     {
-        _frame_timer_us = (_timing_config.frame_length_us << 1) + DSHOT_SWITCH_TIME;
+        // DSHOT_SWITCH_TIME also needed two times
+        _frame_timer_us = (_frame_timer_us << 1);
     }
-
-    // Calculate frame time including switch time
-    _frame_timer_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
 }
 
 // Easy Constructor
-DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional):
-    DShotRMT((gpio_num_t)pin_nr, 
-    mode, 
-    is_bidirectional)
+DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional): 
+    DShotRMT(
+        (gpio_num_t)pin_nr,
+        mode,
+        is_bidirectional
+    )
 {
     // ...just to accept pin numbers and GPIO_NUMs
 }
@@ -54,24 +57,24 @@ DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional):
 // Setup and configure DShotRMT
 bool DShotRMT::begin()
 {
-    // Init TX Channel
+    // Inits TX Channel
     if (!_initTXChannel())
     {
         Serial.println(DSHOT_MSG_01);
         return DSHOT_ERROR;
     }
 
-    // Init RX Channel
+    // Inits RX Channel
     if (!_initRXChannel() && _is_bidirectional)
     {
         Serial.println(DSHOT_MSG_02);
         return DSHOT_ERROR;
     }
 
-    // Init DShot Decoder
+    // Inits DShot Decoder
     if (!_initDShotEncoder())
     {
-        Serial.println(DSHOT_MSG_03);
+        // Serial.println(DSHOT_MSG_03);
         return DSHOT_ERROR;
     }
 
@@ -109,7 +112,7 @@ bool DShotRMT::sendCommand(uint16_t command)
     // Check for valid command
     if (command < DSHOT_CMD_MOTOR_STOP || command > DSHOT_CMD_MAX)
     {
-        Serial.println(DSHOT_MSG_07);
+        Serial.println(DSHOT_MSG_06);
         return DSHOT_ERROR;
     }
 
@@ -123,7 +126,7 @@ uint16_t DShotRMT::getERPM()
 {
     if (!_is_bidirectional || !_rmt_rx_channel)
     {
-        Serial.println(DSHOT_MSG_08);
+        Serial.println(DSHOT_MSG_07);
         return _last_erpm;
     }
 
@@ -131,7 +134,7 @@ uint16_t DShotRMT::getERPM()
     rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     if (!rmt_receive(_rmt_rx_channel, _rx_symbols, DSHOT_SYMBOLS_SIZE, &_receive_config))
     {
-        Serial.println(DSHOT_MSG_09);
+        Serial.println(DSHOT_MSG_08);
         return _last_erpm;
     }
 
@@ -152,10 +155,9 @@ uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
     return getERPM() / pole_pairs;
 }
 
-//
+// --- RMT TX Config ---
 bool DShotRMT::_initTXChannel()
 {
-    // --- RMT TX Config ---
     _tx_channel_config.gpio_num = _gpio;
     _tx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
     _tx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
@@ -171,46 +173,55 @@ bool DShotRMT::_initTXChannel()
     // Creates and activates RMT TX Channel
     if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
     {
+        Serial.println(DSHOT_MSG_01);
         return DSHOT_ERROR;
     }
 
-    return (rmt_enable(_rmt_tx_channel) == 0);
+    return (rmt_enable(_rmt_tx_channel) == DSHOT_OK);
 }
 
-//
+// --- RMT RX Config ---
 bool DShotRMT::_initRXChannel()
 {
-    // --- RMT RX Config ---
     _rx_channel_config.gpio_num = _gpio;
     _rx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
     _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
     _rx_channel_config.mem_block_symbols = DSHOT_SYMBOLS_SIZE;
 
-    // TODO: need to figure out
+    // TODO: figure out ranges
     _receive_config.signal_range_min_ns = 2;
     _receive_config.signal_range_max_ns = 128;
 
     // Creates and activates RMT TX Channel
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
     {
+        Serial.println(DSHOT_MSG_02);
         return DSHOT_ERROR;
     }
 
-    return (rmt_enable(_rmt_rx_channel) == 0);
+    return (rmt_enable(_rmt_rx_channel) == DSHOT_OK);
 }
 
-//
+// --- RMT Encoder Config ---
 bool DShotRMT::_initDShotEncoder()
 {
-    // Creates a dummy encoder
+    // Encoder "config"
     rmt_copy_encoder_config_t encoder_config = {};
-    return rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) == 0;
+
+    // Creates a dummy encoder
+    if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
+    {
+        Serial.println(DSHOT_MSG_03);
+        return DSHOT_ERROR;
+    }
+
+    return DSHOT_OK;
 }
 
-// Use RMT to transmit a prepared DShot packet and returns it
+// Uses RMT to transmit a prepared DShot packet and returns it
 bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    // Excludes calculation from timing is more stable
+    // Excluding calculation from timing is more timing stable
     rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
     _encodeDShotFrame(packet, tx_symbols);
 
@@ -257,15 +268,15 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 
     // Creates DShot packet
     packet.throttle_value = value;
-    packet.telemetric_request = 1;  // needed to get the motor spinning
+    packet.telemetric_request = 1; // needed to get the motor spinning
     packet.checksum = _calculateCRC(packet);
 
     //
     return packet;
 }
 
-// Encodes DShot packet into RMT buffer
-bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+// Encodes DShot packet into RMT buffer and places code into IRAM instead of flash
+bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     // Parse actual packet into buffer
     _current_packet = _parseDShotPacket(packet);
@@ -330,7 +341,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 // Timer triggered
 bool DShotRMT::_timer_signal()
 {
-    return (micros() - _last_transmission_time) >= _frame_timer_us;
+    return (micros() - _last_transmission_time >= _frame_timer_us);
 }
 
 // Updates timestamp

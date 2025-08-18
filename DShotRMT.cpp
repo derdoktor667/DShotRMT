@@ -131,7 +131,6 @@ uint16_t DShotRMT::getERPM()
     }
 
     // Try to receive telemetry data
-    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     if (!rmt_receive(_rmt_rx_channel, _rx_symbols, DSHOT_SYMBOLS_SIZE, &_receive_config))
     {
         Serial.println(DSHOT_MSG_08);
@@ -222,14 +221,13 @@ bool DShotRMT::_initDShotEncoder()
 bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
     // Excluding calculation from timing is more timing stable
-    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
-    _encodeDShotFrame(packet, tx_symbols);
+    _encodeDShotFrame(packet, _tx_symbols);
 
     // Checking timer signal
     if (_timer_signal())
     {
         // Triggers RMT Transmit
-        rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
+        rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
 
         // Time Stamp
         return _timer_reset();
@@ -276,7 +274,7 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 }
 
 // Encodes DShot packet into RMT buffer and places code into IRAM instead of flash
-bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     // Parse actual packet into buffer
     _current_packet = _parseDShotPacket(packet);
@@ -339,9 +337,10 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 }
 
 // Timer triggered
-bool DShotRMT::_timer_signal()
+bool IRAM_ATTR DShotRMT::_timer_signal()
 {
-    return (micros() - _last_transmission_time >= _frame_timer_us);
+    // trying new tricks
+    return __builtin_expect((micros() - _last_transmission_time >= _frame_timer_us), 1);
 }
 
 // Updates timestamp

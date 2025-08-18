@@ -112,6 +112,8 @@ private:
     rmt_encoder_handle_t _dshot_encoder;
 
     // --- RMT Config ---
+    rmt_symbol_word_t _tx_symbols[DSHOT_BITS_PER_FRAME];
+    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     rmt_tx_channel_config_t _tx_channel_config;
     rmt_rx_channel_config_t _rx_channel_config;
     rmt_transmit_config_t _transmit_config;
@@ -132,11 +134,11 @@ private:
     uint16_t _calculateCRC(const dshot_packet_t &packet);
     dshot_packet_t _buildDShotPacket(const uint16_t value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
-    bool _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
+    bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
     // --- Simple Timer ---
-    bool _timer_signal();
+    bool IRAM_ATTR _timer_signal();
     bool _timer_reset();
 
     // --- Error Handling ---

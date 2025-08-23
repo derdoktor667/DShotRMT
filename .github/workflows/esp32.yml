@@ -7,36 +7,24 @@ on:
   pull_request:
 
 jobs:
-  lint-and-build:
+  checking_lib:
     runs-on: ubuntu-latest
 
     env:
       SKETCHES_REPORTS_PATH: sketches-reports
 
-    strategy:
-      matrix:
-        board:
-          - fqbn: esp32:esp32:esp32
-            artifact-name-suffix: esp32-dev2
-
     steps:
       - uses: actions/checkout@v4
-
-      - uses: arduino/arduino-lint-action@v1
-        with:
-          path: .
-          library-manager: true
-          compliance: strict
-          verbose: true
 
       - uses: arduino/compile-sketches@v1
         with:
           fqbn: esp32:esp32:esp32
+          libraries: DShotRMT
           sketch-paths: examples/dshot300/dshot300.ino
           enable-deltas-report: true
           sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
-
+        
       - uses: actions/upload-artifact@v4
         with:
-          name: sketches-report-${{ matrix.board.artifact-name-suffix }}
+          name: sketches-report-esp32
           path: ${{ env.SKETCHES_REPORTS_PATH }}

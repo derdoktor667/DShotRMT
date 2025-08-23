@@ -1,30 +1,42 @@
-name: Build DShotRMT Example Sketch
+name: Testing "DShotRMT Library" (official)
 
 on:
   push:
     branches:
       - '*'
+  pull_request:
 
 jobs:
-  build:
+  lint-and-build:
     runs-on: ubuntu-latest
 
+    env:
+      SKETCHES_REPORTS_PATH: sketches-reports
+
+    strategy:
+      matrix:
+        board:
+          - fqbn: esp32:esp32:esp32
+            artifact-name-suffix: esp32-dev2
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Arduino CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
-          arduino-cli core update-index
-          arduino-cli core install esp32:esp32
+      - uses: arduino/arduino-lint-action@v1
+        with:
+          path: .
+          library-manager: true
+          compliance: strict
+          verbose: true
 
-      - name: Install DShotRMT as library
-        run: |
-          mkdir -p $HOME/Arduino/libraries
-          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
+      - uses: arduino/compile-sketches@v1
+        with:
+          fqbn: esp32:esp32:esp32
+          sketch-paths: examples/dshot300/dshot300.ino
+          enable-deltas-report: true
+          sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
 
-      - name: Compile dshot300.ino example
-        run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32 examples/dshot300/dshot300.ino
-          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sketches-report-${{ matrix.board.artifact-name-suffix }}
+          path: ${{ env.SKETCHES_REPORTS_PATH }}

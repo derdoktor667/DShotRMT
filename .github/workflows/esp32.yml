@@ -1,30 +1,38 @@
-name: Testing "DShotRMT Library" (official)
+name: Arduino Lint Check Library
 
 on:
   push:
     branches:
       - '*'
-  pull_request:
 
 jobs:
-  checking_lib:
+  build:
     runs-on: ubuntu-latest
 
-    env:
-      SKETCHES_REPORTS_PATH: sketches-reports
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: arduino/compile-sketches@v1
-        with:
-          fqbn: esp32:esp32:esp32
-          libraries: DShotRMT
-          sketch-paths: examples/dshot300/dshot300.ino
-          enable-deltas-report: true
-          sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
-        
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sketches-report-esp32
-          path: ${{ env.SKETCHES_REPORTS_PATH }}
+      - name: Install Arduino CLI 
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+      - name: Install Arduino Lint 
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-lint/main/etc/install.sh | BINDIR=/usr/local/bin sh
+          
+      - name: Install DShotRMT as Library
+        run: |
+          mkdir -p $HOME/Arduino/libraries
+          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
+
+      - name: Arduino Lint Check
+        run: |
+          arduino-lint $PWD --recursive --library-manager update --verbose
+
+      - name: Compile dshot300.ino example sketch
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 examples/dshot300/dshot300.ino --verbose
+          

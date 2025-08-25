@@ -1,0 +1,138 @@
+name: ESP32 Build & Quality Check
+
+on:
+  push:
+    branches: [ '*' ]
+  release:
+    types: [ published ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ARDUINO_CLI_VERSION: 'latest'
+  ESP32_CORE_VERSION: 'latest'
+
+jobs:
+  # ============================================================================
+  # Code Quality & Linting
+  # ============================================================================
+  quality-check:
+    name: 'Code Quality'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Arduino Lint
+        uses: arduino/arduino-lint-action@v1
+        with:
+          path: ${{ github.workspace }}
+          compliance: strict
+          library-manager: update
+          verbose: true
+
+  # ============================================================================
+  # Compilation Test
+  # ============================================================================
+  compile-test:
+    name: 'Compile Example Sketch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - "examples/dshot300/dshot300.ino"
+        build-flags:
+          - name: "Release"
+            flags: "Automated Build"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compile Example (${{ matrix.build-flags.name }})
+        uses: arduino/compile-sketches@v1
+        with:
+          fqbn: esp32:esp32:esp32
+          libraries: |
+            - source-path: ${{ github.workspace }}
+
+  # ============================================================================
+  # Static Code Analysis
+  # ============================================================================
+  static-analysis:
+    name: 'Static Analysis'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: Run Cppcheck
+        run: |
+          cppcheck --enable=warning,performance \
+                   --std=c++17 \
+                   --language=c++ \
+                   --platform=unix32 \
+                   --inline-suppr \
+                   ./DShotRMT.cpp ./DShotRMT.h
+
+  # ============================================================================
+  # Build Status Report
+  # ============================================================================
+  build-summary:
+    name: 'Build Summary'
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [quality-check, compile-test, static-analysis]
+
+    steps:
+      - name: Create Build Summary
+        run: |
+          echo "# 🔧 DShotRMT Build Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY  
+          echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Quality Check Status
+          if [[ "${{ needs.quality-check.result }}" == "success" ]]; then
+            echo "| 📋 Quality Check | ✅ Passed | Arduino Lint completed successfully |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 📋 Quality Check | ❌ Failed | Check Arduino Lint report |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Compile Test Status  
+          if [[ "${{ needs.compile-test.result }}" == "success" ]]; then
+            echo "| 🔨 Compilation | ✅ Passed | All examples compiled successfully |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔨 Compilation | ❌ Failed | Compilation errors detected |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Static Analysis Status
+          if [[ "${{ needs.static-analysis.result }}" == "success" ]]; then
+            echo "| 🔍 Static Analysis | ✅ Passed | No critical issues found |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| 🔍 Static Analysis | ❌ Failed | Issues detected by CPPCheck |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall Status
+          if [[ "${{ needs.quality-check.result }}" == "success" && 
+                "${{ needs.compile-test.result }}" == "success" && 
+                "${{ needs.static-analysis.result }}" == "success" ]]; then
+            echo "## 🎉 All Checks Passed!" >> $GITHUB_STEP_SUMMARY
+            echo "Your DShotRMT library is ready for deployment." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ Action Required" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed checks and address any issues."
+          fi

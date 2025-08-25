@@ -274,7 +274,7 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 }
 
 // Encodes DShot packet into RMT buffer and places code into IRAM instead of flash
-bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     // Parse actual packet into buffer
     _current_packet = _parseDShotPacket(packet);
@@ -337,7 +337,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 }
 
 // Timer triggered
-bool IRAM_ATTR DShotRMT::_timer_signal()
+bool DShotRMT::_timer_signal()
 {
     // trying new tricks
     return __builtin_expect((micros() - _last_transmission_time >= _frame_timer_us), 1);

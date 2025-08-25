@@ -74,7 +74,9 @@ public:
     bool begin();
 
     // Sets the throttle value and transmits
-    bool setThrottle(uint16_t throttle); // deprecated
+    [[deprecated("Use sendThrottle() instead")]]
+    bool setThrottle(uint16_t throttle);
+    
     bool sendThrottle(uint16_t throttle);
 
     // Sends a DShot Command
@@ -145,7 +147,7 @@ private:
     static constexpr auto DSHOT_OK = 0;
     static constexpr auto DSHOT_ERROR = 1;
     static constexpr auto *DSHOT_MSG_01 = "Failed to initialize TX channel!";
-    static constexpr auto *DSHOT_MSG_02 = "Failed to initialize RX channe!l";
+    static constexpr auto *DSHOT_MSG_02 = "Failed to initialize RX channel!";
     static constexpr auto *DSHOT_MSG_03 = "Failed to initialize DShot encoder!";
     static constexpr auto *DSHOT_MSG_04 = "RX CRC Check failed!";
     static constexpr auto *DSHOT_MSG_05 = "Throttle value not in range (48 - 2047)!";

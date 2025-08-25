@@ -61,7 +61,7 @@ void loop()
     }
 
     // Sends the value to the ESC
-    motor01.sendThrottle(throttle);
+    motor01.setThrottle(throttle);
 
     // Prints out RPM if BiDirectional DShot is enabled every 2 seconds
     // printRPMPeriodically(2000);

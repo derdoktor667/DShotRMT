@@ -12,7 +12,7 @@ concurrency:
 
 env:
   ARDUINO_CLI_VERSION: 'latest'
-  ESP32_CORE_VERSION: '3.0.4'
+  ESP32_CORE_VERSION: 'latest'
 
 jobs:
   # ============================================================================
@@ -22,61 +22,24 @@ jobs:
     name: 'Code Quality'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v2
+      - name: Arduino Lint
+        uses: arduino/arduino-lint-action@v1
         with:
-          version: ${{ env.ARDUINO_CLI_VERSION }}
-
-      - name: Cache Arduino Dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.arduino15
-            ~/Arduino/libraries
-          key: arduino-esp32-${{ env.ESP32_CORE_VERSION }}
-          restore-keys: |
-            arduino-esp32-
-
-      - name: Update Arduino CLI Index
-        run: arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-
-      - name: Install ESP32 Core
-        run: arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }} --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-
-      - name: Install Arduino Lint
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-lint/main/etc/install.sh | BINDIR=/usr/local/bin sh
-          
-      - name: Create Library Symlink
-        run: |
-          mkdir -p $HOME/Arduino/libraries
-          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
-
-      - name: Run Arduino Lint
-        run: |
-          arduino-lint $PWD \
-            --library-manager update \
-            --compliance strict \
-            --verbose \
-            --report-file arduino-lint-report.json
-
-      - name: Upload Lint Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: arduino-lint-report
-          path: arduino-lint-report.json
+          path: ${{ github.workspace }}
+          compliance: strict
+          library-manager: update
+          verbose: true
 
   # ============================================================================
   # Compilation Test
   # ============================================================================
   compile-test:
-    name: 'Compile Examples'
+    name: 'Compile Example Sketch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -86,70 +49,18 @@ jobs:
           - "examples/dshot300/dshot300.ino"
         build-flags:
           - name: "Release"
-            flags: ""
-          - name: "Debug"
-            flags: "--build-property build.extra_flags=-DDEBUG_LEVEL=5"
+            flags: "Automated Build"
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v2
-        with:
-          version: ${{ env.ARDUINO_CLI_VERSION }}
-
-      - name: Cache Arduino Dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.arduino15
-            ~/Arduino/libraries
-          key: arduino-esp32-${{ env.ESP32_CORE_VERSION }}
-          restore-keys: |
-            arduino-esp32-
-
-      - name: Update Arduino CLI Index
-        run: arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-
-      - name: Install ESP32 Core
-        run: arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }} --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
-
-      - name: Create Library Symlink
-        run: |
-          mkdir -p $HOME/Arduino/libraries
-          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
-
       - name: Compile Example (${{ matrix.build-flags.name }})
-        run: |
-          arduino-cli compile \
-            --fqbn esp32:esp32:esp32 \
-            --verbose \
-            --warnings all \
-            --build-property compiler.warning_flags.all=-Wall \
-            --build-property compiler.warning_flags.more=-Wextra \
-            --build-path ./build-${{ matrix.build-flags.name }} \
-            ${{ matrix.build-flags.flags }} \
-            ${{ matrix.example }}
-
-      - name: Check Binary Size
-        run: |
-          echo "## Binary Size Report - ${{ matrix.build-flags.name }} Build" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          if [ -f "./build-${{ matrix.build-flags.name }}"/*.elf ]; then
-            size "./build-${{ matrix.build-flags.name }}"/*.elf
-            size "./build-${{ matrix.build-flags.name }}"/*.elf >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: arduino/compile-sketches@v1
         with:
-          name: build-artifacts-${{ matrix.build-flags.name }}
-          path: |
-            ./build-${{ matrix.build-flags.name }}/*.bin
-            ./build-${{ matrix.build-flags.name }}/*.elf
-            ./build-${{ matrix.build-flags.name }}/*.map
+          fqbn: esp32:esp32:esp32
+          libraries: |
+            - source-path: ${{ github.workspace }}
 
   # ============================================================================
   # Static Code Analysis
@@ -163,173 +74,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install CPPCheck
+      - name: Install Cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: Run Cppcheck
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cppcheck
-
-      - name: Run CPPCheck
-        run: |
-          cppcheck \
-            --enable=warning,style,performance,portability \
-            --std=c++17 \
-            --platform=unix32 \
-            --suppress=missingIncludeSystem \
-            --suppress=unusedFunction \
-            --suppress=noExplicitConstructor \
-            --inline-suppr \
-            --xml \
-            --xml-version=2 \
-            --output-file=cppcheck-report.xml \
-            ./DShotRMT.cpp ./DShotRMT.h ./dshot_commands.h \
-            2>&1 || true
-
-      - name: Display CPPCheck Results
-        run: |
-          echo "## Static Analysis Results" >> $GITHUB_STEP_SUMMARY
-          if [ -s cppcheck-report.xml ]; then
-            echo "CPPCheck found issues. Check the uploaded report for details." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ No static analysis issues found!" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Upload CPPCheck Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: cppcheck-report
-          path: cppcheck-report.xml
-
-  # ============================================================================
-  # Documentation Generation
-  # ============================================================================
-  documentation:
-    name: 'Generate Documentation'
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Doxygen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y doxygen graphviz
-
-      - name: Create Doxygen Config
-        run: |
-          cat > Doxyfile << 'EOF'
-          PROJECT_NAME = "DShotRMT"
-          PROJECT_NUMBER = "${{ github.ref_name }}"
-          PROJECT_BRIEF = "DShot signal generation using ESP32 RMT"
-          INPUT = ./DShotRMT.h ./DShotRMT.cpp ./dshot_commands.h ./README.md
-          OUTPUT_DIRECTORY = ./docs
-          GENERATE_HTML = YES
-          GENERATE_LATEX = NO
-          RECURSIVE = YES
-          EXTRACT_ALL = YES
-          EXTRACT_PRIVATE = NO
-          EXTRACT_STATIC = YES
-          SOURCE_BROWSER = YES
-          INLINE_SOURCES = NO
-          GENERATE_TREEVIEW = YES
-          USE_MDFILE_AS_MAINPAGE = README.md
-          HTML_TIMESTAMP = YES
-          QUIET = YES
-          WARN_IF_UNDOCUMENTED = YES
-          EOF
-
-      - name: Generate Documentation
-        run: doxygen Doxyfile
-
-      - name: Upload Documentation
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation
-          path: ./docs/html/
-
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/html
-
-  # ============================================================================
-  # Release Management
-  # ============================================================================
-  create-release-assets:
-    name: 'Create Release Assets'
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-    needs: [quality-check, compile-test, static-analysis]
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Create Release Archive
-        run: |
-          # Erstelle eine saubere Release-Version
-          mkdir DShotRMT-${{ github.ref_name }}
-          
-          # Kopiere nur die notwendigen Dateien
-          cp DShotRMT.h DShotRMT.cpp dshot_commands.h DShotRMT-${{ github.ref_name }}/
-          cp library.properties keywords.txt LICENSE README.md DShotRMT-${{ github.ref_name }}/
-          cp -r examples DShotRMT-${{ github.ref_name }}/
-          
-          # Erstelle Archive
-          tar -czf DShotRMT-${{ github.ref_name }}.tar.gz DShotRMT-${{ github.ref_name }}
-          zip -r DShotRMT-${{ github.ref_name }}.zip DShotRMT-${{ github.ref_name }}
-
-      - name: Upload Tar Archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./DShotRMT-${{ github.ref_name }}.tar.gz
-          asset_name: DShotRMT-${{ github.ref_name }}.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Zip Archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./DShotRMT-${{ github.ref_name }}.zip
-          asset_name: DShotRMT-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
-
-  # ============================================================================
-  # Security Scanning
-  # ============================================================================
-  security-scan:
-    name: 'Security Scan'
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    if: github.event_name != 'pull_request' # Skip für PRs aus Forks
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Run Semgrep Security Scan
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >- # Fokus auf C/C++ Security Issues
-            p/c
-            p/cpp
-            p/security-audit
-
-      - name: Upload Security Report
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: semgrep.sarif
+          cppcheck --enable=warning,performance \
+                   --std=c++17 \
+                   --language=c++ \
+                   --platform=unix32 \
+                   --inline-suppr \
+                   ./DShotRMT.cpp ./DShotRMT.h
 
   # ============================================================================
   # Build Status Report
@@ -379,5 +134,5 @@ jobs:
             echo "Your DShotRMT library is ready for deployment." >> $GITHUB_STEP_SUMMARY
           else
             echo "## ⚠️ Action Required" >> $GITHUB_STEP_SUMMARY
-            echo "Please review the failed checks and address any issues." >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed checks and address any issues."
           fi

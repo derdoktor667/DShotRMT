@@ -67,7 +67,7 @@ class DShotRMT
 {
 public:
     // --- DShot Config ---
-    DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
+    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
 
     // --- Init RMT Module ---
@@ -76,7 +76,7 @@ public:
     // Sets the throttle value and transmits
     [[deprecated("Use sendThrottle() instead")]]
     bool setThrottle(uint16_t throttle);
-    
+
     bool sendThrottle(uint16_t throttle);
 
     // Sends a DShot Command

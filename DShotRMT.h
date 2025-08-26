@@ -51,7 +51,7 @@ typedef struct dshot_packet_s
 // --- DShot Timing Config ---
 typedef struct dshot_timing_s
 {
-    uint16_t frame_length_us;
+    uint32_t frame_length_us;
     uint16_t ticks_per_bit;
     uint16_t ticks_one_high;
     uint16_t ticks_one_low;
@@ -106,7 +106,7 @@ private:
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
-    uint16_t _frame_timer_us;
+    uint32_t _frame_timer_us;
 
     // --- DShot Timings ---
     const dshot_timing_t &_timing_config;

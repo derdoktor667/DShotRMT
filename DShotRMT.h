@@ -98,6 +98,9 @@ public:
     //
     bool is_bidirectional() const { return _is_bidirectional; }
 
+    // --- Performance monitoring functions ---
+    void printTimingDiagnostics() const;
+
 private:
     // --- Config ---
     gpio_num_t _gpio;

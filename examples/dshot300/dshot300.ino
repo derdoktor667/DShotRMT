@@ -39,6 +39,10 @@ void setup()
     // Initializes DShot Signal
     motor01.begin();
 
+    USB_SERIAL.printf("CPU Freq = %lu MHz\n", getCpuFrequencyMhz());
+    USB_SERIAL.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
+    USB_SERIAL.printf("APB Freq = %lu Hz\n", getApbFrequency());
+    
     USB_SERIAL.println("***********************************");
     USB_SERIAL.println("  === DShotRMT Demo started. ===   ");
     USB_SERIAL.println("Enter a throttle value (48 – 2047):");
@@ -49,9 +53,12 @@ void loop()
 {
     // Safety first: start with DSHOT_MIN_THROTTLE
     static auto throttle = DSHOT_THROTTLE_MIN;
-    
+
+    // Performance monitoring
+    static uint32_t last_stats_print = 0;
+
     // Takes "every" throttle value
-    if (USB_SERIAL.available() > NULL)
+    if (USB_SERIAL.available() > 0)
     {
         throttle = (USB_SERIAL.readStringUntil('\n').toInt());
 
@@ -66,8 +73,13 @@ void loop()
     // Prints out RPM if BiDirectional DShot is enabled every 2 seconds
     // printRPMPeriodically(2000);
 
-    // Debug: Prints out "raw" DShot packet every 2 seconds
-    print_RMT_packet(2000);
+    // Print performance statistics every 2 seconds
+    if (millis() - last_stats_print >= 2000)
+    {
+        motor01.printTimingDiagnostics();
+        print_RMT_packet();
+        last_stats_print = millis();
+    }
 }
 
 // Prints RPM every X_ms
@@ -90,28 +102,24 @@ void printRPMPeriodically(auto timer_ms)
 }
 
 // Prints "raw" packet every ms
-void print_RMT_packet(auto timer_ms)
+void print_RMT_packet()
 {
-    static auto last_print_time = 0;
+    auto packet = motor01.getDShotPacket();
 
-    if (millis() - last_print_time >= timer_ms)
+    USB_SERIAL.print("Current Frame: ");
+
+    // Print bit by bit
+    for (auto i = 15; i >= 0; --i)
     {
-        auto packet = motor01.getDShotPacket();
-
-        // Print bit by bit
-        for (auto i = 15; i >= 0; --i)
+        if ((packet >> i) & 1)
         {
-            if ((packet >> i) & 1)
-            {
-                USB_SERIAL.print("1");
-            }
-            else
-            {
-                USB_SERIAL.print("0");
-            }
+            USB_SERIAL.print("1");
         }
-
-        USB_SERIAL.println("");
-        last_print_time = millis();
+        else
+        {
+            USB_SERIAL.print("0");
+        }
     }
+
+    USB_SERIAL.println("");
 }

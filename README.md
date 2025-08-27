@@ -1,4 +1,4 @@
-[![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/esp32.yml)
+[![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml)
 
 # DShotRMT - ESP32 Library (Rewrite for ESP-IDF 5)
 

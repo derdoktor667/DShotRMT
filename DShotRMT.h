@@ -27,7 +27,7 @@ static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz
 static constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-static constexpr auto RX_BUFFER_SIZE = 64; // debug
+static constexpr auto RX_BUFFER_SIZE = 128;
 static constexpr auto DSHOT_SYMBOLS_SIZE = 64;
 
 // --- DShot Mode Select ---
@@ -117,7 +117,7 @@ private:
     rmt_encoder_handle_t _dshot_encoder;
 
     // --- RMT Config ---
-    rmt_symbol_word_t _tx_symbols[DSHOT_BITS_PER_FRAME];
+    rmt_symbol_word_t _tx_symbols[DSHOT_SYMBOLS_SIZE];
     rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     rmt_tx_channel_config_t _tx_channel_config;
     rmt_rx_channel_config_t _rx_channel_config;

@@ -232,7 +232,8 @@ bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     _encodeDShotFrame(packet, _tx_symbols);
 
     // Attempt to transmit
-    bool result = rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
+    size_t tx_size_bytes = DSHOT_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+    bool result = rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, tx_size_bytes, &_transmit_config);
 
     if (result != DSHOT_OK)
     {

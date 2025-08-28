@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ARDUINO_CLI_VERSION: 'latest'
-  ESP32_CORE_VERSION: 'latest'
+  ARDUINO_CLI_VERSION: '1.3.0'
+  ESP32_CORE_VERSION: '3.3.0'
 
 jobs:
   # ============================================================================
@@ -26,6 +26,25 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+        with:
+          version: ${{ env.ARDUINO_CLI_VERSION }}
+
+      - name: Cache Arduino data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+          key: ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-${{ hashFiles('**/libraries/**') }}
+          restore-keys: |
+            ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
 
       - name: Arduino Lint
         uses: arduino/arduino-lint-action@v1
@@ -55,12 +74,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Compile Example (${{ matrix.build-flags.name }})
-        uses: arduino/compile-sketches@v1
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
         with:
-          fqbn: esp32:esp32:esp32
-          libraries: |
-            - source-path: ${{ github.workspace }}
+          version: ${{ env.ARDUINO_CLI_VERSION }}
+
+      - name: Cache Arduino data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+          key: ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-${{ hashFiles('**/libraries/**') }}
+          restore-keys: |
+            ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
+
+      - name: Compile Example (${{ matrix.build-flags.name }})
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 ${{ matrix.example }}
 
   # ============================================================================
   # Static Code Analysis
@@ -73,6 +108,25 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+        with:
+          version: ${{ env.ARDUINO_CLI_VERSION }}
+
+      - name: Cache Arduino data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+          key: ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-${{ hashFiles('**/libraries/**') }}
+          restore-keys: |
+            ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
 
       - name: Install Cppcheck
         run: sudo apt-get update && sudo apt-get install -y cppcheck

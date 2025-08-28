@@ -15,20 +15,20 @@
 #include <driver/rmt_rx.h>
 
 // --- DShot Protocol Constants ---
-static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
-static constexpr auto DSHOT_THROTTLE_MIN = 48;
-static constexpr auto DSHOT_THROTTLE_MAX = 2047;
+constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
+constexpr auto DSHOT_THROTTLE_MIN = 48;
+constexpr auto DSHOT_THROTTLE_MAX = 2047;
 
-static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto DSHOT_SWITCH_TIME = 30; // 30us
-static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
+constexpr auto DSHOT_BITS_PER_FRAME = 16;
+constexpr auto DSHOT_SWITCH_TIME = 30; // 30us
+constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
 // --- RMT Config Constants ---
-static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
-static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz
-static constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-static constexpr auto RX_BUFFER_SIZE = 128;
-static constexpr auto DSHOT_SYMBOLS_SIZE = 64;
+constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
+constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz
+constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
+constexpr auto RX_BUFFER_SIZE = 128;
+constexpr auto DSHOT_SYMBOLS_SIZE = 64;
 
 // --- DShot Mode Select ---
 typedef enum dshot_mode_e
@@ -71,7 +71,7 @@ public:
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
 
     // --- Init RMT Module ---
-    bool begin();
+    uint16_t begin();
 
     // Sets the throttle value and transmits
     [[deprecated("Use sendThrottle() instead")]]

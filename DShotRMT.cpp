@@ -53,7 +53,7 @@ DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional) : 
 }
 
 // Setup and configure DShotRMT
-bool DShotRMT::begin()
+uint16_t DShotRMT::begin()
 {
     // Inits TX Channel
     if (!_initTXChannel())
@@ -320,7 +320,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     // Decodes each symbol to reconstruct the frame
     for (size_t i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
     {
-        bool bit = symbols[i].duration0 < symbols[i].duration1;
+        bool bit = symbols[i].duration0 > symbols[i].duration1;
         received_frame = (received_frame << 1) | bit;
     }
 

@@ -42,7 +42,7 @@ void setup()
     USB_SERIAL.printf("CPU Freq = %lu MHz\n", getCpuFrequencyMhz());
     USB_SERIAL.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
     USB_SERIAL.printf("APB Freq = %lu Hz\n", getApbFrequency());
-    
+
     USB_SERIAL.println("***********************************");
     USB_SERIAL.println("  === DShotRMT Demo started. ===   ");
     USB_SERIAL.println("Enter a throttle value (48 – 2047):");
@@ -109,7 +109,7 @@ void print_RMT_packet()
     USB_SERIAL.print("Current Frame: ");
 
     // Print bit by bit
-    for (auto i = 15; i >= 0; --i)
+    for (int i = 15; i >= 0; --i)
     {
         if ((packet >> i) & 1)
         {

@@ -7,6 +7,7 @@
  */
 
 #include "DShotRMT.h"
+#include <driver/rmt_tx.h>
 
 // --- DShot Timings ---
 // frame_length_us, ticks_per_bit, ticks_one_high, ticks_one_low, ticks_zero_high, ticks_zero_low
@@ -19,18 +20,17 @@ constexpr dshot_timing_t DSHOT_TIMINGS[] = {
 };
 
 // --- DShot Config Constructor ---
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional): 
-    _gpio(gpio),
-    _mode(mode),
-    _is_bidirectional(is_bidirectional),
-    _timing_config(DSHOT_TIMINGS[mode]),
-    _rmt_tx_channel(nullptr),
-    _rmt_rx_channel(nullptr),
-    _dshot_encoder(nullptr),
-    _last_erpm(0),
-    _current_packet(0),
-    _packet{0},
-    _last_transmission_time(0)
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional) : _gpio(gpio),
+                                                                                _mode(mode),
+                                                                                _is_bidirectional(is_bidirectional),
+                                                                                _timing_config(DSHOT_TIMINGS[mode]),
+                                                                                _rmt_tx_channel(nullptr),
+                                                                                _rmt_rx_channel(nullptr),
+                                                                                _dshot_encoder(nullptr),
+                                                                                _last_erpm(0),
+                                                                                _current_packet(0),
+                                                                                _packet{0},
+                                                                                _last_transmission_time(0)
 {
     // Calculates frame time and adds switch/pause time
     _frame_timer_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
@@ -44,12 +44,10 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional):
 }
 
 // Easy Constructor
-DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional): 
-    DShotRMT(
-        (gpio_num_t)pin_nr,
-        mode,
-        is_bidirectional
-    )
+DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional) : DShotRMT(
+                                                                                    (gpio_num_t)pin_nr,
+                                                                                    mode,
+                                                                                    is_bidirectional)
 {
     // ...just to accept pin numbers and GPIO_NUMs
 }
@@ -91,14 +89,19 @@ bool DShotRMT::setThrottle(uint16_t throttle)
 // Sends a valid throttle value
 bool DShotRMT::sendThrottle(uint16_t throttle)
 {
-    // Make sure throttle value is valid by force
+    // Validate throttle value
+    if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
+    {
+        Serial.println(DSHOT_MSG_05);
+        return DSHOT_ERROR;
+    }
+
+    // Constrain throttle value
     auto value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
 
-    // Converts throttle value to dshot packet RMT symbols
+    // Build and send packet
     _packet = _buildDShotPacket(value);
-
-    // Actually send the RMT symbols
-    return (_sendDShotFrame(_packet));
+    return _sendDShotFrame(_packet);
 }
 
 // Deprecated, use "sendCommand()"" instead
@@ -117,8 +120,7 @@ bool DShotRMT::sendCommand(uint16_t command)
     }
 
     _packet = _buildDShotPacket(command);
-
-    return (_sendDShotFrame(_packet));
+    return _sendDShotFrame(_packet);
 }
 
 //
@@ -220,20 +222,28 @@ bool DShotRMT::_initDShotEncoder()
 // Uses RMT to transmit a prepared DShot packet and returns it
 bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    // Excluding calculation from timing is more timing stable
-    _encodeDShotFrame(packet, _tx_symbols);
-
-    // Checking timer signal
-    if (_timer_signal())
+    // Check if we can send (timing check)
+    if (!_timer_signal())
     {
-        // Triggers RMT Transmit
-        rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, DSHOT_SYMBOLS_SIZE, &_transmit_config);
-
-        // Time Stamp
-        return _timer_reset();
+        return DSHOT_ERROR;
     }
 
-    return DSHOT_ERROR;
+    // Encode the frame
+    _encodeDShotFrame(packet, _tx_symbols);
+
+    // Attempt to transmit
+    size_t tx_size_bytes = DSHOT_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+    bool result = rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, tx_size_bytes, &_transmit_config);
+
+    if (result != DSHOT_OK)
+    {
+        return DSHOT_ERROR;
+    }
+
+    // Update timestamp
+    _timer_reset();
+
+    return DSHOT_OK;
 }
 
 // Calculates checksum for given package
@@ -266,7 +276,7 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 
     // Creates DShot packet
     packet.throttle_value = value;
-    packet.telemetric_request = 1; // needed to get the motor spinning
+    packet.telemetric_request = _is_bidirectional ? 1 : 0;
     packet.checksum = _calculateCRC(packet);
 
     //
@@ -336,11 +346,26 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     return data >> 1;
 }
 
+//
+void DShotRMT::printTimingDiagnostics() const
+{
+    uint32_t current_time = micros();
+    Serial.println("\n=== DShot Timing Diagnostics ===");
+    Serial.printf("Current mode: DSHOT%d\n", _mode == DSHOT150 ? 150 : _mode == DSHOT300 ? 300
+                                                                   : _mode == DSHOT600   ? 600
+                                                                                         : _mode == DSHOT1200);
+    Serial.printf("Protocol Frame length: %u µs\n", _timing_config.frame_length_us);
+    Serial.printf("Frame to Frame: %u µs\n", _frame_timer_us);
+    Serial.printf("Bidirectional: %s\n", _is_bidirectional ? "Yes" : "No");
+}
+
 // Timer triggered
 bool DShotRMT::_timer_signal()
 {
-    // trying new tricks
-    return __builtin_expect((micros() - _last_transmission_time >= _frame_timer_us), 1);
+    // fixing possible overflow
+    uint32_t current_time = micros();
+    uint32_t elapsed = current_time - _last_transmission_time;
+    return elapsed >= _frame_timer_us;
 }
 
 // Updates timestamp

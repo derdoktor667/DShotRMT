@@ -27,7 +27,7 @@ static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz
 static constexpr auto TX_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-static constexpr auto RX_BUFFER_SIZE = 64; // debug
+static constexpr auto RX_BUFFER_SIZE = 128;
 static constexpr auto DSHOT_SYMBOLS_SIZE = 64;
 
 // --- DShot Mode Select ---
@@ -51,7 +51,7 @@ typedef struct dshot_packet_s
 // --- DShot Timing Config ---
 typedef struct dshot_timing_s
 {
-    uint16_t frame_length_us;
+    uint32_t frame_length_us;
     uint16_t ticks_per_bit;
     uint16_t ticks_one_high;
     uint16_t ticks_one_low;
@@ -98,12 +98,15 @@ public:
     //
     bool is_bidirectional() const { return _is_bidirectional; }
 
+    // --- Performance monitoring functions ---
+    void printTimingDiagnostics() const;
+
 private:
     // --- Config ---
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
-    uint16_t _frame_timer_us;
+    uint32_t _frame_timer_us;
 
     // --- DShot Timings ---
     const dshot_timing_t &_timing_config;
@@ -114,7 +117,7 @@ private:
     rmt_encoder_handle_t _dshot_encoder;
 
     // --- RMT Config ---
-    rmt_symbol_word_t _tx_symbols[DSHOT_BITS_PER_FRAME];
+    rmt_symbol_word_t _tx_symbols[DSHOT_SYMBOLS_SIZE];
     rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
     rmt_tx_channel_config_t _tx_channel_config;
     rmt_rx_channel_config_t _rx_channel_config;

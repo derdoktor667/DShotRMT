@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
+        uses: arduino/setup-arduino-cli@v2
         with:
           version: ${{ env.ARDUINO_CLI_VERSION }}
 
@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
+        uses: arduino/setup-arduino-cli@v2
         with:
           version: ${{ env.ARDUINO_CLI_VERSION }}
 
@@ -92,6 +92,11 @@ jobs:
         run: |
           arduino-cli core update-index
           arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
+
+      - name: Install Repo as Library
+        run: |
+          mkdir -p $HOME/Arduino/libraries
+          ln -s $PWD $HOME/Arduino/libraries/DShotRMT
 
       - name: Compile Example (${{ matrix.build-flags.name }})
         run: |
@@ -110,7 +115,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
+        uses: arduino/setup-arduino-cli@v2
         with:
           version: ${{ env.ARDUINO_CLI_VERSION }}
 

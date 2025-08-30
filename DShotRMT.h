@@ -18,20 +18,18 @@
 constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
-
 constexpr auto DSHOT_BITS_PER_FRAME = 16;
 constexpr auto DSHOT_SWITCH_TIME = 30;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 
 // RMT Configuration Constants
 constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
-constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000;       // 10 MHz resolution
+constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-
 constexpr auto RX_BUFFER_SIZE = 128;
 constexpr auto TX_BUFFER_SIZE = 64;
 
-// DShot Mode
+// DShot Mode Enumeration
 typedef enum dshot_mode_e
 {
     DSHOT_OFF,
@@ -44,12 +42,12 @@ typedef enum dshot_mode_e
 // DShot Packet Structure
 typedef struct dshot_packet_s
 {
-    uint16_t throttle_value : 11;    // 11-bit throttle value
-    uint16_t telemetric_request : 1; // Telemetry request bit
-    uint16_t checksum : 4;           // 4-bit CRC checksum
+    uint16_t throttle_value : 11;
+    uint16_t telemetric_request : 1;
+    uint16_t checksum : 4;
 } dshot_packet_t;
 
-// DShot Timing Config Structure
+// DShot Timing Configuration Structure
 typedef struct dshot_timing_s
 {
     uint32_t frame_length_us;
@@ -60,10 +58,10 @@ typedef struct dshot_timing_s
     uint16_t ticks_zero_low;
 } dshot_timing_t;
 
-// Timing config for DShot modes
+// External timing configurations
 extern const dshot_timing_t DSHOT_TIMINGS[];
 
-// DShotRMT Class
+//
 class DShotRMT
 {
 public:
@@ -72,90 +70,93 @@ public:
                       dshot_mode_t mode = DSHOT300,
                       bool is_bidirectional = false);
 
-    // Alternative constructor with pin number
+    // Constructor with pin number
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
 
     // Initialize the RMT module and DShot config
     uint16_t begin();
 
     // Send throttle value (48-2047)
-    [[deprecated("Use sendThrottle() instead")]]
-    bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); };
     bool sendThrottle(uint16_t throttle);
 
     // Send DShot command (0-47)
-    [[deprecated("Use sendCommand() instead")]]
-    bool sendDShotCommand(uint16_t command) { return sendCommand(command); };
     bool sendCommand(uint16_t command);
 
     // Get telemetry data (bidirectional mode only)
     uint16_t getERPM();
-    uint32_t getMotorRPM(uint8_t magnet_count); // Convert eRPM to motor RPM
 
-    // Tools
-    gpio_num_t getGPIO() const { return _gpio; }                    // Get GPIO pin
-    uint16_t getDShotPacket() const { return _parsed_packet; }     // Get raw packet
-    bool is_bidirectional() const { return _is_bidirectional; }     // Check if bidirectional
+    // Convert eRPM to motor RPM
+    uint32_t getMotorRPM(uint8_t magnet_count);
 
-    // Print DShot Info
+    //
+    gpio_num_t getGPIO() const { return _gpio; }
+    uint16_t getDShotPacket() const { return _parsed_packet; }
+    bool is_bidirectional() const { return _is_bidirectional; }
+
+    // --- INFO ---
     void printDshotInfo(Stream &output = Serial0) const;
     void printCpuInfo(Stream &output = Serial0) const;
-
-    // Prints debug values stream
     void printDebugStream(Stream &output = Serial0) const;
 
+    // --- DEPRECATED METHODS ---
+    [[deprecated("Use sendThrottle() instead")]]
+    bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); } 
+    
+    [[deprecated("Use sendCommand() instead")]]
+    bool sendDShotCommand(uint16_t command) { return sendCommand(command); } 
+    
 private:
-    // Configuration Variables
+    // --- CONFIG ---
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     uint16_t _is_bidirectional;
     uint32_t _frame_timer_us;
     const dshot_timing_t &_timing_config;
 
-    // RMT Config
+    // --- TIMING & STATE VARIABLES ---
+    uint32_t _last_transmission_time;
+    uint16_t _last_erpm;
+    uint16_t _parsed_packet;
+    dshot_packet_t _packet;
+
+    // --- RMT HARDWARE HANDLES ---
     rmt_channel_handle_t _rmt_tx_channel;
     rmt_channel_handle_t _rmt_rx_channel;
     rmt_encoder_handle_t _dshot_encoder;
 
-    // RMT Config Structures
-    rmt_symbol_word_t _tx_symbols[TX_BUFFER_SIZE];
-    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
+    // --- RMT CONFIG STRUCTURES ---
     rmt_tx_channel_config_t _tx_channel_config;
     rmt_rx_channel_config_t _rx_channel_config;
     rmt_transmit_config_t _transmit_config;
     rmt_receive_config_t _receive_config;
 
-    //
-    uint16_t _last_erpm;
-    uint16_t _parsed_packet;
-    dshot_packet_t _packet;
-    uint32_t _last_transmission_time;
+    // --- RMT DATA BUFFERS ---
+    rmt_symbol_word_t _tx_symbols[TX_BUFFER_SIZE];
+    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
 
-    // Helpers
+    // --- INITS ---
     bool _initTXChannel();
     bool _initRXChannel();
     bool _initDShotEncoder();
 
-    // Utilizing RMT
-    uint16_t _sendDShotFrame(const dshot_packet_t &packet);
-
-    // Packet management
-    uint16_t _calculateCRC(const dshot_packet_t &packet);
+    // --- PACKET MANAGEMENT ---
     dshot_packet_t _buildDShotPacket(const uint16_t value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
+    uint16_t _calculateCRC(const dshot_packet_t &packet);
 
-    // Frame processing
+    // --- FRAME PROCESSING ---
+    uint16_t _sendDShotFrame(const dshot_packet_t &packet);
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
-    // Timer Config
+    // --- TIMING CONTROL ---
     bool IRAM_ATTR _timer_signal();
     bool _timer_reset();
 
-    // DShot Messages
-    void _dshot_log(char *msg, Stream &output = Serial0) { output.println(msg); };
+    // --- ERROR HANDLING & LOGGING ---
+    void _dshot_log(char *msg, Stream &output = Serial0) { output.println(msg); }
 
-    // Error Codes and Messages
+    // --- CONSTANTS & ERROR MESSAGES ---
     static constexpr uint16_t DSHOT_OK = 0;
     static constexpr uint16_t DSHOT_ERROR = 1;
 

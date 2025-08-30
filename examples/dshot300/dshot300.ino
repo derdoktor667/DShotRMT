@@ -50,29 +50,16 @@ void setup()
 //
 void loop()
 {
-    static uint16_t throttle = DSHOT_THROTTLE_MIN;
+    /// ...safety first
+    static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
 
-    // Loop Time Measurement
+    // Time Measurement
     static uint32_t last_stats_print = 0;
-    static uint32_t loop_time = 0;
-    uint32_t loop_start = micros();
 
-    //
+    // Read throttle value
     if (USB_SERIAL.available() > 0)
     {
-        int new_throttle = USB_SERIAL.readStringUntil('\n').toInt();
-
-        // Check for valid throttle value
-        if (new_throttle >= DSHOT_THROTTLE_MIN && new_throttle <= DSHOT_THROTTLE_MAX)
-        {
-            throttle = new_throttle;
-        }
-        else
-        {
-            USB_SERIAL.println(" ");
-            USB_SERIAL.println("NOT A VALID THROTTLE VALUE (48 - 2047)!!!");
-            USB_SERIAL.println(" ");
-        }
+        throttle = USB_SERIAL.readStringUntil('\n').toInt();
     }
 
     // Send the current throttle value
@@ -83,15 +70,7 @@ void loop()
     {
         motor01.printDshotInfo();
 
-        // Loop Time Info
-        USB_SERIAL.print("Loop Time: ");
-        USB_SERIAL.print(loop_time);
-        USB_SERIAL.println(" us");
-
-        //
+        // Time Stamp
         last_stats_print = millis();
     }
-
-    //
-    loop_time = micros() - loop_start;
 }

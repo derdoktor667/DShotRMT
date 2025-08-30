@@ -79,33 +79,30 @@ uint16_t DShotRMT::begin()
     return DSHOT_OK;
 }
 
-// Legacy throttle method (deprecated)
-bool DShotRMT::setThrottle(uint16_t throttle)
-{
-    return sendThrottle(throttle);
-}
-
 // Send throttle value
 bool DShotRMT::sendThrottle(uint16_t throttle)
 {
-    // Validate throttle value is in throttle range
-    if (throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX)
+    static uint16_t last_throttle = DSHOT_CMD_MOTOR_STOP;
+
+    // Special case: if throttle is 0, use sendCommand() instead
+    if (throttle == 0)
+    {
+        return sendCommand(DSHOT_CMD_MOTOR_STOP);
+    }
+
+    // Log only if throttle is out of range and different from last time (tricky little thing)
+    if ((throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX) && throttle != last_throttle)
     {
         _dshot_log(THROTTLE_NOT_IN_RANGE);
     }
 
-    // Ensure throttle is within bounds (safety constraint)
-    auto value = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+    // Always store the original throttle value (good one)
+    last_throttle = throttle;
 
-    // Build packet and transmit
-    _packet = _buildDShotPacket(value);
+    // Constrain throttle for transmission and send
+    uint16_t transmission_throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+    _packet = _buildDShotPacket(transmission_throttle);
     return _sendDShotFrame(_packet);
-}
-
-// Legacy command method (deprecated)
-bool DShotRMT::sendDShotCommand(uint16_t command)
-{
-    return sendCommand(command);
 }
 
 // Send DShot command to ESC

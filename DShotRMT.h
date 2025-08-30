@@ -80,12 +80,12 @@ public:
 
     // Send throttle value (48-2047)
     [[deprecated("Use sendThrottle() instead")]]
-    bool setThrottle(uint16_t throttle);
+    bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); };
     bool sendThrottle(uint16_t throttle);
 
     // Send DShot command (0-47)
     [[deprecated("Use sendCommand() instead")]]
-    bool sendDShotCommand(uint16_t command);
+    bool sendDShotCommand(uint16_t command) { return sendCommand(command); };
     bool sendCommand(uint16_t command);
 
     // Get telemetry data (bidirectional mode only)

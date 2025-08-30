@@ -9,6 +9,9 @@
 #include <Arduino.h>
 #include <DShotRMT.h>
 
+// Debug output
+static constexpr auto DEBUG = false;
+
 // USB serial port settings
 static constexpr auto &USB_SERIAL = Serial0;
 static constexpr auto USB_SERIAL_BAUD = 115200;
@@ -65,8 +68,15 @@ void loop()
     // Send the current throttle value
     motor01.sendThrottle(throttle);
 
+    // Debug output
+    if (DEBUG)
+    {
+        motor01.printDebugStream();
+        return;
+    }
+    
     // Print motor stats every 2 seconds
-    if (millis() - last_stats_print >= 3000)
+    if (millis() - last_stats_print >= 2000)
     {
         motor01.printDshotInfo();
 

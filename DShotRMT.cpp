@@ -408,6 +408,31 @@ void DShotRMT::printCpuInfo(Stream &output) const
     output.printf("APB Freq = %lu Hz\n", getApbFrequency());
 }
 
+void DShotRMT::printDebugStream(Stream &output) const
+{
+    // Debug Values as a list
+    output.print(_mode);
+    output.print(",");
+    output.print(_is_bidirectional);
+    output.print(",");
+    output.print(_packet.throttle_value);
+    output.print(",");
+    // The packet bitwise
+    for (int i = 15; i >= 0; --i)
+    {
+        if ((_parsed_packet >> i) & 1)
+        {
+            output.print("1");
+        }
+        else
+        {
+            output.print("0");
+        }
+    }
+  output.print("*/");
+  output.print("\n");
+}
+
 // Check if enough time has passed for next transmission
 bool DShotRMT::_timer_signal()
 {

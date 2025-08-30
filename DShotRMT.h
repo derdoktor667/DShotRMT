@@ -101,6 +101,9 @@ public:
     void printDshotInfo(Stream &output = Serial0) const;
     void printCpuInfo(Stream &output = Serial0) const;
 
+    // Prints debug values stream
+    void printDebugStream(Stream &output = Serial0) const;
+
 private:
     // Configuration Variables
     gpio_num_t _gpio;

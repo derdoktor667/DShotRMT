@@ -68,17 +68,17 @@ void loop()
     // Send the current throttle value
     motor01.sendThrottle(throttle);
 
-    // Debug output
-    if (DEBUG)
-    {
-        motor01.printDebugStream();
-        return;
-    }
-    
     // Print motor stats every 2 seconds
     if (millis() - last_stats_print >= 2000)
     {
         motor01.printDshotInfo();
+
+        // Get Motor RPM
+        if (IS_BIDIRECTIONAL)
+        {
+            uint32_t rpm = motor01.getMotorRPM(MOTOR01_MAGNET_COUNT);
+            USB_SERIAL.printf("Motor RPM: %u\n", rpm);
+        }
 
         // Time Stamp
         last_stats_print = millis();

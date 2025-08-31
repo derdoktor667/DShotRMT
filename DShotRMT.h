@@ -21,12 +21,13 @@ constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_BITS_PER_FRAME = 16;
 constexpr auto DSHOT_SWITCH_TIME = 30;
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
+constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
 
 // RMT Configuration Constants
 constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-constexpr auto RX_BUFFER_SIZE = 128;
+constexpr auto RX_BUFFER_SIZE = 64;
 constexpr auto TX_BUFFER_SIZE = 64;
 
 // DShot Mode Enumeration
@@ -96,7 +97,6 @@ public:
     // --- INFO ---
     void printDshotInfo(Stream &output = Serial0) const;
     void printCpuInfo(Stream &output = Serial0) const;
-    void printDebugStream(Stream &output = Serial0) const;
 
     // --- DEPRECATED METHODS ---
     [[deprecated("Use sendThrottle() instead")]]
@@ -153,6 +153,11 @@ private:
     bool IRAM_ATTR _timer_signal();
     bool _timer_reset();
 
+    // -- CALLBACKS ---
+    QueueHandle_t _rx_queue;
+    rmt_rx_event_callbacks_t _rx_event_cbs;
+    static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data);
+
     // --- ERROR HANDLING & LOGGING ---
     void _dshot_log(char *msg, Stream &output = Serial0) { output.println(msg); }
 
@@ -169,4 +174,5 @@ private:
     static constexpr char *COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
     static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
     static constexpr char *RX_RMT_MODULE_ERROR = "RX RMT module failure!";
+    static constexpr char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver failure!";
 };

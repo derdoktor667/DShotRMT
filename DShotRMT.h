@@ -30,6 +30,11 @@ constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
 constexpr auto RX_BUFFER_SIZE = 64;
 constexpr auto TX_BUFFER_SIZE = 64;
 
+// Smallest pulse for DShot1200 is 2us. Largest for DShot150 is 40us.
+// The range is set from 3us (3000ns) to 60us (60000ns) to be safe across all modes.
+constexpr uint32_t DSHOT_PULSE_MIN = 3000;
+constexpr uint32_t DSHOT_PULSE_MAX = 60000;
+
 // DShot Mode Enumeration
 typedef enum dshot_mode_e
 {
@@ -100,10 +105,10 @@ public:
 
     // --- DEPRECATED METHODS ---
     [[deprecated("Use sendThrottle() instead")]]
-    bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); } 
+    bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); }
     
     [[deprecated("Use sendCommand() instead")]]
-    bool sendDShotCommand(uint16_t command) { return sendCommand(command); } 
+    bool sendDShotCommand(uint16_t command) { return sendCommand(command); }
     
 private:
     // --- CONFIG ---

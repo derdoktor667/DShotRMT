@@ -108,13 +108,13 @@ bool DShotRMT::_initTXChannel()
 // Initialize RMT RX channel
 bool DShotRMT::_initRXChannel()
 {
-        // Create a queue to receive data from the RX callback
+    // Create a queue to receive data from the RX callback
     _rx_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
     if (_rx_queue == nullptr)
     {
         return DSHOT_ERROR;
     }
-    
+
     // Configure RX channel parameters
     _rx_channel_config.gpio_num = _gpio;
     _rx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
@@ -122,8 +122,8 @@ bool DShotRMT::_initRXChannel()
     _rx_channel_config.mem_block_symbols = RX_BUFFER_SIZE;
 
     // Configure reception parameters
-    _receive_config.signal_range_min_ns = 2;
-    _receive_config.signal_range_max_ns = 200;
+    _receive_config.signal_range_min_ns = DSHOT_PULSE_MIN;
+    _receive_config.signal_range_max_ns = DSHOT_PULSE_MAX;
 
     // Create RMT RX channel
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
@@ -139,7 +139,7 @@ bool DShotRMT::_initRXChannel()
         _dshot_log(RX_INIT_FAILED);
         return DSHOT_ERROR;
     }
-    
+
     return (rmt_enable(_rmt_rx_channel) == DSHOT_OK);
 }
 
@@ -224,7 +224,7 @@ uint16_t DShotRMT::getERPM()
     }
 
     rmt_rx_done_event_data_t rx_data;
-    
+
     // Wait for data from the RX callback for a certain timeout
     if (xQueueReceive(_rx_queue, &rx_data, pdMS_TO_TICKS(DSHOT_RX_TIMEOUT_MS)) == pdTRUE)
     {
@@ -288,7 +288,7 @@ uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
 // Transmit DShot packet via RMT
 uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-        // Check timing requirements
+    // Check timing requirements
     if (!_timer_signal())
     {
         return DSHOT_ERROR;
@@ -298,6 +298,9 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     if (_is_bidirectional)
     {
         rmt_receive(_rmt_rx_channel, _rx_symbols, sizeof(_rx_symbols), &_receive_config);
+
+        // Disable RMT RX for sending
+        rmt_disable(_rmt_rx_channel);
     }
 
     // Encode DShot packet into RMT symbols
@@ -313,10 +316,18 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     {
         return DSHOT_ERROR;
     }
-    
-    // Update timestamp
-    _timer_reset();
 
+    // Re-enable RMT RX
+    if (_is_bidirectional)
+    {
+        if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
+        {
+            _dshot_log(RX_RMT_RECEIVER_ERROR);
+        }
+    }
+
+    // Update timestamp and return success
+    _timer_reset();
     return DSHOT_OK;
 }
 
@@ -410,10 +421,10 @@ void DShotRMT::printDshotInfo(Stream &output) const
 
     // Current DShot mode
     output.printf("Current Mode: DSHOT%d\n",
-                  _mode == DSHOT150 ? 150 :
-                  _mode == DSHOT300 ? 300 :
-                  _mode == DSHOT600 ? 600 :
-                  _mode == DSHOT1200  ? 1200 : 0);
+                  _mode == DSHOT150 ? 150 : _mode == DSHOT300 ? 300
+                                        : _mode == DSHOT600   ? 600
+                                        : _mode == DSHOT1200  ? 1200
+                                                              : 0);
 
     output.printf("Bidirectional: %s\n", _is_bidirectional ? "YES" : "NO");
 
@@ -451,4 +462,3 @@ void DShotRMT::printCpuInfo(Stream &output) const
     output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
     output.printf("APB Freq = %lu Hz\n", getApbFrequency());
 }
-

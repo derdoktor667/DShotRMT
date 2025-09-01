@@ -11,7 +11,7 @@
 
 // Timing parameters for each DShot mode
 // Format: {frame_length_us, ticks_per_bit, ticks_one_high, ticks_one_low, ticks_zero_high, ticks_zero_low}
-constexpr dshot_timing_t DSHOT_TIMINGS[] = {
+static constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {0, 0, 0, 0, 0, 0},        // DSHOT_OFF
     {128, 64, 48, 16, 24, 40}, // DSHOT150
     {64, 32, 24, 8, 12, 20},   // DSHOT300
@@ -51,6 +51,36 @@ DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional)
     // Delegates to primary constructor with type cast
 }
 
+// Destructor for "better" code
+DShotRMT::~DShotRMT()
+{
+    // ...kill them all
+    if (_rmt_tx_channel)
+    {
+        rmt_disable(_rmt_tx_channel);
+        rmt_del_channel(_rmt_tx_channel);
+    }
+
+    //
+    if (_rmt_rx_channel)
+    {
+        rmt_disable(_rmt_rx_channel);
+        rmt_del_channel(_rmt_rx_channel);
+    }
+
+    //
+    if (_dshot_encoder)
+    {
+        rmt_del_encoder(_dshot_encoder);
+    }
+
+    //
+    if (_rx_queue)
+    {
+        vQueueDelete(_rx_queue);
+    }
+}
+
 // Initialize DShotRMT
 uint16_t DShotRMT::begin()
 {
@@ -88,8 +118,8 @@ bool DShotRMT::_initTXChannel()
     _tx_channel_config.gpio_num = _gpio;
     _tx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
     _tx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
-    _tx_channel_config.mem_block_symbols = TX_BUFFER_SIZE;
-    _tx_channel_config.trans_queue_depth = RMT_BUFFER_SIZE;
+    _tx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
+    _tx_channel_config.trans_queue_depth = RMT_TRANSMIT_QUEUE_DEPTH;
 
     // Configure transmission
     _transmit_config.loop_count = 0;                              // No automatic loops - real-time calculation
@@ -119,7 +149,7 @@ bool DShotRMT::_initRXChannel()
     _rx_channel_config.gpio_num = _gpio;
     _rx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
     _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
-    _rx_channel_config.mem_block_symbols = RX_BUFFER_SIZE;
+    _rx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
 
     // Configure reception parameters
     _receive_config.signal_range_min_ns = DSHOT_PULSE_MIN;
@@ -367,32 +397,56 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
 // Decode received RMT symbols
 uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
-    uint16_t received_frame = 0;
+    // DShot answer is GCR encoded?
+    // GCR decoding: bit_N = gcr_bit_N ^ gcr_bit_(N-1)
+    uint32_t raw_gcr_data = 0;
 
-    // Reconstruct frame from RMT symbols
+    // Reconstruct the raw GCR frame from RMT symbols
     for (size_t i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
     {
-        // Determine bit value based on pulse duration comparison
-        bool bit = symbols[i].duration0 > symbols[i].duration1;
-        received_frame = (received_frame << 1) | bit;
+        // Based on DShot bidirectional protocol, idle state is high, so first duration is low pulse.
+        // Bit 1: long low pulse, short high pulse
+        // Bit 0: short low pulse, long high pulse
+        bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
+        raw_gcr_data = (raw_gcr_data << 1) | bit_is_one;
     }
 
-    // Extract data and CRC from received frame
-    uint16_t received_crc = received_frame & 0b0000000000001111;
-    uint16_t data = received_frame >> 4;
+    // Decode the GCR data to get the original 10-bit value
+    uint16_t decoded_value = 0;
+    for (int i = 0; i < 10; i++)
+    {
+        decoded_value = (decoded_value << 1) | ((raw_gcr_data >> (10 - 1 - i)) & 1);
+    }
 
-    // Calculate expected CRC
-    uint16_t calculated_crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
+    // Extract CRC from gcr answer
+    uint16_t received_crc = raw_gcr_data & 0b0000000000001111;
 
-    // Validate CRC
-    if (received_crc != calculated_crc)
+    // Decode GCR-encoded 10-bit value to get the original 10-bit value and check CRC
+    uint16_t received_data = 0;
+
+    // GCR first bit is XORed with 1
+    uint16_t last_bit = 1;
+
+    for (int i = 0; i < 10; ++i)
+    {
+        bool current_bit = (raw_gcr_data >> (15 - i)) & 1;
+        bool decoded_bit = current_bit ^ last_bit;
+        received_data |= (decoded_bit << (9 - i));
+        last_bit = current_bit;
+    }
+
+    // Calculate CRC from the received and decoded data
+    uint16_t calculated_crc = (received_data ^ (received_data >> 4) ^ (received_data >> 8)) & 0b0000000000001111;
+
+    // Validate CRC (inverted for bidirectional DShot)
+    if (received_crc != ((~calculated_crc) & 0b0000000000001111))
     {
         _dshot_log(CRC_CHECK_FAILED);
         return DSHOT_NULL_PACKET;
     }
 
-    // Remove telemetry bit and return 10-bit value
-    return data >> 1;
+    // The data is eRPM * 100
+    return received_data;
 }
 
 // Check if enough time has passed for next transmission

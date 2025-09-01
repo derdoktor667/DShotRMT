@@ -19,7 +19,7 @@ constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_BITS_PER_FRAME = 16;
-constexpr auto DSHOT_SWITCH_TIME = 30;
+constexpr auto DSHOT_SWITCH_TIME = 30; // Time in us between TX and RX
 constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
 
@@ -27,8 +27,8 @@ constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
 constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-constexpr auto RX_BUFFER_SIZE = 64;
-constexpr auto TX_BUFFER_SIZE = 64;
+constexpr auto RMT_BUFFER_SYMBOLS = 64;
+constexpr auto RMT_TRANSMIT_QUEUE_DEPTH = 1;
 
 // Smallest pulse for DShot1200 is 2us. Largest for DShot150 is 40us.
 // The range is set from 3us (3000ns) to 60us (60000ns) to be safe across all modes.
@@ -64,9 +64,6 @@ typedef struct dshot_timing_s
     uint16_t ticks_zero_low;
 } dshot_timing_t;
 
-// External timing configurations
-extern const dshot_timing_t DSHOT_TIMINGS[];
-
 //
 class DShotRMT
 {
@@ -78,6 +75,9 @@ public:
 
     // Constructor with pin number
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
+
+    // Destructor for "better" code
+    ~DShotRMT();
 
     // Initialize the RMT module and DShot config
     uint16_t begin();
@@ -114,7 +114,7 @@ private:
     // --- CONFIG ---
     gpio_num_t _gpio;
     dshot_mode_t _mode;
-    uint16_t _is_bidirectional;
+    bool _is_bidirectional;
     uint32_t _frame_timer_us;
     const dshot_timing_t &_timing_config;
 
@@ -136,8 +136,8 @@ private:
     rmt_receive_config_t _receive_config;
 
     // --- RMT DATA BUFFERS ---
-    rmt_symbol_word_t _tx_symbols[TX_BUFFER_SIZE];
-    rmt_symbol_word_t _rx_symbols[RX_BUFFER_SIZE];
+    rmt_symbol_word_t _tx_symbols[RMT_BUFFER_SYMBOLS];
+    rmt_symbol_word_t _rx_symbols[RMT_BUFFER_SYMBOLS];
 
     // --- INITS ---
     bool _initTXChannel();

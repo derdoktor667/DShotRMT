@@ -281,6 +281,15 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
     // Init packet structure
     dshot_packet_t packet = {};
 
+    // Re-check for valid value
+    if (value > DSHOT_THROTTLE_MAX)
+    {
+        _dshot_log(PACKET_BUILD_ERROR);
+        
+        // Something is really wrong
+        return packet;
+    }
+
     // Build packet
     packet.throttle_value = value;
     packet.telemetric_request = _is_bidirectional ? 1 : 0;
@@ -414,18 +423,16 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         raw_gcr_data = (raw_gcr_data << 1) | bit_is_one;
     }
 
-    // Decode the GCR data to get the original 10-bit value
-    uint16_t decoded_value = 0;
-    for (int i = 0; i < 10; i++)
-    {
-        decoded_value = (decoded_value << 1) | ((raw_gcr_data >> (10 - 1 - i)) & 1);
-    }
+    // GCR decoding over the "throttle" bits
+    // GCR encoding rule is: bit_n = gcr_bit_n ^ gcr_bit_(n-1)
+    uint16_t gcr_data = (raw_gcr_data >> 5) & 0b000000001111111111;
+    uint16_t received_data = gcr_data ^ (gcr_data >> 1);
 
     // Extract CRC from gcr answer
     uint16_t received_crc = raw_gcr_data & 0b0000000000001111;
 
     // Calculate expected CRC using the new, centralized function
-    uint16_t data_for_crc = (decoded_value << 1) | 1; // Telemetry request bit is always 1 for bidirectional
+    uint16_t data_for_crc = (received_data << 1) | 1; // Telemetry request bit is always 1 for bidirectional
     uint16_t calculated_crc = _calculateCRC(data_for_crc);
     
     // Validate CRC
@@ -436,7 +443,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     }
 
     // The data is eRPM * 100
-    return decoded_value;
+    return received_data;
 }
 
 // Check if enough time has passed for next transmission

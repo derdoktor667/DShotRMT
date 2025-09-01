@@ -181,4 +181,5 @@ private:
     static constexpr std::string_view COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
     static constexpr std::string_view BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
     static constexpr std::string_view RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
+    static constexpr std::string_view PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
 };

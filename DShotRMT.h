@@ -38,7 +38,7 @@ constexpr uint32_t DSHOT_PULSE_MIN = 3000;
 constexpr uint32_t DSHOT_PULSE_MAX = 60000;
 
 // DShot Mode Enumeration
-typedef enum dshot_mode_e
+typedef enum
 {
     DSHOT_OFF,
     DSHOT150,
@@ -48,7 +48,7 @@ typedef enum dshot_mode_e
 } dshot_mode_t;
 
 // DShot Packet Structure
-typedef struct dshot_packet_s
+typedef struct 
 {
     uint16_t throttle_value : 11;
     uint16_t telemetric_request : 1;
@@ -56,7 +56,7 @@ typedef struct dshot_packet_s
 } dshot_packet_t;
 
 // DShot Timing Configuration Structure
-typedef struct dshot_timing_s
+typedef struct 
 {
     uint32_t frame_length_us;
     uint16_t ticks_per_bit;
@@ -149,7 +149,7 @@ private:
     // --- PACKET MANAGEMENT ---
     dshot_packet_t _buildDShotPacket(const uint16_t value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
-    uint16_t _calculateCRC(const dshot_packet_t &packet);
+    uint16_t _calculateCRC(const uint16_t data);
 
     // --- FRAME PROCESSING ---
     uint16_t _sendDShotFrame(const dshot_packet_t &packet);

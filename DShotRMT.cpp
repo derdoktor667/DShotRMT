@@ -278,13 +278,17 @@ uint32_t DShotRMT::getMotorRPM(uint8_t magnet_count)
 // Build a complete DShot packet
 dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 {
-    // Initialize packet structure
+    // Init packet structure
     dshot_packet_t packet = {};
 
     // Build packet
     packet.throttle_value = value;
     packet.telemetric_request = _is_bidirectional ? 1 : 0;
-    packet.checksum = _calculateCRC(packet);
+    
+    // CRC is calculated over 11bit
+    uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
+    
+    packet.checksum = _calculateCRC(data);
 
     return packet;
 }
@@ -292,18 +296,17 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
 // Parse DShot packet into 16-bit format
 uint16_t DShotRMT::_parseDShotPacket(const dshot_packet_t &packet)
 {
-    uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
+    // Parse DShot frame into "raw" 16 bit value
+    uint16_t data_and_telemetry = (packet.throttle_value << 1) | packet.telemetric_request;
+    uint16_t parsed_packet = (data_and_telemetry << 4) | packet.checksum;
 
-    // Add CRC checksum
-    return (data << 4) | _calculateCRC(packet);
+    return parsed_packet;
 }
 
-// Calculate CRC checksum
-uint16_t DShotRMT::_calculateCRC(const dshot_packet_t &packet)
+// Calculate CRC
+uint16_t DShotRMT::_calculateCRC(const uint16_t data)
 {
-    uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
-
-    // DShot CRC calculation
+    // DShot CRC
     uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & 0b0000000000001111;
 
     // Invert CRC for bidirectional DShot mode
@@ -421,32 +424,19 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     // Extract CRC from gcr answer
     uint16_t received_crc = raw_gcr_data & 0b0000000000001111;
 
-    // Decode GCR-encoded 10-bit value to get the original 10-bit value and check CRC
-    uint16_t received_data = 0;
-
-    // GCR first bit is XORed with 1
-    uint16_t last_bit = 1;
-
-    for (int i = 0; i < 10; ++i)
-    {
-        bool current_bit = (raw_gcr_data >> (15 - i)) & 1;
-        bool decoded_bit = current_bit ^ last_bit;
-        received_data |= (decoded_bit << (9 - i));
-        last_bit = current_bit;
-    }
-
-    // Calculate CRC from the received and decoded data
-    uint16_t calculated_crc = (received_data ^ (received_data >> 4) ^ (received_data >> 8)) & 0b0000000000001111;
-
-    // Validate CRC (inverted for bidirectional DShot)
-    if (received_crc != ((~calculated_crc) & 0b0000000000001111))
+    // Calculate expected CRC using the new, centralized function
+    uint16_t data_for_crc = (decoded_value << 1) | 1; // Telemetry request bit is always 1 for bidirectional
+    uint16_t calculated_crc = _calculateCRC(data_for_crc);
+    
+    // Validate CRC
+    if (received_crc != calculated_crc)
     {
         _dshot_log(CRC_CHECK_FAILED);
         return DSHOT_NULL_PACKET;
     }
 
     // The data is eRPM * 100
-    return received_data;
+    return decoded_value;
 }
 
 // Check if enough time has passed for next transmission

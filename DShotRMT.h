@@ -13,6 +13,8 @@
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
+#include <iostream>
+#include <string_view>
 
 // DShot Protocol Constants
 constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
@@ -164,20 +166,19 @@ private:
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // --- ERROR HANDLING & LOGGING ---
-    void _dshot_log(char *msg, Stream &output = Serial0) { output.println(msg); }
+    void _dshot_log(std::string_view msg) { std::cerr << msg << '\n'; }
 
     // --- CONSTANTS & ERROR MESSAGES ---
     static constexpr uint16_t DSHOT_OK = 0;
     static constexpr uint16_t DSHOT_ERROR = 1;
 
-    static constexpr char *NEW_LINE = " ";
-    static constexpr char *TX_INIT_FAILED = "Failed to initialize TX channel!";
-    static constexpr char *RX_INIT_FAILED = "Failed to initialize RX channel!";
-    static constexpr char *ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
-    static constexpr char *CRC_CHECK_FAILED = "RX CRC Check failed!";
-    static constexpr char *THROTTLE_NOT_IN_RANGE = "Throttle value not in range (48 - 2047)!";
-    static constexpr char *COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
-    static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
-    static constexpr char *RX_RMT_MODULE_ERROR = "RX RMT module failure!";
-    static constexpr char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver failure!";
+    static constexpr std::string_view NEW_LINE = " ";
+    static constexpr std::string_view TX_INIT_FAILED = "Failed to initialize TX channel!";
+    static constexpr std::string_view RX_INIT_FAILED = "Failed to initialize RX channel!";
+    static constexpr std::string_view ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
+    static constexpr std::string_view CRC_CHECK_FAILED = "RX CRC Check failed!";
+    static constexpr std::string_view THROTTLE_NOT_IN_RANGE = "Throttle value not in range (48 - 2047)!";
+    static constexpr std::string_view COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
+    static constexpr std::string_view BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
+    static constexpr std::string_view RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
 };

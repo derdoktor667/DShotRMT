@@ -470,7 +470,7 @@ bool DShotRMT::_timer_reset()
 // Print timing diagnostic information to specified stream
 void DShotRMT::printDshotInfo(Stream &output) const
 {
-    output.println(NEW_LINE);
+    output.println(" ");
     output.println(" === DShot Signal Info === ");
 
     // Current DShot mode
@@ -508,7 +508,7 @@ void DShotRMT::printDshotInfo(Stream &output) const
 // Print CPU information
 void DShotRMT::printCpuInfo(Stream &output) const
 {
-    output.println(NEW_LINE);
+    output.println(" ");
     output.println(" ===  CPU Info  === ");
     output.printf("Chip Model: %s\n", ESP.getChipModel());
     output.printf("Chip Revision: %d\n", ESP.getChipRevision());

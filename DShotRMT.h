@@ -30,7 +30,7 @@ constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
 constexpr auto RMT_BUFFER_SYMBOLS = 64;
-constexpr auto RMT_TRANSMIT_QUEUE_DEPTH = 1;
+constexpr auto RMT_QUEUE_DEPTH = 1;
 
 // Smallest pulse for DShot1200 is 2us. Largest for DShot150 is 40us.
 // The range is set from 3us (3000ns) to 60us (60000ns) to be safe across all modes.

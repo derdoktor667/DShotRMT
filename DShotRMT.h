@@ -137,6 +137,9 @@ private:
     rmt_transmit_config_t _transmit_config;
     rmt_receive_config_t _receive_config;
 
+    // --- RMT DShot Encoder ---
+    rmt_copy_encoder_config_t _encoder_config;
+
     // --- RMT DATA BUFFERS ---
     rmt_symbol_word_t _tx_symbols[RMT_BUFFER_SYMBOLS];
     rmt_symbol_word_t _rx_symbols[RMT_BUFFER_SYMBOLS];
@@ -162,8 +165,8 @@ private:
 
     // -- CALLBACKS ---
     QueueHandle_t _rx_queue;
-    rmt_rx_event_callbacks_t _rx_event_cbs;
-    static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data);
+    rmt_rx_event_callbacks_t _rx_event_callbacks;
+    static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // --- ERROR HANDLING & LOGGING ---
     void _dshot_log(std::string_view msg) { std::cerr << msg << '\n'; }

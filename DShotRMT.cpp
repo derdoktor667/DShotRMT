@@ -28,6 +28,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _rmt_tx_channel(nullptr),
       _rmt_rx_channel(nullptr),
       _dshot_encoder(nullptr),
+      _encoder_config{},
       _last_erpm(0),
       _parsed_packet(0),
       _packet{0},
@@ -163,8 +164,9 @@ bool DShotRMT::_initRXChannel()
     }
 
     // Register callback for reception
-    _rx_event_cbs.on_recv_done = _rmt_rx_done_callback;
-    if (rmt_rx_register_event_callbacks(_rmt_rx_channel, &_rx_event_cbs, _rx_queue) != DSHOT_OK)
+    _rx_event_callbacks.on_recv_done = _rmt_rx_done_callback;
+
+    if (rmt_rx_register_event_callbacks(_rmt_rx_channel, &_rx_event_callbacks, _rx_queue) != DSHOT_OK)
     {
         _dshot_log(RX_INIT_FAILED);
         return DSHOT_ERROR;
@@ -174,14 +176,14 @@ bool DShotRMT::_initRXChannel()
 }
 
 // Callback for RMT RX
-bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data)
+bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
-    // Get the queue handle
+    // Init RX buffer
     QueueHandle_t rx_queue = (QueueHandle_t)user_data;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
-    // Send the event data to the queue
-    xQueueSendFromISR(rx_queue, edata, &xHigherPriorityTaskWoken);
+    // Copy callback data into RX buffer
+    xQueueGenericSendFromISR(rx_queue, edata, &xHigherPriorityTaskWoken, queueSEND_TO_BACK);
 
     return (xHigherPriorityTaskWoken == pdTRUE);
 }
@@ -190,10 +192,10 @@ bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rx_chan, con
 bool DShotRMT::_initDShotEncoder()
 {
     // Create copy encoder configuration
-    rmt_copy_encoder_config_t encoder_config = {};
+    // rmt_copy_encoder_config_t encoder_config = {};
 
     // Create encoder instance
-    if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
+    if (rmt_new_copy_encoder(&_encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
         _dshot_log(ENCODER_INIT_FAILED);
         return DSHOT_ERROR;

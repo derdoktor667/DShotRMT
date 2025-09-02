@@ -7,7 +7,6 @@
  */
 
 #include "DShotRMT.h"
-#include <driver/rmt_tx.h>
 
 // Timing parameters for each DShot mode
 // Format: {frame_length_us, ticks_per_bit, ticks_one_high, ticks_one_low, ticks_zero_high, ticks_zero_low}
@@ -19,20 +18,24 @@ static constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {16, 8, 6, 2, 3, 5}        // DSHOT1200
 };
 
-// Primary constructor with GPIO number
+// Constructor with GPIO number
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
     : _gpio(gpio),
       _mode(mode),
       _is_bidirectional(is_bidirectional),
+      _frame_timer_us(0),
       _timing_config(DSHOT_TIMINGS[mode]),
-      _rmt_tx_channel(nullptr),
-      _rmt_rx_channel(nullptr),
-      _dshot_encoder(nullptr),
-      _encoder_config{},
+      _last_transmission_time(0),
       _last_erpm(0),
       _parsed_packet(0),
       _packet{0},
-      _last_transmission_time(0),
+      _rmt_tx_channel(nullptr),
+      _rmt_rx_channel(nullptr),
+      _dshot_encoder(nullptr),
+      _tx_channel_config{},
+      _rx_channel_config{},
+      _transmit_config{},
+      _receive_config{},
       _rx_queue(nullptr)
 {
     // Calculate frame timing including switch/pause time
@@ -85,14 +88,14 @@ DShotRMT::~DShotRMT()
 // Initialize DShotRMT
 uint16_t DShotRMT::begin()
 {
-    // Initialize TX channel
+    // Init TX channel
     if (!_initTXChannel())
     {
         _dshot_log(TX_INIT_FAILED);
         return DSHOT_ERROR;
     }
 
-    // Initialize RX channel only if bidirectional mode is enabled
+    // Init RX channel
     if (_is_bidirectional)
     {
         if (!_initRXChannel())
@@ -102,7 +105,7 @@ uint16_t DShotRMT::begin()
         }
     }
 
-    // Initialize DShot encoder
+    // Init DShot encoder
     if (_initDShotEncoder() != DSHOT_OK)
     {
         _dshot_log(ENCODER_INIT_FAILED);
@@ -112,7 +115,7 @@ uint16_t DShotRMT::begin()
     return DSHOT_OK;
 }
 
-// Initialize RMT TX channel
+// Init RMT TX channel
 bool DShotRMT::_initTXChannel()
 {
     // Configure TX channel
@@ -122,7 +125,7 @@ bool DShotRMT::_initTXChannel()
     _tx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
     _tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
 
-    // Configure transmission
+    // Config RMT TX
     _transmit_config.loop_count = 0;                              // No automatic loops - real-time calculation
     _transmit_config.flags.eot_level = _is_bidirectional ? 1 : 0; // Telemetric Bit used as bidir flag
 
@@ -136,23 +139,23 @@ bool DShotRMT::_initTXChannel()
     return (rmt_enable(_rmt_tx_channel) == DSHOT_OK);
 }
 
-// Initialize RMT RX channel
+// Init RMT RX channel
 bool DShotRMT::_initRXChannel()
 {
-    // Create a queue to receive data from the RX callback
+    // Create a queue for RX callback data
     _rx_queue = xQueueCreate(RMT_QUEUE_DEPTH, sizeof(rmt_rx_done_event_data_t));
     if (_rx_queue == nullptr)
     {
         return DSHOT_ERROR;
     }
 
-    // Configure RX channel parameters
+    // Config RMT RX 
     _rx_channel_config.gpio_num = _gpio;
     _rx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
     _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
     _rx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
 
-    // Configure reception parameters
+    // Config RMT RX parameters
     _receive_config.signal_range_min_ns = DSHOT_PULSE_MIN;
     _receive_config.signal_range_max_ns = DSHOT_PULSE_MAX;
 
@@ -163,7 +166,7 @@ bool DShotRMT::_initRXChannel()
         return DSHOT_ERROR;
     }
 
-    // Register callback for reception
+    // Register RX callback
     _rx_event_callbacks.on_recv_done = _rmt_rx_done_callback;
 
     if (rmt_rx_register_event_callbacks(_rmt_rx_channel, &_rx_event_callbacks, _rx_queue) != DSHOT_OK)
@@ -192,10 +195,10 @@ bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_chann
 bool DShotRMT::_initDShotEncoder()
 {
     // Create copy encoder configuration
-    // rmt_copy_encoder_config_t encoder_config = {};
+    rmt_copy_encoder_config_t encoder_config = {};
 
     // Create encoder instance
-    if (rmt_new_copy_encoder(&_encoder_config, &_dshot_encoder) != DSHOT_OK)
+    if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
         _dshot_log(ENCODER_INIT_FAILED);
         return DSHOT_ERROR;
@@ -342,20 +345,26 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     // Enable RMT RX before RMT TX 
     if (_is_bidirectional)
     {
-        rmt_receive(_rmt_rx_channel, _rx_symbols, sizeof(_rx_symbols), &_receive_config);
+        // Performance reasons
+        rmt_symbol_word_t rx_symbols[DSHOT_BITS_PER_FRAME];
+
+        rmt_receive(_rmt_rx_channel, rx_symbols, sizeof(rx_symbols), &_receive_config);
 
         // Disable RMT RX for sending
         rmt_disable(_rmt_rx_channel);
     }
 
+    // Local for performance
+    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
+
     // Encode DShot packet into RMT symbols
-    _encodeDShotFrame(packet, _tx_symbols);
+    _encodeDShotFrame(packet, tx_symbols);
 
     // Calculate transmission data size
     size_t tx_size_bytes = DSHOT_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
 
     // Perform RMT transmission
-    uint16_t result = rmt_transmit(_rmt_tx_channel, _dshot_encoder, _tx_symbols, tx_size_bytes, &_transmit_config);
+    uint16_t result = rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_transmit_config);
 
     if (result != DSHOT_OK)
     {
@@ -475,10 +484,10 @@ void DShotRMT::printDshotInfo(Stream &output) const
 
     // Current DShot mode
     output.printf("Current Mode: DSHOT%d\n",
-                  _mode == DSHOT150 ? 150 : _mode == DSHOT300 ? 300
-                                        : _mode == DSHOT600   ? 600
-                                        : _mode == DSHOT1200  ? 1200
-                                                              : 0);
+                  _mode == DSHOT150 ? 150 : 
+                  _mode == DSHOT300 ? 300 : 
+                  _mode == DSHOT600 ? 600 : 
+                  _mode == DSHOT1200  ? 1200 : 0);
 
     output.printf("Bidirectional: %s\n", _is_bidirectional ? "YES" : "NO");
 

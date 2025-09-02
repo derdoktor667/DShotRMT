@@ -13,8 +13,6 @@
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
-#include <iostream>
-#include <string_view>
 
 // DShot Protocol Constants
 constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
@@ -70,7 +68,7 @@ typedef struct
 class DShotRMT
 {
 public:
-    // Primary constructor with GPIO enum
+    // Constructor with GPIO enum
     explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16,
                       dshot_mode_t mode = DSHOT300,
                       bool is_bidirectional = false);
@@ -137,13 +135,6 @@ private:
     rmt_transmit_config_t _transmit_config;
     rmt_receive_config_t _receive_config;
 
-    // --- RMT DShot Encoder ---
-    rmt_copy_encoder_config_t _encoder_config;
-
-    // --- RMT DATA BUFFERS ---
-    rmt_symbol_word_t _tx_symbols[RMT_BUFFER_SYMBOLS];
-    rmt_symbol_word_t _rx_symbols[RMT_BUFFER_SYMBOLS];
-
     // --- INITS ---
     bool _initTXChannel();
     bool _initRXChannel();
@@ -169,20 +160,20 @@ private:
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // --- ERROR HANDLING & LOGGING ---
-    void _dshot_log(std::string_view msg) { std::cerr << msg << '\n'; }
+    void _dshot_log(const char *msg, Stream &output = Serial) { output.println(msg); }
 
     // --- CONSTANTS & ERROR MESSAGES ---
     static constexpr uint16_t DSHOT_OK = 0;
     static constexpr uint16_t DSHOT_ERROR = 1;
 
-    static constexpr std::string_view NEW_LINE = " ";
-    static constexpr std::string_view TX_INIT_FAILED = "Failed to initialize TX channel!";
-    static constexpr std::string_view RX_INIT_FAILED = "Failed to initialize RX channel!";
-    static constexpr std::string_view ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
-    static constexpr std::string_view CRC_CHECK_FAILED = "RX CRC Check failed!";
-    static constexpr std::string_view THROTTLE_NOT_IN_RANGE = "Throttle value not in range (48 - 2047)!";
-    static constexpr std::string_view COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
-    static constexpr std::string_view BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
-    static constexpr std::string_view RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
-    static constexpr std::string_view PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
+    static constexpr char *NEW_LINE = " ";
+    static constexpr char *TX_INIT_FAILED = "Failed to initialize TX channel!";
+    static constexpr char *RX_INIT_FAILED = "Failed to initialize RX channel!";
+    static constexpr char *ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
+    static constexpr char *CRC_CHECK_FAILED = "RX CRC Check failed!";
+    static constexpr char *THROTTLE_NOT_IN_RANGE = "Throttle value not in range (48 - 2047)!";
+    static constexpr char *COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
+    static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
+    static constexpr char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
+    static constexpr char *PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
 };

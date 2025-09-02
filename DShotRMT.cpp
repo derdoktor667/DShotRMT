@@ -119,7 +119,7 @@ bool DShotRMT::_initTXChannel()
     _tx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
     _tx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
     _tx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
-    _tx_channel_config.trans_queue_depth = RMT_TRANSMIT_QUEUE_DEPTH;
+    _tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
 
     // Configure transmission
     _transmit_config.loop_count = 0;                              // No automatic loops - real-time calculation
@@ -139,7 +139,7 @@ bool DShotRMT::_initTXChannel()
 bool DShotRMT::_initRXChannel()
 {
     // Create a queue to receive data from the RX callback
-    _rx_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+    _rx_queue = xQueueCreate(RMT_QUEUE_DEPTH, sizeof(rmt_rx_done_event_data_t));
     if (_rx_queue == nullptr)
     {
         return DSHOT_ERROR;
@@ -173,7 +173,7 @@ bool DShotRMT::_initRXChannel()
     return (rmt_enable(_rmt_rx_channel) == DSHOT_OK);
 }
 
-// Callback for RMT reception completion
+// Callback for RMT RX
 bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
     // Get the queue handle
@@ -253,13 +253,14 @@ uint16_t DShotRMT::getERPM()
         return _last_erpm;
     }
 
+    // RMT RX event data
     rmt_rx_done_event_data_t rx_data;
 
     // Wait for data from the RX callback for a certain timeout
     if (xQueueReceive(_rx_queue, &rx_data, pdMS_TO_TICKS(DSHOT_RX_TIMEOUT_MS)) == pdTRUE)
     {
         // Decode the received symbols if a valid frame was received
-        if (rx_data.num_symbols > 0)
+        if (rx_data.num_symbols > DSHOT_NULL_PACKET)
         {
             _last_erpm = _decodeDShotFrame(rx_data.received_symbols);
         }
@@ -336,7 +337,7 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         return DSHOT_ERROR;
     }
 
-    // Enable RX reception before transmission for bidirectional mode
+    // Enable RMT RX before RMT TX 
     if (_is_bidirectional)
     {
         rmt_receive(_rmt_rx_channel, _rx_symbols, sizeof(_rx_symbols), &_receive_config);

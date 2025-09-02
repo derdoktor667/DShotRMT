@@ -119,7 +119,7 @@ private:
     const dshot_timing_t &_timing_config;
 
     // --- TIMING & STATE VARIABLES ---
-    uint32_t _last_transmission_time;
+    uint64_t _last_transmission_time;
     uint16_t _last_erpm;
     uint16_t _parsed_packet;
     dshot_packet_t _packet;

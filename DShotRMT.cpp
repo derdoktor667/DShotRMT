@@ -461,10 +461,10 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 // Check if enough time has passed for next transmission
 bool IRAM_ATTR DShotRMT::_timer_signal()
 {
-    uint32_t current_time = micros();
+    uint64_t current_time = esp_timer_get_time();
 
     // Handle potential overflow
-    uint32_t elapsed = current_time - _last_transmission_time;
+    uint64_t elapsed = current_time - _last_transmission_time;
 
     return elapsed >= _frame_timer_us;
 }
@@ -472,7 +472,7 @@ bool IRAM_ATTR DShotRMT::_timer_signal()
 // Reset transmission timer to current time
 bool DShotRMT::_timer_reset()
 {
-    _last_transmission_time = micros();
+    _last_transmission_time = esp_timer_get_time();
     return DSHOT_OK;
 }
 

@@ -15,6 +15,7 @@
 #include <driver/rmt_rx.h>
 
 // DShot Protocol Constants
+constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 constexpr auto DSHOT_THROTTLE_MIN = 48;
 constexpr auto DSHOT_THROTTLE_MAX = 2047;
 constexpr auto DSHOT_BITS_PER_FRAME = 16;
@@ -26,6 +27,7 @@ constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
 constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
+constexpr auto GCR_BITS_PER_FRAME = 20;
 constexpr auto RMT_BUFFER_SYMBOLS = 64;
 constexpr auto RMT_QUEUE_DEPTH = 1;
 
@@ -165,14 +167,14 @@ private:
     static constexpr uint16_t DSHOT_OK = 0;
     static constexpr uint16_t DSHOT_ERROR = 1;
 
-    static constexpr const char *NEW_LINE = " ";
-    static constexpr const char *TX_INIT_FAILED = "Failed to initialize TX channel!";
-    static constexpr const char *RX_INIT_FAILED = "Failed to initialize RX channel!";
-    static constexpr const char *ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
-    static constexpr const char *CRC_CHECK_FAILED = "RX CRC Check failed!";
-    static constexpr const char *THROTTLE_NOT_IN_RANGE = "Throttle value not in range (48 - 2047)!";
-    static constexpr const char *COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
-    static constexpr const char *BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
-    static constexpr const char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
-    static constexpr const char *PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
+    static constexpr char *NEW_LINE = " ";
+    static constexpr char *TX_INIT_FAILED = "Failed to initialize TX channel!";
+    static constexpr char *RX_INIT_FAILED = "Failed to initialize RX channel!";
+    static constexpr char *ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
+    static constexpr char *CRC_CHECK_FAILED = "RX CRC Check failed!";
+    static constexpr char *THROTTLE_NOT_IN_RANGE = "Throttle value not in range (48 - 2047)!";
+    static constexpr char *COMMAND_NOT_VALID = "Not a valid DShot Command (0 - 47)!";
+    static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
+    static constexpr char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
+    static constexpr char *PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
 };

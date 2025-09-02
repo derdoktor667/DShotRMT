@@ -421,29 +421,33 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
 // Decode received RMT symbols
 uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
-    // DShot answer is GCR encoded?
+    // DShot answer is GCR encoded.
     // GCR decoding: bit_N = gcr_bit_N ^ gcr_bit_(N-1)
     uint32_t raw_gcr_data = 0;
 
-    // Construct GCR frame from RMT symbols
-    for (size_t i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
+    // Based on DShot bidirectional protocol, idle state is high,
+    // so the first duration is a low pulse.
+    // Bit 1: long low pulse, short high pulse
+    // Bit 0: short low pulse, long high pulse
+    for (size_t i = 0; i < GCR_BITS_PER_FRAME; ++i)
     {
-        // Based on the DShot bidirectional protocol, a logical '1' has a longer low pulse (symbols[i].duration0) than a logical '0'.
-        // The logical condition `symbols[i].duration0 > symbols[i].duration1` correctly identifies a logical '1' bit.
+        // Check which duration is longer to determine if it's a '1' bit
         bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
         raw_gcr_data = (raw_gcr_data << 1) | bit_is_one;
     }
 
+    // Extract the 10-bit data from the GCR frame
+    uint16_t gcr_data = (raw_gcr_data >> 5) & 0b0000001111111111; // Mask for 10 bits
+
     // GCR decoding over the "throttle" bits
-    // GCR encoding rule is: bit_n = gcr_bit_n ^ gcr_bit_(n-1)
-    uint16_t gcr_data = (raw_gcr_data >> 5) & 0b000000001111111111;
     uint16_t received_data = gcr_data ^ (gcr_data >> 1);
 
-    // Extract CRC from gcr answer
-    uint16_t received_crc = raw_gcr_data & 0b0000000000001111;
+    // Extract CRC from gcr answer (4 bits)
+    uint16_t received_crc = raw_gcr_data & 0b0000000000001111; // Mask for 4 bits
 
     // Calculate expected CRC using the new, centralized function
-    uint16_t data_for_crc = (received_data << 1) | 1; // Telemetry request bit is always 1 for bidirectional
+    // Telemetry request bit is always 1 for bidirectional
+    uint16_t data_for_crc = (received_data << 1) | 1;
     uint16_t calculated_crc = _calculateCRC(data_for_crc);
     
     // Validate CRC

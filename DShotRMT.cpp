@@ -425,12 +425,11 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     // GCR decoding: bit_N = gcr_bit_N ^ gcr_bit_(N-1)
     uint32_t raw_gcr_data = 0;
 
-    // Reconstruct the raw GCR frame from RMT symbols
+    // Construct GCR frame from RMT symbols
     for (size_t i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
     {
-        // Based on DShot bidirectional protocol, idle state is high, so first duration is low pulse.
-        // Bit 1: long low pulse, short high pulse
-        // Bit 0: short low pulse, long high pulse
+        // Based on the DShot bidirectional protocol, a logical '1' has a longer low pulse (symbols[i].duration0) than a logical '0'.
+        // The logical condition `symbols[i].duration0 > symbols[i].duration1` correctly identifies a logical '1' bit.
         bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
         raw_gcr_data = (raw_gcr_data << 1) | bit_is_one;
     }

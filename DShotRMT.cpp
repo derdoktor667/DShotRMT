@@ -88,14 +88,7 @@ DShotRMT::~DShotRMT()
 // Initialize DShotRMT
 uint16_t DShotRMT::begin()
 {
-    // Init TX channel
-    if (!_initTXChannel())
-    {
-        _dshot_log(TX_INIT_FAILED);
-        return DSHOT_ERROR;
-    }
-
-    // Init RX channel
+    // Init RX channel first
     if (_is_bidirectional)
     {
         if (!_initRXChannel())
@@ -103,6 +96,13 @@ uint16_t DShotRMT::begin()
             _dshot_log(RX_INIT_FAILED);
             return DSHOT_ERROR;
         }
+    }
+
+    // Init TX channel
+    if (!_initTXChannel())
+    {
+        _dshot_log(TX_INIT_FAILED);
+        return DSHOT_ERROR;
     }
 
     // Init DShot encoder
@@ -349,9 +349,6 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         rmt_symbol_word_t rx_symbols[DSHOT_BITS_PER_FRAME];
 
         rmt_receive(_rmt_rx_channel, rx_symbols, sizeof(rx_symbols), &_receive_config);
-
-        // Disable RMT RX for sending
-        rmt_disable(_rmt_rx_channel);
     }
 
     // Local for performance
@@ -363,11 +360,21 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     // Calculate transmission data size
     size_t tx_size_bytes = DSHOT_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
 
-    // Perform RMT transmission
-    uint16_t result = rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_transmit_config);
-
-    if (result != DSHOT_OK)
+    // TODO: Find out, why this is needed
+    if (_is_bidirectional)
     {
+        // Disable RMT RX for sending
+        if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
+        {
+            _dshot_log(RX_RMT_RECEIVER_ERROR);
+            return DSHOT_ERROR;
+        }
+    }
+    
+    // Perform RMT transmission
+    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_transmit_config) != DSHOT_OK)
+    {
+        _dshot_log(TRANSMITTER_ERROR);
         return DSHOT_ERROR;
     }
 
@@ -377,11 +384,13 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
         {
             _dshot_log(RX_RMT_RECEIVER_ERROR);
+            return DSHOT_ERROR;
         }
     }
 
     // Update timestamp and return success
     _timer_reset();
+
     return DSHOT_OK;
 }
 
@@ -468,7 +477,7 @@ bool DShotRMT::_timer_reset()
 }
 
 // Print timing diagnostic information to specified stream
-void DShotRMT::printDshotInfo(Stream &output) const
+void DShotRMT::printDShotInfo(Stream &output) const
 {
     output.println(" ");
     output.println(" === DShot Signal Info === ");

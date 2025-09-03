@@ -101,7 +101,7 @@ public:
     bool is_bidirectional() const { return _is_bidirectional; }
 
     // --- INFO ---
-    void printDshotInfo(Stream &output = Serial0) const;
+    void printDShotInfo(Stream &output = Serial0) const;
     void printCpuInfo(Stream &output = Serial0) const;
 
     // --- DEPRECATED METHODS ---
@@ -177,4 +177,5 @@ private:
     static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot support not enabled!";
     static constexpr char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
     static constexpr char *PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
+    static constexpr char *TRANSMITTER_ERROR = "RMT TX Transmitter Error!";
 };

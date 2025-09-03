@@ -63,6 +63,7 @@ DShotRMT::~DShotRMT()
     {
         rmt_disable(_rmt_tx_channel);
         rmt_del_channel(_rmt_tx_channel);
+        _rmt_tx_channel = nullptr;
     }
 
     //
@@ -70,18 +71,21 @@ DShotRMT::~DShotRMT()
     {
         rmt_disable(_rmt_rx_channel);
         rmt_del_channel(_rmt_rx_channel);
+        _rmt_rx_channel = nullptr;
     }
 
     //
     if (_dshot_encoder)
     {
         rmt_del_encoder(_dshot_encoder);
+        _dshot_encoder = nullptr;
     }
 
     //
     if (_rx_queue)
     {
         vQueueDelete(_rx_queue);
+        _rx_queue = nullptr;
     }
 }
 
@@ -297,7 +301,7 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
     }
 
     // Build packet
-    packet.throttle_value = value;
+    packet.throttle_value = value & 0b0000011111111111;
     packet.telemetric_request = _is_bidirectional ? 1 : 0;
     
     // CRC is calculated over 11bit
@@ -415,47 +419,51 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
     return DSHOT_OK;
 }
 
-// Decode received RMT symbols
+// Decodes a DShot telemetry frame from received RMT symbols.
 uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
-    // DShot answer is GCR encoded.
-    // GCR decoding: bit_N = gcr_bit_N ^ gcr_bit_(N-1)
-    uint32_t raw_gcr_data = 0;
+    uint32_t gcr_value = 0;
 
-    // Based on DShot bidirectional protocol, idle state is high,
-    // so the first duration is a low pulse.
-    // Bit 1: long low pulse, short high pulse
-    // Bit 0: short low pulse, long high pulse
+    // Decode GCR symbols into a 21-bit value.
+    // '1' has a longer low pulse (duration0 > duration1).
+    // '0' has a longer high pulse (duration1 > duration0).
     for (size_t i = 0; i < GCR_BITS_PER_FRAME; ++i)
     {
-        // Check which duration is longer to determine if it's a '1' bit
         bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
-        raw_gcr_data = (raw_gcr_data << 1) | bit_is_one;
+        gcr_value = (gcr_value << 1) | bit_is_one;
     }
 
-    // Extract the 10-bit data from the GCR frame
-    uint16_t gcr_data = (raw_gcr_data >> 5) & 0b0000001111111111; // Mask for 10 bits
+    // Perform GCR decoding: data = gcr ^ (gcr >> 1).
+    uint32_t decoded_frame = gcr_value ^ (gcr_value >> 1);
 
-    // GCR decoding over the "throttle" bits
-    uint16_t received_data = gcr_data ^ (gcr_data >> 1);
+    // Extract 16 data bits and 4 CRC bits from 20-bit frame.
+    // The first bit of the GCR frame is a start bit and is discarded.
+    uint16_t data_and_crc = (decoded_frame & 0xFFFF);
 
-    // Extract CRC from gcr answer (4 bits)
-    uint16_t received_crc = raw_gcr_data & 0b0000000000001111; // Mask for 4 bits
+    // Cutting 4 bits?
+    uint16_t received_data = data_and_crc >> 4;
 
-    // Calculate expected CRC using the new, centralized function
-    // Telemetry request bit is always 1 for bidirectional
-    uint16_t data_for_crc = (received_data << 1) | 1;
-    uint16_t calculated_crc = _calculateCRC(data_for_crc);
-    
-    // Validate CRC
-    if (received_crc != calculated_crc)
+    // Masking CRC
+    uint16_t received_crc = data_and_crc & 0b0000000000001111;
+
+    // Telemetry request bit is always 1.
+    if (!(received_data & (1 << 11)))
     {
-        _dshot_log(CRC_CHECK_FAILED);
         return DSHOT_NULL_PACKET;
     }
 
-    // The data is eRPM * 100
-    return received_data;
+    // Calculate expected CRC
+    uint16_t data_for_crc = received_data;
+    uint16_t calculated_crc = _calculateCRC(data_for_crc);
+
+    // Validate CRC
+    if (received_crc != calculated_crc)
+    {
+        return DSHOT_NULL_PACKET;
+    }
+
+    // Return the eRPM value (first 11 bits of received data).
+    return received_data & 0b0000011111111111;
 }
 
 // Check if enough time has passed for next transmission

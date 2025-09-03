@@ -27,7 +27,7 @@ constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
 constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-constexpr auto GCR_BITS_PER_FRAME = 20;
+constexpr auto GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame (1 start + 16 data + 4 CRC)
 constexpr auto RMT_BUFFER_SYMBOLS = 64;
 constexpr auto RMT_QUEUE_DEPTH = 1;
 
@@ -47,15 +47,15 @@ typedef enum
 } dshot_mode_t;
 
 // DShot Packet Structure
-typedef struct 
+typedef struct
 {
     uint16_t throttle_value : 11;
-    uint16_t telemetric_request : 1;
+    bool telemetric_request : 1;
     uint16_t checksum : 4;
 } dshot_packet_t;
 
 // DShot Timing Configuration Structure
-typedef struct 
+typedef struct
 {
     uint32_t frame_length_us;
     uint16_t ticks_per_bit;
@@ -101,16 +101,16 @@ public:
     bool is_bidirectional() const { return _is_bidirectional; }
 
     // --- INFO ---
-    void printDShotInfo(Stream &output = Serial0) const;
-    void printCpuInfo(Stream &output = Serial0) const;
+    void printDShotInfo(Stream &output = Serial) const;
+    void printCpuInfo(Stream &output = Serial) const;
 
     // --- DEPRECATED METHODS ---
     [[deprecated("Use sendThrottle() instead")]]
     bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); }
-    
+
     [[deprecated("Use sendCommand() instead")]]
     bool sendDShotCommand(uint16_t command) { return sendCommand(command); }
-    
+
 private:
     // --- CONFIG ---
     gpio_num_t _gpio;
@@ -160,12 +160,15 @@ private:
     rmt_rx_event_callbacks_t _rx_event_callbacks;
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
+    // --- DSHOT DEFAULTS ---
+    static constexpr auto DSHOT_TELEMETRY_INVALID = (0xffff);
+
     // --- ERROR HANDLING & LOGGING ---
     void _dshot_log(const char *msg, Stream &output = Serial) { output.println(msg); }
 
     // --- CONSTANTS & ERROR MESSAGES ---
-    static constexpr uint16_t DSHOT_OK = 0;
-    static constexpr uint16_t DSHOT_ERROR = 1;
+    static constexpr bool DSHOT_OK = 0;
+    static constexpr bool DSHOT_ERROR = 1;
 
     static constexpr char *NEW_LINE = " ";
     static constexpr char *TX_INIT_FAILED = "Failed to initialize TX channel!";

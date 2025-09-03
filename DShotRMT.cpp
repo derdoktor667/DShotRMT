@@ -388,31 +388,19 @@ uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 // Encode DShot packet into RMT symbol format (placed in IRAM for performance)
 bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
-    // Parse packet to 16-bit format
     _parsed_packet = _parseDShotPacket(packet);
 
-    // Convert each bit to RMT symbol
+    const uint16_t level0 = _is_bidirectional ? 0 : 1;
+    const uint16_t level1 = _is_bidirectional ? 1 : 0;
+
     for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
     {
-        // Extract bit from packet
+        // Decode MSB
         bool bit = (_parsed_packet >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
-
-        if (_is_bidirectional)
-        {
-            // Bidirectional DShot uses inverted levels - Idle HIGH
-            symbols[i].level0 = 0;
-            symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-            symbols[i].level1 = 1;
-            symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
-        }
-        else
-        {
-            // Standard DShot levels - Idle LOW
-            symbols[i].level0 = 1;
-            symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-            symbols[i].level1 = 0;
-            symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
-        }
+        symbols[i].level0 = level0;
+        symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+        symbols[i].level1 = level1;
+        symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
     }
 
     return DSHOT_OK;

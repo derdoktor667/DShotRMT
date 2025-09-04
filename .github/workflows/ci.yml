@@ -11,7 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ARDUINO_CLI_VERSION: '1.3.0'
   ESP32_CORE_VERSION: '3.3.0'
 
 jobs:
@@ -29,8 +28,6 @@ jobs:
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
-        with:
-          version: ${{ env.ARDUINO_CLI_VERSION }}
 
       - name: Cache Arduino data
         uses: actions/cache@v4
@@ -66,6 +63,7 @@ jobs:
       matrix:
         example:
           - "examples/dshot300/dshot300.ino"
+          - "examples/command_manager/command_manager.ino"
         build-flags:
           - name: "Release"
             flags: "Automated Build"
@@ -76,8 +74,6 @@ jobs:
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
-        with:
-          version: ${{ env.ARDUINO_CLI_VERSION }}
 
       - name: Cache Arduino data
         uses: actions/cache@v4
@@ -116,8 +112,6 @@ jobs:
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
-        with:
-          version: ${{ env.ARDUINO_CLI_VERSION }}
 
       - name: Cache Arduino data
         uses: actions/cache@v4
@@ -143,7 +137,8 @@ jobs:
                    --language=c++ \
                    --platform=unix32 \
                    --inline-suppr \
-                   ./DShotRMT.cpp ./DShotRMT.h
+                   ./DShotRMT.cpp ./DShotRMT.h \
+                   ./DShotCommandManager.cpp ./DShotCommandManager.h 
 
   # ============================================================================
   # Build Status Report

@@ -71,7 +71,7 @@ void loop()
     // Print motor stats every 2 seconds
     if (millis() - last_stats_print >= 2000)
     {
-        motor01.printDshotInfo();
+        motor01.printDShotInfo();
 
         // Get Motor RPM
         if (IS_BIDIRECTIONAL)

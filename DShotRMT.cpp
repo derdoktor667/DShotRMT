@@ -338,7 +338,7 @@ uint16_t DShotRMT::_calculateCRC(const uint16_t data)
 }
 
 // Transmit DShot packet via RMT
-uint16_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
+bool DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
     // Check timing requirements
     if (!_timer_signal())

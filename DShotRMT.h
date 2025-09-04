@@ -147,7 +147,7 @@ private:
     uint16_t _calculateCRC(const uint16_t data);
 
     // --- FRAME PROCESSING ---
-    uint16_t _sendDShotFrame(const dshot_packet_t &packet);
+    bool _sendDShotFrame(const dshot_packet_t &packet);
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 

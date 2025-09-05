@@ -60,30 +60,34 @@ DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional)
 // Destructor for "better" code
 DShotRMT::~DShotRMT()
 {
-    // ...kill them all
+    // ...TX
     if (_rmt_tx_channel)
     {
-        rmt_disable(_rmt_tx_channel);
-        rmt_del_channel(_rmt_tx_channel);
-        _rmt_tx_channel = nullptr;
+        if (rmt_disable(_rmt_tx_channel) == DSHOT_OK)
+        {
+            rmt_del_channel(_rmt_tx_channel);
+            _rmt_tx_channel = nullptr;
+        }
     }
 
-    //
+    // ...RX
     if (_rmt_rx_channel)
     {
-        rmt_disable(_rmt_rx_channel);
-        rmt_del_channel(_rmt_rx_channel);
-        _rmt_rx_channel = nullptr;
+        if (rmt_disable(_rmt_rx_channel) == DSHOT_OK)
+        {
+            rmt_del_channel(_rmt_rx_channel);
+            _rmt_rx_channel = nullptr;
+        }
     }
 
-    //
+    // ...Encoder
     if (_dshot_encoder)
     {
         rmt_del_encoder(_dshot_encoder);
         _dshot_encoder = nullptr;
     }
 
-    //
+    // ...Buffer
     if (_rx_queue)
     {
         vQueueDelete(_rx_queue);
@@ -91,7 +95,7 @@ DShotRMT::~DShotRMT()
     }
 }
 
-// Initialize DShotRMT
+// Init DShotRMT
 dshot_result_t DShotRMT::begin()
 {
     dshot_result_t result = {false, UNKNOWN_ERROR};

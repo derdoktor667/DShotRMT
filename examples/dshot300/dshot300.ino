@@ -78,6 +78,9 @@ void loop()
     {
         motor01.printDShotInfo();
 
+        USB_SERIAL.println(" ");
+        USB_SERIAL.println("Type 'help' to show Menu");
+
         // Get Motor RPM if bidirectional
         if (IS_BIDIRECTIONAL)
         {
@@ -94,21 +97,21 @@ void loop()
 void printMenu()
 {
     USB_SERIAL.println(" ");
-    USB_SERIAL.println("******************************************");
-    USB_SERIAL.println("               DShotRMT Demo              ");
-    USB_SERIAL.println("******************************************");
+    USB_SERIAL.println("*******************************************");
+    USB_SERIAL.println("               DShotRMT Demo               ");
+    USB_SERIAL.println("*******************************************");
     USB_SERIAL.println(" <value>      - Set throttle (48 – 2047)");
     USB_SERIAL.println(" 0            - Stop motor");
-    USB_SERIAL.println("******************************************");
-    USB_SERIAL.println(" cmd <number> - Send DShot command (0-47)");
+    USB_SERIAL.println("*******************************************");
+    USB_SERIAL.println(" cmd <number> - Send DShot command (0 - 47)");
     USB_SERIAL.println(" info         - Show motor info");
     if (IS_BIDIRECTIONAL)
     {
         USB_SERIAL.println(" rpm          - Get telemetry data");
     }
-    USB_SERIAL.println("******************************************");
+    USB_SERIAL.println("*******************************************");
     USB_SERIAL.println(" h / help     - Show this Menu");
-    USB_SERIAL.println("******************************************");
+    USB_SERIAL.println("*******************************************");
 }
 
 // Helper to print command results
@@ -191,8 +194,6 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
 
             dshot_result_t result = motor01.sendThrottle(throttle);
             printCommandResult(result, "Set Throttle " + String(throttle));
-
-            USB_SERIAL.println("Continuous throttle mode enabled. Send '0' to stop.");
         }
         else
         {

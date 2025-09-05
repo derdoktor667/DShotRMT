@@ -111,7 +111,7 @@ void printMenu()
     USB_SERIAL.println("******************************************");
 }
 
-// Helper function to print command results
+// Helper to print command results
 void printCommandResult(const dshot_result_t &result, const String &operation)
 {
     if (result.success)
@@ -124,7 +124,7 @@ void printCommandResult(const dshot_result_t &result, const String &operation)
     }
 }
 
-// Helper function to print telemetry results
+// Helper to print telemetry results
 void printTelemetryResult(const dshot_telemetry_result_t &result)
 {
     if (result.success)

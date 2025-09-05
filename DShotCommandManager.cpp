@@ -13,43 +13,42 @@ DShotCommandManager::DShotCommandManager(DShotRMT &dshot_instance)
     : _dshot(dshot_instance),
       _total_commands_sent(0),
       _failed_commands(0),
-      _last_execution_time_us(0),
       _last_command_timestamp(0)
 {
 }
 
 // Init command manager
-bool DShotCommandManager::begin()
+dshot_result_t DShotCommandManager::begin()
 {
-    resetStatistics();
-    return true;
+    dshot_result_t result;
+    result.success = true;
+    result.error_message = "Success";
+    return result;
 }
 
 // --- BASIC COMMAND METHODS ---
-dshot_command_result_t DShotCommandManager::sendCommand(dshot_commands_t command, uint16_t repeat_count)
+dshot_result_t DShotCommandManager::sendCommand(dshot_commands_t command, uint16_t repeat_count)
 {
     return sendCommandWithDelay(command, repeat_count, DEFAULT_COMMAND_DELAY_MS);
 }
 
 //
-dshot_command_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_t command, uint16_t repeat_count, uint32_t delay_ms)
+dshot_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_t command, uint16_t repeat_count, uint32_t delay_ms)
 {
-    dshot_command_result_t result = {false, 0, "Unknown error"};
-
+    dshot_result_t result = {false, "Unknown error"};
+    
     if (!isValidCommand(command))
     {
         result.error_message = "Invalid command";
-        _updateStatistics(false, 0);
         return result;
     }
 
-    uint64_t start_time = esp_timer_get_time();
     bool all_successful = true;
 
     // Send command multiple times with delay
     for (uint16_t i = 0; i < repeat_count; i++)
     {
-        dshot_command_result_t single_result = _executeCommand(command);
+        dshot_result_t single_result = _executeCommand(command);
 
         if (!single_result.success)
         {
@@ -61,12 +60,11 @@ dshot_command_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_
         // Add delay between repetitions (except for last repetition)
         if (i < repeat_count - 1)
         {
-            _delay(delay_ms);
+            _delay_ms(delay_ms);
         }
     }
 
-    uint64_t end_time = esp_timer_get_time();
-    result.execution_time_us = (uint32_t)(end_time - start_time);
+     //
     result.success = all_successful;
 
     if (result.success)
@@ -74,57 +72,54 @@ dshot_command_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_
         result.error_message = "Success";
     }
 
-    _updateStatistics(result.success, result.execution_time_us);
-
     return result;
 }
 
 // --- MOTOR CONTROL COMMANDS ---
-dshot_command_result_t DShotCommandManager::stopMotor()
+dshot_result_t DShotCommandManager::stopMotor()
 {
     return sendCommand(DSHOT_CMD_MOTOR_STOP);
 }
 
 //
-dshot_command_result_t DShotCommandManager::set3DMode(bool enable)
+dshot_result_t DShotCommandManager::set3DMode(bool enable)
 {
     dshot_commands_t command = enable ? DSHOT_CMD_3D_MODE_ON : DSHOT_CMD_3D_MODE_OFF;
     return sendCommandWithDelay(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_MS);
 }
 
 //
-dshot_command_result_t DShotCommandManager::setSpinDirection(bool reversed)
+dshot_result_t DShotCommandManager::setSpinDirection(bool reversed)
 {
     dshot_commands_t command = reversed ? DSHOT_CMD_SPIN_DIRECTION_REVERSED : DSHOT_CMD_SPIN_DIRECTION_NORMAL;
     return sendCommandWithDelay(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_MS);
 }
 
 //
-dshot_command_result_t DShotCommandManager::saveSettings()
+dshot_result_t DShotCommandManager::saveSettings()
 {
     return sendCommandWithDelay(DSHOT_CMD_SAVE_SETTINGS, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_MS);
 }
 
 // --- TELEMETRY COMMANDS ---
-dshot_command_result_t DShotCommandManager::setExtendedTelemetry(bool enable)
+dshot_result_t DShotCommandManager::setExtendedTelemetry(bool enable)
 {
     dshot_commands_t command = enable ? DSHOT_CMD_EXTENDED_TELEMETRY_ENABLE : DSHOT_CMD_EXTENDED_TELEMETRY_DISABLE;
     return sendCommand(command);
 }
 
 //
-dshot_command_result_t DShotCommandManager::requestESCInfo()
+dshot_result_t DShotCommandManager::requestESCInfo()
 {
     return sendCommand(DSHOT_CMD_ESC_INFO);
 }
 
 // --- LED CONTROL COMMANDS ---
-dshot_command_result_t DShotCommandManager::setLED(uint8_t led_number, bool state)
+dshot_result_t DShotCommandManager::setLED(uint8_t led_number, bool state)
 {
     if (led_number > 3)
     {
-        dshot_command_result_t result = {false, 0, "Invalid LED number (0-3)"};
-        _updateStatistics(false, 0);
+        dshot_result_t result = {false, "Invalid LED number (0-3)"};
         return result;
     }
 
@@ -172,12 +167,11 @@ dshot_command_result_t DShotCommandManager::setLED(uint8_t led_number, bool stat
 }
 
 // --- BEACON COMMANDS ---
-dshot_command_result_t DShotCommandManager::activateBeacon(uint8_t beacon_number)
+dshot_result_t DShotCommandManager::activateBeacon(uint8_t beacon_number)
 {
     if (beacon_number < 1 || beacon_number > 5)
     {
-        dshot_command_result_t result = {false, 0, "Invalid beacon number (1-5)"};
-        _updateStatistics(false, 0);
+        dshot_result_t result = {false, "Invalid beacon number (1-5)"};
         return result;
     }
 
@@ -186,28 +180,28 @@ dshot_command_result_t DShotCommandManager::activateBeacon(uint8_t beacon_number
 }
 
 // --- KISS ESC SPECIFIC COMMANDS ---
-dshot_command_result_t DShotCommandManager::setAudioStreamMode(bool enable)
+dshot_result_t DShotCommandManager::setAudioStreamMode(bool enable)
 {
     // KISS audio stream mode is a toggle command
     return sendCommand(DSHOT_CMD_AUDIO_STREAM_MODE_ON_OFF);
 }
 
 //
-dshot_command_result_t DShotCommandManager::setSilentMode(bool enable)
+dshot_result_t DShotCommandManager::setSilentMode(bool enable)
 {
     // KISS silent mode is a toggle command
     return sendCommand(DSHOT_CMD_SILENT_MODE_ON_OFF);
 }
 
 // --- SEQUENCE COMMANDS ---
-dshot_command_result_t DShotCommandManager::executeSequence(const dshot_command_sequence_item_t *sequence, size_t sequence_length)
+dshot_result_t DShotCommandManager::executeSequence(const dshot_command_sequence_item_t *sequence, size_t sequence_length)
 {
-    dshot_command_result_t result = {true, 0, "Success"};
+    dshot_result_t result = {true, "Success"};
     uint64_t total_start_time = esp_timer_get_time();
 
     for (size_t i = 0; i < sequence_length; i++)
     {
-        dshot_command_result_t item_result = sendCommandWithDelay(
+        dshot_result_t item_result = sendCommandWithDelay(
             sequence[i].command,
             sequence[i].repeat_count,
             DEFAULT_COMMAND_DELAY_MS);
@@ -222,18 +216,17 @@ dshot_command_result_t DShotCommandManager::executeSequence(const dshot_command_
         // Add delay after command if specified
         if (sequence[i].delay_ms > 0)
         {
-            _delay(sequence[i].delay_ms);
+            _delay_ms(sequence[i].delay_ms);
         }
     }
 
     uint64_t total_end_time = esp_timer_get_time();
-    result.execution_time_us = (uint32_t)(total_end_time - total_start_time);
 
     return result;
 }
 
 //
-dshot_command_result_t DShotCommandManager::executeInitSequence()
+dshot_result_t DShotCommandManager::executeInitSequence()
 {
     // Basic ESC initialization sequence
     dshot_command_sequence_item_t init_sequence[] = {
@@ -246,7 +239,7 @@ dshot_command_result_t DShotCommandManager::executeInitSequence()
 }
 
 //
-dshot_command_result_t DShotCommandManager::executeCalibrationSequence()
+dshot_result_t DShotCommandManager::executeCalibrationSequence()
 {
     // Basic ESC calibration sequence
     dshot_command_sequence_item_t calibration_sequence[] = {
@@ -330,64 +323,25 @@ bool DShotCommandManager::isValidCommand(dshot_commands_t command)
     return (command >= DSHOT_CMD_MOTOR_STOP && command <= DSHOT_CMD_MAX);
 }
 
-//
-void DShotCommandManager::printStatistics(Stream &output) const
-{
-    output.println("\n--- DShot Command Manager Statistics ---");
-    output.printf("Total commands sent: %u\n", _total_commands_sent);
-    output.printf("Failed commands: %u\n", _failed_commands);
-    output.printf("Success rate: %.2f%%\n",
-                  _total_commands_sent > 0 ? (float)(_total_commands_sent - _failed_commands) / _total_commands_sent * 100.0f : 0.0f);
-    output.printf("Last execution time: %u us\n", _last_execution_time_us);
-    output.printf("Last command timestamp: %llu us\n", _last_command_timestamp);
-}
-
-//
-void DShotCommandManager::resetStatistics()
-{
-    _total_commands_sent = 0;
-    _failed_commands = 0;
-    _last_execution_time_us = 0;
-    _last_command_timestamp = 0;
-}
-
 // --- PRIVATE METHODS ---
-dshot_command_result_t DShotCommandManager::_executeCommand(dshot_commands_t command)
+dshot_result_t DShotCommandManager::_executeCommand(dshot_commands_t command)
 {
-    dshot_command_result_t result = {false, 0, "Execution failed"};
-
     uint64_t start_time = esp_timer_get_time();
 
     // Execute the command using the DShotRMT instance
-    bool success = _dshot.sendCommand(static_cast<uint16_t>(command));
+    dshot_result_t result = _dshot.sendCommand(static_cast<uint16_t>(command));
 
     uint64_t end_time = esp_timer_get_time();
-
-    result.success = success;
-    result.execution_time_us = (uint32_t)(end_time - start_time);
-    result.error_message = success ? "Success" : "Command transmission failed";
-
     _last_command_timestamp = end_time;
 
     return result;
 }
 
 //
-void DShotCommandManager::_delay(uint32_t delay_ms)
+void DShotCommandManager::_delay_ms(uint32_t delay_ms)
 {
     if (delay_ms > 0)
     {
         delay(delay_ms);
     }
-}
-
-//
-void DShotCommandManager::_updateStatistics(bool success, uint32_t execution_time_us)
-{
-    _total_commands_sent++;
-    if (!success)
-    {
-        _failed_commands++;
-    }
-    _last_execution_time_us = execution_time_us;
 }

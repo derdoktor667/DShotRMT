@@ -65,14 +65,31 @@ typedef struct
     uint16_t ticks_zero_low;
 } dshot_timing_t;
 
+// Command execution result structure
+typedef struct
+{
+    bool success;
+    const char *error_message;
+} dshot_result_t;
+
+// DShot telemetry result structure
+typedef struct
+{
+    bool success;
+    uint16_t erpm;
+    uint32_t motor_rpm;
+    const char *error_message;
+} dshot_telemetry_result_t;
+
+// Naming convention
+typedef dshotCommands_e dshot_commands_t;
+
 //
 class DShotRMT
 {
 public:
     // Constructor with GPIO enum
-    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16,
-                      dshot_mode_t mode = DSHOT300,
-                      bool is_bidirectional = false);
+    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
 
     // Constructor with pin number
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
@@ -81,24 +98,29 @@ public:
     ~DShotRMT();
 
     // Initialize the RMT module and DShot config
-    uint16_t begin();
+    dshot_result_t begin();
 
     // Send throttle value (48-2047)
-    bool sendThrottle(uint16_t throttle);
+    dshot_result_t sendThrottle(uint16_t throttle);
 
     // Send DShot command (0-47)
-    bool sendCommand(uint16_t command);
+    dshot_result_t sendCommand(uint16_t command);
 
     // Get telemetry data (bidirectional mode only)
+    dshot_telemetry_result_t getTelemetry(uint8_t magnet_count = 14);
+
+    // Get eRPM only (bidirectional mode only)
     uint16_t getERPM();
 
-    // Convert eRPM to motor RPM
-    uint32_t getMotorRPM(uint8_t magnet_count);
-
-    //
+    // --- GETTERS ---
     gpio_num_t getGPIO() const { return _gpio; }
     uint16_t getDShotPacket() const { return _parsed_packet; }
     bool is_bidirectional() const { return _is_bidirectional; }
+    dshot_mode_t getMode() const { return _mode; }
+
+    // Get execution statistics
+    uint32_t getTotalTransmissions() const { return _total_transmissions; }
+    uint32_t getFailedTransmissions() const { return _failed_transmissions; }
 
     // --- INFO ---
     void printDShotInfo(Stream &output = Serial) const;
@@ -106,10 +128,25 @@ public:
 
     // --- DEPRECATED METHODS ---
     [[deprecated("Use sendThrottle() instead")]]
-    bool setThrottle(uint16_t throttle) { return sendThrottle(throttle); }
+    bool setThrottle(uint16_t throttle)
+    {
+        auto result = sendThrottle(throttle);
+        return result.success;
+    }
 
     [[deprecated("Use sendCommand() instead")]]
-    bool sendDShotCommand(uint16_t command) { return sendCommand(command); }
+    bool sendDShotCommand(uint16_t command)
+    {
+        auto result = sendCommand(command);
+        return result.success;
+    }
+
+    [[deprecated("Use getTelemetry() instead")]] 
+    uint32_t getMotorRPM(uint8_t magnet_count)
+    {
+        auto result = getTelemetry(magnet_count);
+        return result.success;
+    }
 
 private:
     // --- CONFIG ---
@@ -124,6 +161,10 @@ private:
     uint16_t _last_erpm;
     uint16_t _parsed_packet;
     dshot_packet_t _packet;
+
+    // --- STATISTICS ---
+    uint32_t _total_transmissions;
+    uint32_t _failed_transmissions;
 
     // --- RMT HARDWARE HANDLES ---
     rmt_channel_handle_t _rmt_tx_channel;
@@ -147,7 +188,7 @@ private:
     uint16_t _calculateCRC(const uint16_t data);
 
     // --- FRAME PROCESSING ---
-    bool _sendDShotFrame(const dshot_packet_t &packet);
+    dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
@@ -164,13 +205,14 @@ private:
     static constexpr auto DSHOT_TELEMETRY_INVALID = (0xffff);
 
     // --- ERROR HANDLING & LOGGING ---
-    void _dshot_log(const char *msg, Stream &output = Serial) { output.println(msg); }
+    void _dshot_log(const char *msg, Stream &output = Serial) const { output.println(msg); }
 
     // --- CONSTANTS & ERROR MESSAGES ---
     static constexpr bool DSHOT_OK = 0;
     static constexpr bool DSHOT_ERROR = 1;
 
     static constexpr char *NEW_LINE = " ";
+    static constexpr char *UNKNOWN_ERROR = "Unknown Error!";
     static constexpr char *TX_INIT_FAILED = "Failed to initialize TX channel!";
     static constexpr char *RX_INIT_FAILED = "Failed to initialize RX channel!";
     static constexpr char *ENCODER_INIT_FAILED = "Failed to initialize DShot encoder!";
@@ -181,4 +223,8 @@ private:
     static constexpr char *RX_RMT_RECEIVER_ERROR = "RX RMT receiver error!";
     static constexpr char *PACKET_BUILD_ERROR = "Value too big for DShot Packet!";
     static constexpr char *TRANSMITTER_ERROR = "RMT TX Transmitter Error!";
+    static constexpr char *INIT_SUCCESS = "DShotRMT initialized successfully";
+    static constexpr char *TELEMETRY_SUCCESS = "Telemetry read successfully";
+    static constexpr char *TELEMETRY_TIMEOUT = "Telemetry read timeout";
+    static constexpr char *TRANSMISSION_SUCCESS = "Transmission successful";
 };

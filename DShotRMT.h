@@ -19,11 +19,13 @@ static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 static constexpr auto DSHOT_THROTTLE_MIN = 48;
 static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto DSHOT_SWITCH_TIME = 30; // Time in us - add some padding to RX - TX switching
+static constexpr auto DSHOT_SWITCH_TIME = 30; // Additional time in us for bidir switching
 static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_RX_TIMEOUT_MS = 2; // Never reached, just a timeeout
 static constexpr auto GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame (1 start + 16 data + 4 CRC)
 static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
+static constexpr auto NO_DSHOT_ERPM = 0;
+static constexpr auto NO_DSHOT_RPM = 0;
 
 // RMT Configuration Constants
 constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
@@ -152,10 +154,11 @@ private:
     uint32_t _frame_timer_us;
     const dshot_timing_t &_timing_config;
 
-    // --- TIMING & STATE VARIABLES ---
+    // --- TIMING & PACKET VARIABLES ---
     uint64_t _last_transmission_time;
     uint16_t _parsed_packet;
     dshot_packet_t _packet;
+    uint8_t _bitPositions[DSHOT_BITS_PER_FRAME];
 
     // --- STATISTICS ---
     uint32_t _total_transmissions;
@@ -181,6 +184,7 @@ private:
     dshot_packet_t _buildDShotPacket(const uint16_t value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
     uint16_t _calculateCRC(const uint16_t data);
+    void _preCalculateBitPositions();
 
     // --- FRAME PROCESSING ---
     dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
@@ -206,23 +210,24 @@ private:
     static constexpr bool DSHOT_OK = 0;
     static constexpr bool DSHOT_ERROR = 1;
 
-    static constexpr char *NONE = "";
-    static constexpr char *UNKNOWN_ERROR = "Unknown Error!";
-    static constexpr char *INIT_SUCCESS = "SignalGeneratorRMT initialized successfully";
-    static constexpr char *INIT_FAILED = "SignalGeneratorRMT init failed!";
-    static constexpr char *TX_INIT_SUCCESS = "TX RMT channel initialized successfully";
-    static constexpr char *TX_INIT_FAILED = "TX RMT channel init failed!";
-    static constexpr char *RX_INIT_SUCCESS = "RX RMT channel initialized successfully";
-    static constexpr char *RX_INIT_FAILED = "RX RMT channel init failed!";
-    static constexpr char *RX_BUFFER_FAILED = "RX RMT buffer init failed!";
-    static constexpr char *ENCODER_INIT_SUCCESS = "RMT encoder initialized successfully";
-    static constexpr char *ENCODER_INIT_FAILED = "RMT encoder init failed!";
-    static constexpr char *TRANSMISSION_SUCCESS = "Transmission successfully";
-    static constexpr char *TRANSMISSION_FAILED = "Transmission failed!";
-    static constexpr char *RECEIVER_FAILED = "RMT receiver failed!";
-    static constexpr char *THROTTLE_NOT_IN_RANGE = "Throttle not in range! (48 - 2047)";
-    static constexpr char *COMMAND_NOT_VALID = "Command not valid! (0 - 47)";
-    static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot not enabled!";
-    static constexpr char *TELEMETRY_SUCCESS = "Valid Telemetric Frame received!";
-    static constexpr char *TELEMETRY_FAILED = "No valid Telemetric Frame received!";
+    static constexpr char const *NONE = "";
+    static constexpr char const *UNKNOWN_ERROR = "Unknown Error!";
+    static constexpr char const *INIT_SUCCESS = "SignalGeneratorRMT initialized successfully";
+    static constexpr char const *INIT_FAILED = "SignalGeneratorRMT init failed!";
+    static constexpr char const *TX_INIT_SUCCESS = "TX RMT channel initialized successfully";
+    static constexpr char const *TX_INIT_FAILED = "TX RMT channel init failed!";
+    static constexpr char const *RX_INIT_SUCCESS = "RX RMT channel initialized successfully";
+    static constexpr char const *RX_INIT_FAILED = "RX RMT channel init failed!";
+    static constexpr char const *RX_BUFFER_FAILED = "RX RMT buffer init failed!";
+    static constexpr char const *ENCODER_INIT_SUCCESS = "RMT encoder initialized successfully";
+    static constexpr char const *ENCODER_INIT_FAILED = "RMT encoder init failed!";
+    static constexpr char const *TRANSMISSION_SUCCESS = "Transmission successfully";
+    static constexpr char const *TRANSMISSION_FAILED = "Transmission failed!";
+    static constexpr char const *RECEIVER_FAILED = "RMT receiver failed!";
+    static constexpr char const *THROTTLE_NOT_IN_RANGE = "Throttle not in range! (48 - 2047)";
+    static constexpr char const *COMMAND_NOT_VALID = "Command not valid! (0 - 47)";
+    static constexpr char const *BIDIR_NOT_ENABLED = "Bidirectional DShot not enabled!";
+    static constexpr char const *TELEMETRY_SUCCESS = "Valid Telemetric Frame received!";
+    static constexpr char const *TELEMETRY_FAILED = "No valid Telemetric Frame received!";
+    static constexpr char const *INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
 };

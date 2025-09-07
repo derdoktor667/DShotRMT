@@ -152,6 +152,9 @@ dshot_result_t DShotRMT::begin()
         return result;
     }
 
+    // Bit positions precalculation
+    _preCalculateBitPositions();
+
     result.success = true;
     result.msg = INIT_SUCCESS;
 
@@ -331,7 +334,7 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command)
 dshot_telemetry_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
 {
     // Result container
-    dshot_telemetry_result_t result = {false, 0, 0, TELEMETRY_FAILED};
+    dshot_telemetry_result_t result = {false, NO_DSHOT_ERPM, NO_DSHOT_RPM, TELEMETRY_FAILED};
 
     // Check if bidirectional mode is enabled
     if (!_is_bidirectional)
@@ -349,6 +352,12 @@ dshot_telemetry_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
     }
 
     // Calculate motor RPM
+    if (magnet_count < 1)
+    {
+        result.msg = INVALID_MAGNET_COUNT;
+        return result;
+    }
+    
     uint8_t pole_pairs = max(1, (magnet_count / 2));
     uint32_t motor_rpm = (erpm / pole_pairs);
 
@@ -440,6 +449,14 @@ uint16_t DShotRMT::_calculateCRC(const uint16_t data)
     return crc;
 }
 
+// Per calculate bits - Performance optimized
+void DShotRMT::_preCalculateBitPositions()
+{
+    for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i) {
+        _bitPositions[i] = DSHOT_BITS_PER_FRAME - 1 - i;
+  }
+}
+
 // Transmit DShot packet via RMT
 dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
@@ -516,12 +533,14 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
     _parsed_packet = _parseDShotPacket(packet);
 
     const uint16_t level0 = _is_bidirectional ? 0 : 1;
-    const uint16_t level1 = _is_bidirectional ? 1 : 0;
+    const uint16_t level1 = _is_bidirectional ? 1 : 0; 
+    
+    // Decode MSB
+    for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i) {
+        // Use precalculated bit positions - Performace optimized
+        int bit_position = _bitPositions[i];
 
-    for (int i = 0; i < DSHOT_BITS_PER_FRAME; i++)
-    {
-        // Decode MSB
-        bool bit = (_parsed_packet >> (DSHOT_BITS_PER_FRAME - 1 - i)) & 0b0000000000000001;
+        bool bit = (_parsed_packet >> bit_position) & 0b0000000000000001;
         symbols[i].level0 = level0;
         symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
         symbols[i].level1 = level1;

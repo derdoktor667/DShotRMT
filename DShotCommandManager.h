@@ -12,13 +12,13 @@
 #include <DShotRMT.h>
 #include <dshot_commands.h>
 
-// Command sequence item
+// Command item
 typedef struct
 {
     dshot_commands_t command;
     uint16_t repeat_count;
     uint32_t delay_ms;
-} dshot_command_sequence_item_t;
+} dshot_commandmanager_item_t;
 
 // Advanced DShot command manager class
 class DShotCommandManager
@@ -76,7 +76,7 @@ public:
 
     // --- SEQUENCE COMMANDS ---
     // Execute a sequence of DShot commands
-    dshot_result_t executeSequence(const dshot_command_sequence_item_t *sequence, size_t sequence_length);
+    dshot_result_t executeSequence(const dshot_commandmanager_item_t *sequence, size_t sequence_length);
 
     // Execute ESC initialization sequence
     dshot_result_t executeInitSequence();

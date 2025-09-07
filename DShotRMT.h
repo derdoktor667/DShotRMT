@@ -24,6 +24,8 @@ static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_RX_TIMEOUT_MS = 2; // Never reached, just a timeeout
 static constexpr auto GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame (1 start + 16 data + 4 CRC)
 static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
+static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
+static constexpr auto MIN_POLE_PAIRS = 1;
 static constexpr auto NO_DSHOT_ERPM = 0;
 static constexpr auto NO_DSHOT_RPM = 0;
 
@@ -153,6 +155,7 @@ private:
     bool _is_bidirectional;
     uint32_t _frame_timer_us;
     const dshot_timing_t &_timing_config;
+    uint16_t _last_throttle;
 
     // --- TIMING & PACKET VARIABLES ---
     uint64_t _last_transmission_time;
@@ -189,16 +192,15 @@ private:
     bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
-    // --- HELPERS ---
-    uint16_t _getERPM();
-
     // --- TIMING CONTROL ---
     bool IRAM_ATTR _timer_signal();
     bool _timer_reset();
 
     // -- CALLBACKS ---
-    QueueHandle_t _rx_queue;
     rmt_rx_event_callbacks_t _rx_event_callbacks;
+    volatile rmt_symbol_word_t _rx_symbols_direct[GCR_BITS_PER_FRAME];
+    volatile uint16_t _last_erpm_atomic;
+    volatile bool _telemetry_ready_flag;
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // --- DSHOT DEFAULTS ---
@@ -228,4 +230,5 @@ private:
     static constexpr char const *TELEMETRY_SUCCESS = "Valid Telemetric Frame received!";
     static constexpr char const *TELEMETRY_FAILED = "No valid Telemetric Frame received!";
     static constexpr char const *INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
+    static constexpr char const *TIMING_CORRECTION = "Timing correction!";
 };

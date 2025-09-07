@@ -159,10 +159,8 @@ private:
     uint16_t _parsed_packet;
     dshot_packet_t _packet;
     uint8_t _bitPositions[DSHOT_BITS_PER_FRAME];
-
-    // --- STATISTICS ---
-    uint32_t _total_transmissions;
-    uint32_t _failed_transmissions;
+    uint16_t _level0;
+    uint16_t _level1;
 
     // --- RMT HARDWARE HANDLES ---
     rmt_channel_handle_t _rmt_tx_channel;

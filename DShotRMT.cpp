@@ -58,6 +58,9 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _last_transmission_time(0),
       _parsed_packet(0),
       _packet{0},
+      _bitPositions{0},
+      _level0(_is_bidirectional ? 0 : 1),
+      _level1(_is_bidirectional ? 1 : 0),
       _rmt_tx_channel(nullptr),
       _rmt_rx_channel(nullptr),
       _dshot_encoder(nullptr),
@@ -531,19 +534,16 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     _parsed_packet = _parseDShotPacket(packet);
-
-    const uint16_t level0 = _is_bidirectional ? 0 : 1;
-    const uint16_t level1 = _is_bidirectional ? 1 : 0; 
     
     // Decode MSB
     for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i) {
         // Use precalculated bit positions - Performace optimized
         int bit_position = _bitPositions[i];
 
-        bool bit = (_parsed_packet >> bit_position) & 0b0000000000000001;
-        symbols[i].level0 = level0;
+        bool bit = (_parsed_packet >> bit_position) & 0b0000000000000001; 
+        symbols[i].level0 = _level0;
         symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
-        symbols[i].level1 = level1;
+        symbols[i].level1 = _level1;
         symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
     }
 

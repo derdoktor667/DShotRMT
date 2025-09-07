@@ -3,7 +3,7 @@
 # DShotRMT - ESP32 Library (Rewrite for ESP-IDF 5)
 
 A modern, robust C++ library for generating DShot signals on the ESP32 using the new ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
-Supports all standard DShot modes (150, 300, 600) and features continuous frame transmission with configurable pause.  
+Supports all standard DShot modes (150, 300, 600, 1200) and features continuous frame transmission with configurable timing.  
 **Now with BiDirectional DShot support and advanced command management!**
 
 > The legacy version (using the old `rmt.h` API) is still available in the `oldAPI` branch.
@@ -12,20 +12,36 @@ Supports all standard DShot modes (150, 300, 600) and features continuous frame 
 
 ## 🚀 Features
 
-- **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600, (DSHOT1200)
-- **BiDirectional DShot:** Experimental support for RPM feedback
+- **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600, DSHOT1200
+- **BiDirectional DShot:** Full support for RPM telemetry feedback
 - **Advanced Command Manager:** High-level API for ESC configuration and control
 - **Command Sequences:** Predefined initialization and calibration sequences
-- **Continuous Frames:** Independent timed, Hardware signal generation
-- **Configurable Pause:** Ensures ESCs can reliably detect frame boundaries
+- **Hardware-Timed Signals:** Independent, precise signal generation using ESP32 RMT peripheral
+- **Configurable Timing:** Ensures ESCs can reliably detect frame boundaries
+- **Error Handling:** Comprehensive result reporting with success/failure status
 - **Simple API:** Easy integration into your Arduino or ESP-IDF project
 
 ---
 
 ## 📦 Installation
 
-Clone this repository and add it to your Arduino libraries or ESP-IDF components.
+### Arduino IDE
+1. Search "Arduino Library Manager" for "DShotRMT"
 
+or
+
+1. Clone this repository or download as ZIP
+2. Place in your Arduino libraries folder (`~/Arduino/libraries/DShotRMT/`)
+3. Restart Arduino IDE
+
+### PlatformIO
+Add to your `platformio.ini`:
+```ini
+lib_deps = 
+    https://github.com/derdoktor667/DShotRMT.git
+```
+
+### Manual Installation
 ```sh
 git clone https://github.com/derdoktor667/DShotRMT.git
 ```
@@ -39,216 +55,208 @@ git clone https://github.com/derdoktor667/DShotRMT.git
 ```cpp
 #include <DShotRMT.h>
 
-// Create motor instance
-DShotRMT motor(17, DSHOT300);
+// Create motor instance (GPIO 17, DSHOT300, non-bidirectional)
+DShotRMT motor(17, DSHOT300, false);
 
 void setup() {
     Serial.begin(115200);
-    motor.begin();
+    
+    // Initialize the motor
+    dshot_result_t result = motor.begin();
+    if (result.success) {
+        Serial.println("Motor initialized successfully");
+    } else {
+        Serial.printf("Motor init failed: %s\n", result.msg);
+    }
 }
 
 void loop() {
-    motor.sendThrottle(1000);  // Send throttle value
-    delay(20);
+    // Send throttle value (48-2047)
+    dshot_result_t result = motor.sendThrottle(1000);
+    if (!result.success) {
+        Serial.printf("Throttle command failed: %s\n", result.msg);
+    }
 }
 ```
 
-### Advanced Usage (DShotCommandManager)
+### Bidirectional DShot (RPM Telemetry)
 
 ```cpp
 #include <DShotRMT.h>
-#include <DShotCommandManager.h>
 
-// Create motor and command manager instances
-DShotRMT motor(17, DSHOT300);
-DShotCommandManager cmdManager(motor);
+// Enable bidirectional mode for telemetry
+DShotRMT motor(17, DSHOT300, true);
 
 void setup() {
     Serial.begin(115200);
     motor.begin();
-    cmdManager.begin();
-    
-    // Execute initialization sequence
-    cmdManager.executeInitSequence();
 }
 
 void loop() {
-    // Your main code here
+    // Send throttle
+    motor.sendThrottle(1000);
+    
+    // Get telemetry data
+    dshot_telemetry_result_t telemetry = motor.getTelemetry(14); // 14 magnets
+    if (telemetry.success) {
+        Serial.printf("eRPM: %u, Motor RPM: %u\n", 
+          telemetry.erpm, 
+          telemetry.motor_rpm);
+    }
 }
 ```
-
----
-
-## 🎛️ DShotCommandManager API
-
-The `DShotCommandManager` provides a high-level interface for ESC control and configuration:
-
-### Motor Control
-- `stopMotor()` - Stop motor immediately
-- `set3DMode(bool enable)` - Enable/disable 3D mode
-- `setSpinDirection(bool reversed)` - Set motor spin direction
-- `saveSettings()` - Save current settings to ESC
-
-### LED Control (BLHeli32 only)
-- `setLED(uint8_t led_number, bool state)` - Control ESC LEDs (0-3)
-
-### Beacon Functions
-- `activateBeacon(uint8_t beacon_number)` - Activate motor beeping (1-5)
-
-### Telemetry
-- `setExtendedTelemetry(bool enable)` - Enable/disable extended telemetry
-- `requestESCInfo()` - Request ESC information
-
-### Command Sequences
-- `executeInitSequence()` - Basic ESC initialization
-- `executeCalibrationSequence()` - ESC calibration sequence
-- `executeSequence(sequence, length)` - Custom command sequences
-
-### Utility Functions
-- `getCommandName(command)` - Get command name as string
-- `isValidCommand(command)` - Validate command
-- `printStatistics()` - Print execution statistics
-- `resetStatistics()` - Reset execution counters
 
 ---
 
 ## 📚 Examples
 
-### 1. Basic DShot Control
-Use the `dshot300.ino` example for simple throttle control.
+The library includes comprehensive examples:
 
-### 2. Advanced Command Management
-Use the `command_manager.ino` example for interactive ESC control:
+### 1. Basic DShot Control (`dshot300.ino`)
+- Simple throttle control
+- Command execution
+- Serial interface for testing
+- Telemetry reading (if bidirectional enabled)
 
+### 2. Advanced Command Management (`command_manager.ino`)
+Interactive ESC control with full menu system:
 ```
 === DShot Command Manager Menu ===
-Basic Commands:
-  1 - Stop Motor
-  2 - Activate Beacon 1
-  3 - Set Normal Spin Direction
-  4 - Set Reversed Spin Direction
-  5 - Enable 3D Mode
-  6 - Disable 3D Mode
-  7 - Save Settings
-  8 - Turn LED 0 ON
-  9 - Turn LED 0 OFF
+ 1 - Stop Motor
+ 2 - Activate Beacon 1
+ 3 - Set Normal Spin Direction
+ 4 - Set Reversed Spin Direction
+ 5 - Get ESC Info
+ 6 - Turn LED 0 ON
+ 7 - Turn LED 0 OFF
+ 0 - Emergency Stop
 
-Sequences:
-  i - Execute Initialization Sequence
-  c - Execute Calibration Sequence
-
-Advanced:
-  cmd <number> - Send DShot command (0 - 47)
-  throttle <value> - Set throttle (48 - 2047)
-  throttle 0 - Stop sending throttle
+Advanced Commands:
+ cmd <number>       - Send DShot command (0-47)
+ throttle <value>   - Set throttle (48-2047)
+ repeat cmd <num> count <count> - Repeat command
 ```
 
 ---
 
-## 📚 DShot Protocol Overview
+## 🔧 Hardware Configuration
 
-DShot transmits 16-bit packets to brushless ESCs:
+### Supported DShot Modes
 
-- **11 bits:** Throttle value
-- **1 bit:** Telemetry request
-- **4 bits:** Checksum (CRC)
+| Mode     | Bitrate     | Bit Time | Frame Time | Use Case |
+|----------|-------------|----------|------------|----------|
+| DSHOT150 | 150 kbit/s  | 6.67 µs  | ~107 µs    | Long wires, EMI-prone |
+| DSHOT300 | 300 kbit/s  | 3.33 µs  | ~53 µs     | Standard (recommended) |
+| DSHOT600 | 600 kbit/s  | 1.67 µs  | ~27 µs     | High performance |
+| DSHOT1200| 1200 kbit/s | 0.83 µs  | ~13 µs     | Racing applications |
 
-Data is sent MSB-first. Pulse timing depends on the selected DShot mode.
+### GPIO Configuration
+```cpp
+// Using GPIO number
+DShotRMT motor(17, DSHOT300);
 
-| DSHOT | Bitrate     | TH1   | TH0    | Bit Time (µs) | Frame Time (µs) |
-|-------|-------------|-------|--------|---------------|-----------------|
-| 150   | 150 kbit/s  | 5.00  | 2.50   | 6.67          | ~106.72         |
-| 300   | 300 kbit/s  | 2.50  | 1.25   | 3.33          | ~53.28          |
-| 600   | 600 kbit/s  | 1.25  | 0.625  | 1.67          | ~26.72          |
+// Using GPIO enum
+DShotRMT motor(GPIO_NUM_17, DSHOT300);
 
-Each frame is followed by a pause to help ESCs detect separate frames.
-
-![DShotRMT](https://raw.githubusercontent.com/derdoktor667/DShotRMT/refs/heads/main/img/dshot300.png)
-
----
-
-## 🔒 Checksum Calculation
-
-The checksum is calculated over the first 12 bits (throttle + telemetry):
-
-```c
-crc = (value ^ (value >> 4) ^ (value >> 8)) & 0x0F;
+// With bidirectional support
+DShotRMT motor(17, DSHOT300, true);
 ```
 
-### Bidirectional DSHOT
-
-Bidirectional DSHOT (sometimes called "inverted DSHOT") inverts the signal level:  
-A logical '1' is low, and a '0' is high. This signals the ESC to send telemetry packets back.
-
-**Bidirectional CRC:**
-
-```c
-crc = (~(value ^ (value >> 4) ^ (value >> 8))) & 0x0F;
-```
-
-> **Note:** Bidirectional DShot is experimental. Further hardware testing is needed.
-
----
-
-## 🛠️ ESP32 RMT Peripheral
-
-The RMT (Remote Control) peripheral generates accurate, hardware-timed signals for controlling external devices.  
-Perfect for DShot:
-- Utilizes latest ESP-IDF APIs  
-- Hardware-timed pulses  
-- CPU-independent  
-- Loop mode with inter-frame pause  
-- Reliable under system load
-
----
-
-## 📝 Core API Reference
-
-### DShotRMT Class
-- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool isBidirectional)`
-- `uint16_t begin()`
-- `bool sendThrottle(uint16_t throttle)`
-- `bool sendCommand(uint16_t command)`
-- `uint16_t getERPM()` - Get eRPM (bidirectional mode only)
-- `uint32_t getMotorRPM(uint8_t magnet_count)` - Convert to motor RPM
-
-### DShotCommandManager Class
-- `DShotCommandManager(DShotRMT &dshot_instance)`
-- `bool begin()`
-- `dshot_command_result_t sendCommand(dshot_commands_t command, uint16_t repeat_count = 1)`
-- `dshot_command_result_t sendCommandWithDelay(dshot_commands_t command, uint16_t repeat_count, uint32_t delay_ms)`
-
-All command methods return a `dshot_command_result_t` structure containing:
-- `bool success` - Command execution status
-- `uint32_t execution_time_us` - Execution time in microseconds
-- `const char* error_message` - Error description
 
 ---
 
 ## 🎯 DShot Commands
 
-The library supports all standard DShot commands:
-
-| Command | Value | Description |
-|---------|-------|-------------|
-| MOTOR_STOP | 0 | Stop motor |
-| BEACON1-5 | 1-5 | Motor beeping |
-| ESC_INFO | 6 | Request ESC information |
-| SPIN_DIRECTION_1/2 | 7-8 | Set spin direction |
-| 3D_MODE_OFF/ON | 9-10 | 3D mode control |
-| SAVE_SETTINGS | 12 | Save settings to ESC |
-| EXTENDED_TELEMETRY_ENABLE/DISABLE | 13-14 | Telemetry control |
-| LED0-3_ON/OFF | 22-29 | LED control (BLHeli32) |
-| AUDIO_STREAM_MODE | 30 | KISS audio mode |
-| SILENT_MODE | 31 | KISS silent mode |
+| Command | Value | Description | Usage |
+|---------|-------|-------------|-------|
+| MOTOR_STOP | 0 | Stop motor | Always available |
+| BEACON1 - 5 | 1 - 5 | Motor beeping | Motor identification |
+| ESC_INFO | 6 | Request ESC info | Get ESC version/settings |
+| SPIN_DIRECTION_1/2 | 7 - 8 | Set spin direction | Motor configuration |
+| 3D_MODE_OFF/ON | 9 - 10 | 3D mode control | Bidirectional flight |
+| SAVE_SETTINGS | 12 | Save to EEPROM | Permanent configuration |
+| EXTENDED_TELEMETRY_ENABLE/DISABLE | 13 - 14 | Telemetry control | Data transmission |
+| SPIN_DIRECTION_NORMAL/REVERSED | 20 - 21 | Spin direction | Alias commands |
+| LED0-3_ON/OFF | 22 - 29 | LED control | BLHeli32 only |
+| AUDIO_STREAM_MODE | 30 | Audio mode toggle | KISS ESCs |
+| SILENT_MODE | 31 | Silent mode toggle | KISS ESCs |
 
 ---
 
-## 📖 References
+## 📚 DShot Protocol Details
 
+![DShotRMT](https://raw.githubusercontent.com/derdoktor667/DShotRMT/refs/heads/main/img/dshot300.png)
+
+### Packet Structure
+Each DShot frame consists of 16 bits:
+- **11 bits:** Throttle/command value (0-2047)
+- **1 bit:** Telemetry request flag
+- **4 bits:** CRC checksum
+
+### Checksum Calculation
+```cpp
+// Standard DShot CRC
+uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & 0x0F;
+
+// Bidirectional DShot (inverted CRC)
+uint16_t crc = (~(data ^ (data >> 4) ^ (data >> 8))) & 0x0F;
+```
+
+### Bidirectional DShot
+- **Inverted Logic:** High/low levels are inverted
+- **GCR Encoding:** Telemetry uses Group Code Recording
+- **21-bit Response:** 1 start + 16 data + 4 CRC bits
+- **eRPM Data:** Electrical RPM transmitted back to controller
+
+---
+
+## 🛠️ ESP32 RMT Peripheral
+
+The library utilizes the ESP32's RMT (Remote Control) peripheral for precise signal generation:
+
+### Advantages
+- **Hardware Timing:** No CPU intervention during transmission
+- **Concurrent Operation:** Multiple channels can run simultaneously  
+- **DMA Support:** Efficient memory-to-peripheral transfers
+
+---
+
+## 📖 References & Documentation
+
+### DShot Protocol
 - [DSHOT – the missing Handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)
 - [DSHOT in the Dark](https://dmrlawson.co.uk/index.php/2017/12/04/dshot-in-the-dark/)
+- [Betaflight DShot Implementation](https://github.com/betaflight/betaflight)
+
+### ESP32 Documentation
 - [ESP32 Technical Reference Manual](https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf)
+- [ESP-IDF RMT Driver](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/rmt.html)
+- [Arduino ESP32 Core](https://github.com/espressif/arduino-esp32)
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
+
+### Development Guidelines
+- Follow existing code style
+- Add documentation for new features
+- Include examples where appropriate
+- Test with real hardware when possible
+
+### Reporting Issues
+When reporting issues, please include:
+- ESP32 board type and version
+- Arduino/ESP-IDF version
+- ESC type and firmware
+- Complete error messages
+- Minimal reproduction code
 
 ---
 
@@ -261,5 +269,5 @@ MIT License – see [LICENSE](LICENSE)
 ## 👤 Author
 
 **Wastl Kraus**  
-GitHub: [@derdoktor667](https://github.com/derdoktor667)  
-Website: [wir-sind-die-matrix.de](https://wir-sind-die-matrix.de)
+- GitHub: [@derdoktor667](https://github.com/derdoktor667)  
+- Website: [wir-sind-die-matrix.de](https://wir-sind-die-matrix.de)

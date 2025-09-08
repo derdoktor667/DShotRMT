@@ -19,8 +19,10 @@ static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 static constexpr auto DSHOT_THROTTLE_MIN = 48;
 static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto DSHOT_SWITCH_TIME = 30; // Additional time in us for bidir switching
+static constexpr auto DSHOT_PAUSE_US = 30; // Additional frame pause time
 static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
+static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
+static constexpr auto DSHOT_CRC_MASK = 0b0000000000001111;
 static constexpr auto DSHOT_RX_TIMEOUT_MS = 2; // Never reached, just a timeeout
 static constexpr auto GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame (1 start + 16 data + 4 CRC)
 static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
@@ -30,7 +32,7 @@ static constexpr auto NO_DSHOT_ERPM = 0;
 static constexpr auto NO_DSHOT_RPM = 0;
 
 // RMT Configuration Constants
-constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
+constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_APB;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
 constexpr auto RMT_BUFFER_SYMBOLS = 64;

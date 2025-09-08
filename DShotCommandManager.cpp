@@ -22,7 +22,7 @@ dshot_result_t DShotCommandManager::begin()
 {
     dshot_result_t result;
     result.success = true;
-    result.error_message = "Success";
+    result.msg = "Success";
     return result;
 }
 
@@ -36,10 +36,10 @@ dshot_result_t DShotCommandManager::sendCommand(dshot_commands_t command, uint16
 dshot_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_t command, uint16_t repeat_count, uint32_t delay_ms)
 {
     dshot_result_t result = {false, "Unknown error"};
-    
+
     if (!isValidCommand(command))
     {
-        result.error_message = "Invalid command";
+        result.msg = "Invalid command";
         return result;
     }
 
@@ -53,7 +53,7 @@ dshot_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_t comman
         if (!single_result.success)
         {
             all_successful = false;
-            result.error_message = single_result.error_message;
+            result.msg = single_result.msg;
             break;
         }
 
@@ -64,12 +64,12 @@ dshot_result_t DShotCommandManager::sendCommandWithDelay(dshot_commands_t comman
         }
     }
 
-     //
+    //
     result.success = all_successful;
 
     if (result.success)
     {
-        result.error_message = "Success";
+        result.msg = "Success";
     }
 
     return result;
@@ -194,7 +194,7 @@ dshot_result_t DShotCommandManager::setSilentMode(bool enable)
 }
 
 // --- SEQUENCE COMMANDS ---
-dshot_result_t DShotCommandManager::executeSequence(const dshot_command_sequence_item_t *sequence, size_t sequence_length)
+dshot_result_t DShotCommandManager::executeSequence(const dshot_commandmanager_item_t *sequence, size_t sequence_length)
 {
     dshot_result_t result = {true, "Success"};
     uint64_t total_start_time = esp_timer_get_time();
@@ -209,7 +209,7 @@ dshot_result_t DShotCommandManager::executeSequence(const dshot_command_sequence
         if (!item_result.success)
         {
             result.success = false;
-            result.error_message = item_result.error_message;
+            result.msg = item_result.msg;
             break;
         }
 
@@ -229,7 +229,7 @@ dshot_result_t DShotCommandManager::executeSequence(const dshot_command_sequence
 dshot_result_t DShotCommandManager::executeInitSequence()
 {
     // Basic ESC initialization sequence
-    dshot_command_sequence_item_t init_sequence[] = {
+    dshot_commandmanager_item_t init_sequence[] = {
         {DSHOT_CMD_MOTOR_STOP, 5, 100},               // Stop motor, repeat 5 times, wait 100ms
         {DSHOT_CMD_EXTENDED_TELEMETRY_ENABLE, 1, 50}, // Enable telemetry, wait 50ms
         {DSHOT_CMD_ESC_INFO, 1, 100}                  // Request ESC info, wait 100ms
@@ -242,7 +242,7 @@ dshot_result_t DShotCommandManager::executeInitSequence()
 dshot_result_t DShotCommandManager::executeCalibrationSequence()
 {
     // Basic ESC calibration sequence
-    dshot_command_sequence_item_t calibration_sequence[] = {
+    dshot_commandmanager_item_t calibration_sequence[] = {
         {DSHOT_CMD_MOTOR_STOP, 10, 500},            // Ensure motor is stopped
         {DSHOT_CMD_SPIN_DIRECTION_NORMAL, 10, 100}, // Set normal spin direction
         {DSHOT_CMD_3D_MODE_OFF, 10, 100},           // Disable 3D mode

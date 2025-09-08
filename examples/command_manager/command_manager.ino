@@ -37,7 +37,7 @@ void printTelemetryResult(const dshot_telemetry_result_t &result)
     }
     else
     {
-        USB_SERIAL.printf("Telemetry: FAILED - %s\n", result.error_message);
+        USB_SERIAL.printf("Telemetry: FAILED - %s\n", result.msg);
     }
 }
 
@@ -270,7 +270,7 @@ void printResult(const dshot_result_t &result)
     }
     else
     {
-        USB_SERIAL.printf("FAILED - %s \n", result.error_message);
+        USB_SERIAL.printf("FAILED - %s \n", result.msg);
     }
 }
 

@@ -10,9 +10,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  ESP32_CORE_VERSION: '3.3.0'
-
 jobs:
   # ============================================================================
   # Code Quality & Linting
@@ -33,15 +30,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.arduino15
-          key: ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-${{ hashFiles('**/libraries/**') }}
+            ~/
+          key: ${{ runner.os }}-arduino-${{ hashFiles('**/libraries/**') }}
           restore-keys: |
-            ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-
+            ${{ runner.os }}-arduino-
 
       - name: Install ESP32 core
         run: |
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
+          arduino-cli core install esp32:esp32
 
       - name: Arduino Lint
         uses: arduino/arduino-lint-action@v1
@@ -79,15 +76,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.arduino15
-          key: ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-${{ hashFiles('**/libraries/**') }}
+            ~/
+          key: ${{ runner.os }}-arduino-${{ hashFiles('**/libraries/**') }}
           restore-keys: |
-            ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-
+            ${{ runner.os }}-arduino-
 
       - name: Install ESP32 core
         run: |
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
+          arduino-cli core install esp32:esp32
 
       - name: Install Repo as Library
         run: |
@@ -117,15 +114,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.arduino15
-          key: ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-${{ hashFiles('**/libraries/**') }}
+            ~/
+          key: ${{ runner.os }}-arduino-${{ hashFiles('**/libraries/**') }}
           restore-keys: |
-            ${{ runner.os }}-arduino-${{ env.ESP32_CORE_VERSION }}-
+            ${{ runner.os }}-arduino-
 
       - name: Install ESP32 core
         run: |
           arduino-cli core update-index
-          arduino-cli core install esp32:esp32@${{ env.ESP32_CORE_VERSION }}
+          arduino-cli core install esp32:esp32
 
       - name: Install Cppcheck
         run: sudo apt-get update && sudo apt-get install -y cppcheck

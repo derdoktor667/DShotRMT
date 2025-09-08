@@ -32,7 +32,7 @@ static constexpr auto NO_DSHOT_ERPM = 0;
 static constexpr auto NO_DSHOT_RPM = 0;
 
 // RMT Configuration Constants
-constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_APB;
+constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
 constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
 constexpr auto RMT_BUFFER_SYMBOLS = 64;
@@ -204,9 +204,6 @@ private:
     volatile uint16_t _last_erpm_atomic;
     volatile bool _telemetry_ready_flag;
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
-
-    // --- DSHOT RESULT HANDLER ---
-    dshot_result_t _result;
 
     // --- DSHOT DEFAULTS ---
     static constexpr auto const DSHOT_TELEMETRY_INVALID = (0xffff);

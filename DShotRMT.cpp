@@ -40,8 +40,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _tx_channel_config{},
       _rx_channel_config{},
       _transmit_config{},
-      _receive_config{},
-      _result{false, UNKNOWN_ERROR}
+      _receive_config{}
 {
     // Calculate frame timing including switch/pause time
     _frame_timer_us = _timing_config.frame_length_us + DSHOT_PAUSE_US;
@@ -99,39 +98,31 @@ dshot_result_t DShotRMT::begin()
     {
         if (!_initRXChannel().success)
         {
-            _result.msg = RX_INIT_FAILED;
-            return _result;
+            return {false, RX_INIT_FAILED};
         }
     }
 
     // Init TX channel
     if (!_initTXChannel().success)
     {
-        _result.msg = TX_INIT_FAILED;
-        return _result;
+        return {false, TX_INIT_FAILED};
     }
 
     // Init DShot encoder
     if (!_initDShotEncoder().success)
     {
-        _result.msg = ENCODER_INIT_FAILED;
-        return _result;
+        return {false, ENCODER_INIT_FAILED};
     }
 
     // Bit positions precalculation
     _preCalculateBitPositions();
 
-    _result.success = true;
-    _result.msg = INIT_SUCCESS;
-
-    return _result;
+    return {true, INIT_SUCCESS};
 }
 
 // Init RMT TX channel
 dshot_result_t DShotRMT::_initTXChannel()
 {
-    _result = {false, TX_INIT_FAILED};
-
     // Configure TX channel
     _tx_channel_config.gpio_num = _gpio;
     _tx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
@@ -146,25 +137,21 @@ dshot_result_t DShotRMT::_initTXChannel()
     // Create RMT TX channel
     if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
     {
-        return _result;
+        return {false, TX_INIT_FAILED};
     }
 
     //
     if (rmt_enable(_rmt_tx_channel) != DSHOT_OK)
     {
-        return _result;
+        return {false, TX_INIT_FAILED};
     }
 
-    _result.success = true;
-    _result.msg = TX_INIT_SUCCESS;
-
-    return _result;
+    return {true, TX_INIT_SUCCESS};
 }
 
 // Init RMT RX channel
 dshot_result_t DShotRMT::_initRXChannel()
 {
-    _result = {false, RX_INIT_FAILED};
 
     // Direct RMT symbol processing - Performance optimized
     _rx_event_callbacks.on_recv_done = _rmt_rx_done_callback;
@@ -182,19 +169,16 @@ dshot_result_t DShotRMT::_initRXChannel()
     // Create RMT RX channel
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
     {
-        return _result;
+        return {false, RX_INIT_FAILED};
     }
 
     //
     if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
     {
-        return _result;
+        return {false, RX_INIT_FAILED};
     }
 
-    _result.success = true;
-    _result.msg = RX_INIT_SUCCESS;
-
-    return _result;
+    return {true, RX_INIT_SUCCESS};
 }
 
 // Callback for RMT RX
@@ -202,17 +186,16 @@ bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_chann
 {
     DShotRMT *instance = static_cast<DShotRMT *>(user_data);
 
-    // Minimale ISR-Verarbeitung: Nur bei gültigen Daten
-    if (edata && edata->num_symbols >= GCR_BITS_PER_FRAME &&
-        edata->num_symbols <= GCR_BITS_PER_FRAME)
+    // ISR check for valid data
+    if (edata && edata->num_symbols >= GCR_BITS_PER_FRAME && edata->num_symbols <= GCR_BITS_PER_FRAME)
     {
 
-        // Direkte Dekodierung in der ISR (schnell!)
+        // Direct decoding
         uint16_t erpm = instance->_decodeDShotFrame(edata->received_symbols);
 
         if (erpm != DSHOT_NULL_PACKET)
         {
-            // Atomic writes - thread-safe ohne Mutex
+            // Atomic writes - thread-safe
             instance->_last_erpm_atomic = erpm;
             instance->_telemetry_ready_flag = true;
         }
@@ -224,21 +207,16 @@ bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_chann
 // Initialize DShot encoder
 dshot_result_t DShotRMT::_initDShotEncoder()
 {
-    _result = {false, ENCODER_INIT_FAILED};
-
     // Create copy encoder configuration
     rmt_copy_encoder_config_t encoder_config = {};
 
     // Create encoder instance
     if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
-        return _result;
+        return {false, ENCODER_INIT_FAILED};
     }
 
-    _result.success = true;
-    _result.msg = ENCODER_INIT_SUCCESS;
-
-    return _result;
+    return {true, TX_INIT_SUCCESS};
 }
 
 // Send throttle value
@@ -250,17 +228,12 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
         return sendCommand(DSHOT_CMD_MOTOR_STOP);
     }
 
-    // Log only if throttle is out of range and different from last time
-    if ((throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX) && throttle != _last_throttle)
-    {
-        _result.msg = THROTTLE_NOT_IN_RANGE;
-    }
-
     // Always store the original throttle value
     _last_throttle = throttle;
 
     // Constrain throttle for transmission and send
     uint16_t new_throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+
     _packet = _buildDShotPacket(new_throttle);
 
     return _sendDShotFrame(_packet);
@@ -272,8 +245,7 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command)
     // Validate command is within DShot specification range
     if (command < DSHOT_CMD_MOTOR_STOP || command > DSHOT_CMD_MAX)
     {
-        _result.msg = COMMAND_NOT_VALID;
-        return _result;
+        return {false, COMMAND_NOT_VALID};
     }
 
     // Build packet and transmit
@@ -295,12 +267,14 @@ dshot_telemetry_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
         return result;
     }
 
+    //
     if (_telemetry_ready_flag)
     {
         _telemetry_ready_flag = false;
 
         uint16_t erpm = _last_erpm_atomic;
 
+        //
         if (erpm != DSHOT_NULL_PACKET && magnet_count >= 1)
         {
             uint8_t pole_pairs = max(MIN_POLE_PAIRS, (magnet_count / MAGNETS_PER_POLE_PAIR));
@@ -378,25 +352,24 @@ void DShotRMT::_preCalculateBitPositions()
 // Transmit DShot packet via RMT
 dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
-    _result = {false, UNKNOWN_ERROR};
-    
     // Check timing requirements
     if (!_timer_signal())
     {
-        _result.msg = TIMING_CORRECTION;
-        return _result;
+        return {false, TIMING_CORRECTION};
     }
 
     // Enable RMT RX before RMT TX
     if (_is_bidirectional)
     {
+        // Calculate transmission data size
+        size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+
         // Performance reasons
         rmt_symbol_word_t rx_symbols[DSHOT_BITS_PER_FRAME];
 
-        if (rmt_receive(_rmt_rx_channel, rx_symbols, sizeof(rx_symbols), &_receive_config) != DSHOT_OK)
+        if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &_receive_config) != DSHOT_OK)
         {
-            _result.msg = RECEIVER_FAILED;
-            return _result;
+            return {false, RECEIVER_FAILED};
         }
     }
 
@@ -415,16 +388,14 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         // Disable RMT RX for sending
         if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
         {
-            _result.msg = RECEIVER_FAILED;
-            return _result;
+            return {false, RECEIVER_FAILED};
         }
     }
 
     // Perform RMT transmission
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_transmit_config) != DSHOT_OK)
     {
-        _result.msg = TRANSMISSION_FAILED;
-        return _result;
+        return {false, TRANSMISSION_FAILED};
     }
 
     // Re-enable RMT RX
@@ -432,18 +403,14 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     {
         if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
         {
-            _result.msg = RECEIVER_FAILED;
-            return _result;
+            return {false, RECEIVER_FAILED};
         }
     }
 
     // Update timestamp and calculate execution time
     _timer_reset();
 
-    _result.success = true;
-    _result.msg = TRANSMISSION_SUCCESS;
-
-    return _result;
+    return {true, TRANSMISSION_SUCCESS};
 }
 
 // Encode DShot packet into RMT symbol format (placed in IRAM for performance)
@@ -494,7 +461,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     // Masking CRC
     uint16_t received_crc = data_and_crc & DSHOT_CRC_MASK;
 
-    // Telemetry request bit is always 1.
+    // Telemetry request bit has to be 1
     if (!(received_data & (1 << 11)))
     {
         return DSHOT_NULL_PACKET;
@@ -529,6 +496,7 @@ bool IRAM_ATTR DShotRMT::_timer_signal()
 bool DShotRMT::_timer_reset()
 {
     _last_transmission_time = esp_timer_get_time();
+
     return DSHOT_OK;
 }
 
@@ -546,9 +514,6 @@ void DShotRMT::printDShotInfo(Stream &output) const
         _mode == DSHOT1200 ? 1200 : 0);
 
     output.printf("Bidirectional: %s\n", _is_bidirectional ? "YES" : "NO");
-
-    // Timing Info
-    output.printf("Frame Length: %u us\n", _timing_config.frame_length_us);
 
     // Packet Info
     output.printf("Current Packet: ");
@@ -585,15 +550,7 @@ void DShotRMT::printCpuInfo(Stream &output) const
 // --- HELPERS ---
 void printDShotResult(dshot_result_t &result, Stream &output)
 {
-    if (result.success)
-    {
-        output.printf("Staus: SUCCESS - %s\n", result.msg);
-    }
-    else
-    {
-        output.printf("Status: FAILED - %s\n", result.msg);
-    }
-
+    output.printf("Status: %s - %s\n", result.success ? "SUCCESS" : "FAILED", result.msg);
     output.println(" ");
 }
 
@@ -602,7 +559,7 @@ void printDShotTelemetry(dshot_telemetry_result_t &result, Stream &output)
 {
     if (result.success)
     {
-        output.printf("Telemetry: eRPM=%u, Motor RPM=%u \n", result.erpm, result.motor_rpm);
+        output.printf("Telemetry: eRPM=%u, Motor RPM=%u\n", result.erpm, result.motor_rpm);
     }
     else
     {

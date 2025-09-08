@@ -122,7 +122,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     {
         // Stop motor
         throttle = 0;
-        continuous_throttle = true; // kill motor for sure
+        continuous_throttle = true;
         dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
         printDShotResult(result);
     }
@@ -171,7 +171,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         }
         else
         {
-            USB_SERIAL.printf("Invalid input: '%s'\n", input.c_str());
+            USB_SERIAL.printf("Invalid input: '%s'\n", input);
             USB_SERIAL.printf("Valid throttle range: %d - %d\n", DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
         }
     }

@@ -203,8 +203,11 @@ private:
     volatile bool _telemetry_ready_flag;
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
+    // --- DSHOT RESULT HANDLER ---
+    dshot_result_t _result;
+
     // --- DSHOT DEFAULTS ---
-    static constexpr auto DSHOT_TELEMETRY_INVALID = (0xffff);
+    static constexpr auto const DSHOT_TELEMETRY_INVALID = (0xffff);
 
     // --- CONSTANTS & ERROR MESSAGES ---
     static constexpr bool DSHOT_OK = 0;

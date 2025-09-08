@@ -18,36 +18,6 @@ static constexpr dshot_timing_t DSHOT_TIMINGS[] = {
     {16, 8, 6, 2, 3, 5}        // DSHOT1200
 };
 
-// --- HELPERS ---
-void printDShotResult(dshot_result_t &result, Stream &output)
-{
-    if (result.success)
-    {
-        output.printf("Staus: SUCCESS - %s\n", result.msg);
-    }
-    else
-    {
-        output.printf("Status: FAILED - %s\n", result.msg);
-    }
-
-    output.println(" ");
-}
-
-//
-void printDShotTelemetry(dshot_telemetry_result_t &result, Stream &output)
-{
-    if (result.success)
-    {
-        output.printf("Telemetry: eRPM=%u, Motor RPM=%u \n", result.erpm, result.motor_rpm);
-    }
-    else
-    {
-        output.printf("Telemetry: FAILED - %s\n", result.msg);
-    }
-
-    output.println(" ");
-}
-
 // Constructor with GPIO number
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
     : _gpio(gpio),
@@ -70,7 +40,8 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _tx_channel_config{},
       _rx_channel_config{},
       _transmit_config{},
-      _receive_config{}
+      _receive_config{},
+      _result{false, UNKNOWN_ERROR}
 {
     // Calculate frame timing including switch/pause time
     _frame_timer_us = _timing_config.frame_length_us + DSHOT_SWITCH_TIME;
@@ -123,40 +94,37 @@ DShotRMT::~DShotRMT()
 // Init DShotRMT
 dshot_result_t DShotRMT::begin()
 {
-    // Result container
-    dshot_result_t result = {false, INIT_FAILED};
-
     // Init RX channel first
     if (_is_bidirectional)
     {
         if (!_initRXChannel().success)
         {
-            result.msg = RX_INIT_FAILED;
-            return result;
+            _result.msg = RX_INIT_FAILED;
+            return _result;
         }
     }
 
     // Init TX channel
     if (!_initTXChannel().success)
     {
-        result.msg = TX_INIT_FAILED;
-        return result;
+        _result.msg = TX_INIT_FAILED;
+        return _result;
     }
 
     // Init DShot encoder
     if (!_initDShotEncoder().success)
     {
-        result.msg = ENCODER_INIT_FAILED;
-        return result;
+        _result.msg = ENCODER_INIT_FAILED;
+        return _result;
     }
 
     // Bit positions precalculation
     _preCalculateBitPositions();
 
-    result.success = true;
-    result.msg = INIT_SUCCESS;
+    _result.success = true;
+    _result.msg = INIT_SUCCESS;
 
-    return result;
+    return _result;
 }
 
 // Init RMT TX channel
@@ -258,30 +226,24 @@ bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_chann
 // Initialize DShot encoder
 dshot_result_t DShotRMT::_initDShotEncoder()
 {
-    // Result container
-    dshot_result_t result = {false, ENCODER_INIT_FAILED};
-
     // Create copy encoder configuration
     rmt_copy_encoder_config_t encoder_config = {};
 
     // Create encoder instance
     if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
-        return result;
+        return _result;
     }
 
-    result.success = true;
-    result.msg = ENCODER_INIT_SUCCESS;
+    _result.success = true;
+    _result.msg = ENCODER_INIT_SUCCESS;
 
-    return result;
+    return _result;
 }
 
 // Send throttle value
 dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
 {
-    // Result container
-    dshot_result_t result = {false, UNKNOWN_ERROR};
-
     // Special case: if throttle is 0, use sendCommand() instead
     if (throttle == 0)
     {
@@ -291,7 +253,7 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
     // Log only if throttle is out of range and different from last time
     if ((throttle < DSHOT_THROTTLE_MIN || throttle > DSHOT_THROTTLE_MAX) && throttle != _last_throttle)
     {
-        result.msg = THROTTLE_NOT_IN_RANGE;
+        _result.msg = THROTTLE_NOT_IN_RANGE;
     }
 
     // Always store the original throttle value
@@ -307,14 +269,11 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
 // Send DShot command to ESC
 dshot_result_t DShotRMT::sendCommand(uint16_t command)
 {
-    // Result container
-    dshot_result_t result = {false, UNKNOWN_ERROR};
-
     // Validate command is within DShot specification range
     if (command < DSHOT_CMD_MOTOR_STOP || command > DSHOT_CMD_MAX)
     {
-        result.msg = COMMAND_NOT_VALID;
-        return result;
+        _result.msg = COMMAND_NOT_VALID;
+        return _result;
     }
 
     // Build packet and transmit
@@ -621,4 +580,34 @@ void DShotRMT::printCpuInfo(Stream &output) const
     output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
     output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
     output.printf("APB Freq = %lu Hz\n", getApbFrequency());
+}
+
+// --- HELPERS ---
+void printDShotResult(dshot_result_t &result, Stream &output)
+{
+    if (result.success)
+    {
+        output.printf("Staus: SUCCESS - %s\n", result.msg);
+    }
+    else
+    {
+        output.printf("Status: FAILED - %s\n", result.msg);
+    }
+
+    output.println(" ");
+}
+
+//
+void printDShotTelemetry(dshot_telemetry_result_t &result, Stream &output)
+{
+    if (result.success)
+    {
+        output.printf("Telemetry: eRPM=%u, Motor RPM=%u \n", result.erpm, result.motor_rpm);
+    }
+    else
+    {
+        output.printf("Telemetry: FAILED - %s\n", result.msg);
+    }
+
+    output.println(" ");
 }

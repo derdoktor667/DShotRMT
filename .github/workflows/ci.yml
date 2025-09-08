@@ -3,12 +3,9 @@ name: ESP32 Build & Quality Check
 on:
   push:
     branches: [ '*' ]
-  release:
-    types: [ published ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   # ============================================================================
@@ -25,15 +22,6 @@ jobs:
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
-
-      - name: Cache Arduino data
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/
-          key: ${{ runner.os }}-arduino-${{ hashFiles('**/libraries/**') }}
-          restore-keys: |
-            ${{ runner.os }}-arduino-
 
       - name: Install ESP32 core
         run: |
@@ -72,15 +60,6 @@ jobs:
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
 
-      - name: Cache Arduino data
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/
-          key: ${{ runner.os }}-arduino-${{ hashFiles('**/libraries/**') }}
-          restore-keys: |
-            ${{ runner.os }}-arduino-
-
       - name: Install ESP32 core
         run: |
           arduino-cli core update-index
@@ -92,8 +71,7 @@ jobs:
           ln -s $PWD $HOME/Arduino/libraries/DShotRMT
 
       - name: Compile Example (${{ matrix.build-flags.name }})
-        run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32 ${{ matrix.example }}
+        run: arduino-cli compile --fqbn esp32:esp32:esp32 ${{ matrix.example }}
 
   # ============================================================================
   # Static Code Analysis
@@ -109,15 +87,6 @@ jobs:
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
-
-      - name: Cache Arduino data
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/
-          key: ${{ runner.os }}-arduino-${{ hashFiles('**/libraries/**') }}
-          restore-keys: |
-            ${{ runner.os }}-arduino-
 
       - name: Install ESP32 core
         run: |

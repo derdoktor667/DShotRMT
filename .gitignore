@@ -13,13 +13,11 @@
 # Built Visual Studio Code Extensions
 *.vsix
 
-# Caching ESP32 Builds
+# Builds
+*.code-workspace
 buildCache
 build
 examples/dshot300/debug.cfg
 examples/dshot300/esp32.svd
 examples/dshot300/debug_custom.json
 examples/dshot300/debug.svd
-/build
-/.github/chatmodes
-web/control.html

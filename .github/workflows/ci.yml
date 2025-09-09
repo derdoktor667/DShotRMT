@@ -36,7 +36,7 @@ jobs:
           library-manager: update
           verbose: true
 
-  # ============================================================================
+# ============================================================================
   # Compilation Test
   # ============================================================================
   compile-test:
@@ -50,28 +50,29 @@ jobs:
         examples:
           - "examples/dshot300/dshot300.ino"
           - "examples/command_manager/command_manager.ino"
+          - "examples/web_control/web_control.ino"
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Compile Example Sketches
-        uses: arduino/compile-sketches@v1
-        with:
-          fqbn: esp32:esp32:esp32
-          platforms: |
-            - name: esp32:esp32
-              source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          libraries: |
-            # Install the library from the local path.
-            - name: ArduinoJson 
-            - name: Async TCP 
-            - name: ESP Async WebServer
-            - name: WiFi
-            - source-path: ./ 
-          sketch-paths: ${{ matrix.examples}}
-          cli-compile-flags: |
-            - --warnings="none"
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 Core and Dependencies
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+
+          arduino-cli lib install "ArduinoJson"
+
+          # Workround for ESPAsyncWebServer
+          git clone https://github.com/ESP32Async/ESPAsyncWebServer ~/Arduino/libraries/ESPAsyncWebServer
+          git clone https://github.com/ESP32Async/AsyncTCP ~/Arduino/libraries/AsyncTCP
+      
+      - name: Compile Sketch
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 --library ${{ github.workspace }} ${{ matrix.examples}}
 
   # ============================================================================
   # Build Status Report

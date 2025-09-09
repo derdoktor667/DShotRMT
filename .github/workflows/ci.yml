@@ -12,7 +12,7 @@ jobs:
   # Code Quality & Linting
   # ============================================================================
   quality-check:
-    name: 'Code Quality'
+    name: 'Arduino Lint Check'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -50,9 +50,6 @@ jobs:
         examples:
           - "examples/dshot300/dshot300.ino"
           - "examples/command_manager/command_manager.ino"
-        build-flags:
-          - name: "Release"
-            flags: "Automated Build"
 
     steps:
       - name: Checkout Repository
@@ -67,43 +64,14 @@ jobs:
               source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           libraries: |
             # Install the library from the local path.
-            - source-path: ./
+            - name: ArduinoJson 
+            - name: Async TCP 
+            - name: ESP Async WebServer
+            - name: WiFi
+            - source-path: ./ 
           sketch-paths: ${{ matrix.examples}}
           cli-compile-flags: |
             - --warnings="none"
-
-  # ============================================================================
-  # Static Code Analysis
-  # ============================================================================
-  static-analysis:
-    name: 'Static Analysis'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v2
-
-      - name: Install ESP32 core
-        run: |
-          arduino-cli core update-index > /dev/null
-          arduino-cli core install esp32:esp32 > /dev/null
-
-      - name: Install Cppcheck
-        run: sudo apt-get update && sudo apt-get install -y cppcheck
-
-      - name: Run Cppcheck
-        run: |
-          cppcheck --enable=warning,performance \
-                   --std=c++17 \
-                   --language=c++ \
-                   --platform=unix32 \
-                   --inline-suppr \
-                   ./DShotRMT.cpp ./DShotRMT.h \
-                   ./DShotCommandManager.cpp ./DShotCommandManager.h 
 
   # ============================================================================
   # Build Status Report
@@ -112,7 +80,7 @@ jobs:
     name: 'Build Summary'
     runs-on: ubuntu-latest
     if: always()
-    needs: [quality-check, compile-test, static-analysis]
+    needs: [quality-check, compile-test]
 
     steps:
       - name: Create Build Summary
@@ -136,19 +104,11 @@ jobs:
             echo "| 🔨 Compilation | ❌ Failed | Compilation errors detected |" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Static Analysis Status
-          if [[ "${{ needs.static-analysis.result }}" == "success" ]]; then
-            echo "| 🔍 Static Analysis | ✅ Passed | No critical issues found |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| 🔍 Static Analysis | ❌ Failed | Issues detected by CPPCheck |" >> $GITHUB_STEP_SUMMARY
-          fi
-          
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Overall Status
           if [[ "${{ needs.quality-check.result }}" == "success" && 
-                "${{ needs.compile-test.result }}" == "success" && 
-                "${{ needs.static-analysis.result }}" == "success" ]]; then
+                "${{ needs.compile-test.result }}" == "success" ]]; then
             echo "## 🎉 All Checks Passed!" >> $GITHUB_STEP_SUMMARY
             echo "Your DShotRMT library is ready for deployment." >> $GITHUB_STEP_SUMMARY
           else

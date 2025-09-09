@@ -22,3 +22,4 @@ examples/dshot300/debug_custom.json
 examples/dshot300/debug.svd
 /build
 /.github/chatmodes
+web/control.html

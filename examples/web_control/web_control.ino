@@ -233,17 +233,10 @@ void handleSerialInput(const String &input)
     {
         setArmingStatus(true);
     }
-    else if (input == "disarm")
+    else if (input == "0" || "disarm")
     {
         setArmingStatus(false);
-    }
-    else if (input == "0")
-    {
-        throttle = 0;
-        continuous_throttle = false;
-        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        printDShotResult(result);
-    }
+     }
     else if (input == "info")
     {
         motor01.printDShotInfo();
@@ -391,11 +384,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     // Webserver arms with DSHOT_THROTTLE_MIN
     if (armedFromWeb && isArmed)
     {
-        throttle = DSHOT_THROTTLE_MIN;
         continuous_throttle = true;
         motor01.sendThrottle(throttle);
         USB_SERIAL.println(" ");
-        USB_SERIAL.println("Motor armed via Web - throttle set to 48");
+        USB_SERIAL.printf("Motor armed via Web - throttle set to %i\n", throttle);
     }
 }
 

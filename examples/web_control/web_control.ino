@@ -1,5 +1,5 @@
 /**
- * @file dshot300.ino
+ * @file web_control.ino
  * @brief Demo sketch for DShotRMT library
  * @author Wastl Kraus
  * @date 2025-09-09
@@ -184,19 +184,18 @@ void setArmingStatus(bool armed)
 {
     isArmed = armed;
 
-    if (!armed)
-    {
-        // Safety: Stop motor and reset throttle when disarming
-        throttle = 0;
-        continuous_throttle = false;
-        motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        USB_SERIAL.println(" ");
-        USB_SERIAL.println("=== MOTOR DISARMED - SAFETY STOP EXECUTED ===");
-    }
-    else
+    if (armed)
     {
         continuous_throttle = true;
+        return;
     }
+
+    // Safety: Stop motor and reset throttle when disarming
+    throttle = 0;
+    continuous_throttle = false;
+    motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+    USB_SERIAL.println(" ");
+    USB_SERIAL.println("=== MOTOR DISARMED - SAFETY STOP EXECUTED ===");
 }
 
 //
@@ -232,18 +231,24 @@ void handleSerialInput(const String &input)
     if (input == "arm")
     {
         setArmingStatus(true);
+        return;
     }
-    else if (input == "0" || "disarm")
+
+    if (input == "0" || input == "disarm")
     {
         setArmingStatus(false);
-     }
-    else if (input == "info")
+        return;
+    }
+
+    if (input == "info")
     {
         motor01.printDShotInfo();
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
+        return;
     }
-    else if (input == "rpm" && IS_BIDIRECTIONAL)
+
+    if (input == "rpm" && IS_BIDIRECTIONAL)
     {
         if (isArmed)
         {
@@ -255,8 +260,10 @@ void handleSerialInput(const String &input)
             USB_SERIAL.println(" ");
             USB_SERIAL.println("Cannot read RPM - Motor is DISARMED");
         }
+        return;
     }
-    else if (input.startsWith("cmd "))
+
+    if (input.startsWith("cmd "))
     {
         if (!isArmed)
         {
@@ -267,6 +274,7 @@ void handleSerialInput(const String &input)
 
         continuous_throttle = false;
         int cmd_num = input.substring(4).toInt();
+
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
@@ -277,57 +285,63 @@ void handleSerialInput(const String &input)
             USB_SERIAL.println(" ");
             USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, DSHOT_CMD_MAX);
         }
+        return;
     }
-    else if (input == "h" || input == "help")
+
+    if (input == "h" || input == "help")
     {
         printMenu();
+        return;
     }
-    else if (input == "status")
+
+    if (input == "status")
     {
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         USB_SERIAL.printf("Current Throttle: %u\n", throttle);
         USB_SERIAL.printf("Continuous Mode: %s\n", continuous_throttle ? "ACTIVE" : "INACTIVE");
+        return;
     }
-    else
+
+    // Handle throttle input
+    int throttle_value = input.toInt();
+
+    if (throttle_value >= DSHOT_THROTTLE_MIN && throttle_value <= DSHOT_THROTTLE_MAX)
     {
-        int throttle_value = input.toInt();
-
-        if (throttle_value >= DSHOT_THROTTLE_MIN && throttle_value <= DSHOT_THROTTLE_MAX)
-        {
-            if (!isArmed)
-            {
-                USB_SERIAL.println(" ");
-                USB_SERIAL.println("Cannot set throttle - Motor is DISARMED. Use 'arm' command first.");
-                return;
-            }
-
-            throttle = throttle_value;
-            continuous_throttle = true;
-
-            dshot_result_t result = motor01.sendThrottle(throttle);
-
-            if (result.success)
-            {
-                USB_SERIAL.println(" ");
-                USB_SERIAL.printf("Throttle set to %u (continuous mode active)\n", throttle);
-            }
-        }
-        else if (throttle_value == 0)
-        {
-            throttle = 0;
-            continuous_throttle = false;
-            dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-            printDShotResult(result);
-        }
-        else
+        if (!isArmed)
         {
             USB_SERIAL.println(" ");
-            USB_SERIAL.printf("Invalid input: '%s'\n", input.c_str());
-            USB_SERIAL.printf("Valid throttle range: %d - %d\n", DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-            USB_SERIAL.println("Use 'arm' to enable motor control");
+            USB_SERIAL.println("Cannot set throttle - Motor is DISARMED. Use 'arm' command first.");
+            return;
         }
+
+        throttle = throttle_value;
+        continuous_throttle = true;
+
+        dshot_result_t result = motor01.sendThrottle(throttle);
+
+        if (result.success)
+        {
+            USB_SERIAL.println(" ");
+            USB_SERIAL.printf("Throttle set to %u (continuous mode active)\n", throttle);
+        }
+        return;
     }
+
+    if (throttle_value == 0)
+    {
+        throttle = 0;
+        continuous_throttle = false;
+        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        printDShotResult(result);
+        return;
+    }
+
+    // Invalid input
+    USB_SERIAL.println(" ");
+    USB_SERIAL.printf("Invalid input: '%s'\n", input.c_str());
+    USB_SERIAL.printf("Valid throttle range: %d - %d\n", DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+    USB_SERIAL.println("Use 'arm' to enable motor control");
 }
 
 // Websocket request processing
@@ -343,7 +357,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         return;
     }
 
-    //
     bool armedFromWeb = false;
 
     // Handle arming status
@@ -355,11 +368,20 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     }
 
     // Handle throttle value (only if armed)
-    if (doc.containsKey("throttle") && isArmed)
+    if (doc.containsKey("throttle"))
     {
+        if (!isArmed)
+        {
+            throttle = 0;
+            continuous_throttle = false;
+            // Ignore throttle commands when disarmed
+            USB_SERIAL.println(" ");
+            USB_SERIAL.println("Web throttle command ignored - Motor is DISARMED");
+            return;
+        }
+
         uint16_t web_throttle = doc["throttle"];
 
-        // Check for valid throttle value
         if (web_throttle == 0)
         {
             throttle = 0;
@@ -371,14 +393,6 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             throttle = web_throttle;
             continuous_throttle = true;
         }
-    }
-    else if (doc.containsKey("throttle") && !isArmed)
-    {
-        throttle = 0;
-        continuous_throttle = false;
-        // Ignore throttle commands when disarmed
-        USB_SERIAL.println(" ");
-        USB_SERIAL.println("Web throttle command ignored - Motor is DISARMED");
     }
 
     // Webserver arms with DSHOT_THROTTLE_MIN

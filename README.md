@@ -4,7 +4,8 @@
 
 A modern, robust C++ library for generating DShot signals on the ESP32 using the new ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
 Supports all standard DShot modes (150, 300, 600, 1200) and features continuous frame transmission with configurable timing.  
-**Now with BiDirectional DShot support and advanced command management!**
+
+**Now with BiDirectional DShot support, advanced command management, and modern web control interface!**
 
 > The legacy version (using the old `rmt.h` API) is still available in the `oldAPI` branch.
 
@@ -14,8 +15,11 @@ Supports all standard DShot modes (150, 300, 600, 1200) and features continuous 
 
 - **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600, DSHOT1200
 - **BiDirectional DShot:** Full support for RPM telemetry feedback
+- **Web Control Interface:** Modern responsive web UI with WiFi access point
 - **Advanced Command Manager:** High-level API for ESC configuration and control
-- **Command Sequences:** Predefined initialization and calibration sequences
+- **Safety Features:** Arming/disarming system with motor lockout protection
+- **Dual Control Options:** Web interface and serial console control
+- **Real-time Telemetry:** Live RPM monitoring and data display
 - **Hardware-Timed Signals:** Independent, precise signal generation using ESP32 RMT peripheral
 - **Configurable Timing:** Ensures ESCs can reliably detect frame boundaries
 - **Error Handling:** Comprehensive result reporting with success/failure status
@@ -45,6 +49,25 @@ lib_deps =
 ```sh
 git clone https://github.com/derdoktor667/DShotRMT.git
 ```
+
+### Dependencies
+
+The library requires these additional libraries for full functionality:
+
+**Core DShotRMT (always required):**
+- ESP32 Arduino Core
+
+**Web Interface Example (dshot300.ino):**
+```ini
+lib_deps = 
+    https://github.com/derdoktor667/DShotRMT
+    bblanchon/ArduinoJson
+    https://github.com/ESP32Async/ESPAsyncWebServer
+    https://github.com/ESP32Async/AsyncTCP ~/Arduino/libraries/AsyncTCP
+```
+
+**Command Manager Example:**
+- No additional dependencies required
 
 ---
 
@@ -79,6 +102,64 @@ void loop() {
 }
 ```
 
+### Web Control Interface 
+
+```cpp
+#include <DShotRMT.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+
+DShotRMT motor(17, DSHOT300, false);
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+void setup() {
+    // Initialize motor
+    motor.begin();
+    
+    // Create WiFi Access Point
+    WiFi.softAP("DShotRMT Control", "12345678");
+    
+    // Setup web interface
+    ws.onEvent(onWsEvent);
+    server.addHandler(&ws);
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send_P(200, "text/html", index_html);
+    });
+    server.begin();
+    
+    // Access at http://10.10.10.1
+}
+
+void loop() {
+    // Handle WebSocket communication and motor control
+    ws.cleanupClients();
+}
+```
+
+### Advanced Command Management
+
+```cpp
+#include <DShotRMT.h>
+#include <DShotCommandManager.h>
+
+DShotRMT motor(17, DSHOT300, false);
+DShotCommandManager cmdManager(motor);
+
+void setup() {
+    motor.begin();
+    cmdManager.begin();
+}
+
+void loop() {
+    // High-level ESC control
+    cmdManager.stopMotor();
+    cmdManager.activateBeacon(1);
+    cmdManager.setSpinDirection(false);
+    cmdManager.executeInitSequence();
+}
+```
+
 ### Bidirectional DShot (RPM Telemetry)
 
 ```cpp
@@ -108,15 +189,59 @@ void loop() {
 
 ---
 
+## 🌐 Web Control Interface
+
+The DShotRMT library now includes a modern web interface for wireless motor control:
+
+### Features
+- **Responsive Design:** Works on mobile phones, tablets, and desktop computers
+- **WiFi Access Point:** Creates hotspot "DShotRMT Control" (Password: 12345678)
+- **Safety System:** Arming/disarming switch prevents accidental motor activation
+- **Real-time Control:** Instant throttle response via WebSocket communication
+- **Live Telemetry:** Real-time RPM display (bidirectional mode only)
+- **Auto-reconnect:** Automatically reconnects on connection loss
+
+### Web Interface Access
+1. Connect to WiFi network: **"DShotRMT Control"**
+2. Password: **12345678**
+3. Open browser and navigate to: **http://10.10.10.1**
+
+### Safety Features
+- Motor control is **disabled by default** (disarmed state)
+- Toggle the **ARMING SWITCH** to enable motor control
+- Throttle slider is **locked** when disarmed
+- **Emergency stop** resets all values to safe state
+
+### Technical Implementation
+- **AsyncWebServer** for HTTP requests
+- **WebSocket** communication for real-time data
+- **JSON** message format for data exchange
+- **WiFi SoftAP** mode for standalone operation
+- **Automatic client cleanup** prevents memory leaks
+
+### ⚠️ Known Issus
+Make sure you are using these libraries for [ESPAsyncWebServer](https://github.com/ESP32Async/ESPAsyncWebServer) and [AsyncTCP](https://github.com/ESP32Async/AsyncTCP) to use "web_control.ino" example sketch.  
+
+---
+
 ## 📚 Examples
 
 The library includes comprehensive examples:
 
-### 1. Basic DShot Control (`dshot300.ino`)
-- Simple throttle control
-- Command execution
-- Serial interface for testing
-- Telemetry reading (if bidirectional enabled)
+### 1. Basic DShot Control with Web Interface (`dshot300.ino`)
+- **Web Control Interface:** Modern responsive web UI accessible at `http://10.10.10.1`
+- **WiFi Access Point:** Creates hotspot "DShotRMT Control" for wireless control
+- **Safety Features:** Arming/disarming system with motor safety lockout
+- **Real-time Data:** Live RPM telemetry display (bidirectional mode)
+- **Dual Control:** Both web interface and serial console control
+- **WebSocket Communication:** Real-time bidirectional data exchange
+
+**Web Interface Features:**
+- Responsive design optimized for mobile and desktop
+- Visual arming switch with safety lockout
+- Smooth throttle slider with real-time feedback
+- Live RPM monitoring display
+- Automatic reconnection on connection loss
 
 ### 2. Advanced Command Management (`command_manager.ino`)
 Interactive ESC control with full menu system:
@@ -143,12 +268,11 @@ Advanced Commands:
 
 ### Supported DShot Modes
 
-| Mode     | Bitrate     | Bit Time | Frame Time | Use Case |
-|----------|-------------|----------|------------|----------|
-| DSHOT150 | 150 kbit/s  | 6.67 µs  | ~107 µs    | Long wires, EMI-prone |
-| DSHOT300 | 300 kbit/s  | 3.33 µs  | ~53 µs     | Standard (recommended) |
-| DSHOT600 | 600 kbit/s  | 1.67 µs  | ~27 µs     | High performance |
-| DSHOT1200| 1200 kbit/s | 0.83 µs  | ~13 µs     | Racing applications |
+| DSHOT | Bitrate     | TH1   | TH0    | Bit Time (µs) | Frame Time (µs) |
+|-------|-------------|-------|--------|---------------|-----------------|
+| 150   | 150 kbit/s  | 5.00  | 2.50   | 6.67          | ~106.72         |
+| 300   | 300 kbit/s  | 2.50  | 1.25   | 3.33          | ~53.28          |
+| 600   | 600 kbit/s  | 1.25  | 0.625  | 1.67          | ~26.72          |
 
 ### GPIO Configuration
 ```cpp

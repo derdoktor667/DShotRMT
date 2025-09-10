@@ -182,7 +182,7 @@ dshot_result_t DShotRMT::_initRXChannel()
 }
 
 // Callback for RMT RX
-bool IRAM_ATTR DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
+bool DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
     DShotRMT *instance = static_cast<DShotRMT *>(user_data);
 
@@ -414,7 +414,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 }
 
 // Encode DShot packet into RMT symbol format (placed in IRAM for performance)
-bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     _parsed_packet = _parseDShotPacket(packet);
 
@@ -482,7 +482,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 }
 
 // Check if enough time has passed for next transmission
-bool IRAM_ATTR DShotRMT::_timer_signal()
+bool DShotRMT::_timer_signal()
 {
     uint64_t current_time = esp_timer_get_time();
 

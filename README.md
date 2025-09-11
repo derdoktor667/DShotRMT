@@ -61,9 +61,9 @@ The library requires these additional libraries for full functionality:
 ```ini
 lib_deps = 
     https://github.com/derdoktor667/DShotRMT
-    bblanchon/ArduinoJson
+    https://github.com/bblanchon/ArduinoJson
     https://github.com/ESP32Async/ESPAsyncWebServer
-    https://github.com/ESP32Async/AsyncTCP ~/Arduino/libraries/AsyncTCP
+    https://github.com/ESP32Async/AsyncTCP
 ```
 
 **Command Manager Example:**

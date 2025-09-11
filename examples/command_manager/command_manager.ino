@@ -29,9 +29,9 @@ DShotCommandManager commandManager(motor01);
 static volatile uint16_t throttle_now = 0;
 
 // Helper function to print telemetry results
-void printTelemetryResult(const dshot_telemetry_result_t &result)
+void printTelemetryResult(const dshot_result_t &result)
 {
-    if (result.success)
+    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
     {
         USB_SERIAL.printf("Telemetry: eRPM=%u, Motor RPM=%u\n", result.erpm, result.motor_rpm);
     }
@@ -90,7 +90,7 @@ void loop()
             // Get Motor RPM
             if (IS_BIDIRECTIONAL)
             {
-                dshot_telemetry_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+                dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
                 printTelemetryResult(telem_result);
             }
 
@@ -112,60 +112,81 @@ void handleUserInput(const String &input)
         USB_SERIAL.print("Stopping motor... ");
         cmd_result = commandManager.stopMotor();
         printResult(cmd_result);
+        return;
     }
-    else if (input == "2")
+
+    if (input == "2")
     {
         USB_SERIAL.print("Activating beacon 1... ");
         cmd_result = commandManager.activateBeacon(1);
         printResult(cmd_result);
+        return;
     }
-    else if (input == "3")
+
+    if (input == "3")
     {
         USB_SERIAL.print("Setting normal spin direction... ");
         cmd_result = commandManager.setSpinDirection(false);
         printResult(cmd_result);
+        return;
     }
-    else if (input == "4")
+
+    if (input == "4")
     {
         USB_SERIAL.print("Setting reversed spin direction... ");
         cmd_result = commandManager.setSpinDirection(true);
         printResult(cmd_result);
+        return;
     }
-    else if (input == "5")
+
+    if (input == "5")
     {
         USB_SERIAL.print("Getting ESC Info... ");
         cmd_result = commandManager.requestESCInfo();
         printResult(cmd_result);
+        return;
     }
-    else if (input == "6")
+
+    if (input == "6")
     {
         USB_SERIAL.print("Turning LED 0 ON... ");
         cmd_result = commandManager.setLED(0, true);
         printResult(cmd_result);
+        return;
     }
-    else if (input == "7")
+
+    if (input == "7")
     {
         USB_SERIAL.print("Turning LED 0 OFF... ");
         cmd_result = commandManager.setLED(0, false);
         printResult(cmd_result);
+        return;
     }
-    else if (input == "h" || input == "help")
+
+    if (input == "h" || input == "help")
     {
         printMenu();
+        return;
     }
-    else if (input == "info")
+
+    if (input == "info")
     {
         motor01.printDShotInfo();
+        return;
     }
-    else if (input == "rpm" && IS_BIDIRECTIONAL)
+
+    if (input == "rpm" && IS_BIDIRECTIONAL)
     {
-        dshot_telemetry_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+        dshot_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
         printTelemetryResult(result);
+        return;
     }
-    else if (input.startsWith("cmd "))
+
+    if (input.startsWith("cmd "))
     {
         // Direct command execution: "cmd 5" sends command 5
         int cmd_num = input.substring(4).toInt();
+
         if (DShotCommandManager::isValidCommand(static_cast<dshot_commands_t>(cmd_num)))
         {
             USB_SERIAL.printf("Sending command %d (%s)... ", cmd_num,
@@ -177,11 +198,14 @@ void handleUserInput(const String &input)
         {
             USB_SERIAL.printf("Invalid command number: %d (valid range: 0 - %d)\n", cmd_num, DSHOT_CMD_MAX);
         }
+        return;
     }
-    else if (input.startsWith("throttle "))
+
+    if (input.startsWith("throttle "))
     {
         // Throttle control: "throttle 1000" sets throttle to 1000
         int throttle_value = input.substring(9).toInt();
+
         if (throttle_value >= DSHOT_THROTTLE_MIN && throttle_value <= DSHOT_THROTTLE_MAX)
         {
             throttle_now = throttle_value;
@@ -195,8 +219,10 @@ void handleUserInput(const String &input)
             {
                 USB_SERIAL.println("Continuous throttle mode enabled. Send '0' or 'throttle 0' to stop.");
             }
+            return;
         }
-        else if (throttle_value == 0)
+
+        if (throttle_value == 0)
         {
             throttle_now = 0;
             USB_SERIAL.println("Continuous throttle stopped.");
@@ -204,61 +230,63 @@ void handleUserInput(const String &input)
             // Send stop command
             dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
             printResult(result);
+            return;
         }
-        else
-        {
-            USB_SERIAL.printf("Invalid throttle value: %d (valid range: %d-%d, use 0 to stop)\n",
-                              throttle_value, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
-        }
+
+        USB_SERIAL.printf("Invalid throttle value: %d (valid range: %d-%d, use 0 to stop)\n",
+                          throttle_value, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+        return;
     }
-    else if (input == "0")
+
+    if (input == "0")
     {
         // Quick stop
         throttle_now = 0;
         USB_SERIAL.print("Emergency stop... ");
         dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
         printResult(result);
+        return;
     }
-    else if (input.startsWith("repeat "))
+
+    if (input.startsWith("repeat "))
     {
         // Repeat command: "repeat cmd 5 count 10" - sends command 5 ten times
         String params = input.substring(7);
-        if (params.startsWith("cmd "))
-        {
-            int space_pos = params.indexOf(' ', 4);
-            if (space_pos > 0 && params.substring(space_pos + 1).startsWith("count "))
-            {
-                int cmd_num = params.substring(4, space_pos).toInt();
-                int repeat_count = params.substring(space_pos + 7).toInt();
 
-                if (DShotCommandManager::isValidCommand(static_cast<dshot_commands_t>(cmd_num)) &&
-                    repeat_count > 0 && repeat_count <= 100)
-                {
-                    USB_SERIAL.printf("Sending command %d (%s) %d times... ", cmd_num,
-                                      DShotCommandManager::getCommandName(static_cast<dshot_commands_t>(cmd_num)),
-                                      repeat_count);
-                    cmd_result = commandManager.sendCommand(static_cast<dshot_commands_t>(cmd_num), repeat_count);
-                    printResult(cmd_result);
-                }
-                else
-                {
-                    USB_SERIAL.println("Invalid command or repeat count (1-100)");
-                }
-            }
-            else
-            {
-                USB_SERIAL.println("Usage: repeat cmd <number> count <repeat_count>");
-            }
-        }
-        else
+        if (!params.startsWith("cmd "))
         {
             USB_SERIAL.println("Usage: repeat cmd <number> count <repeat_count>");
+            return;
         }
+
+        int space_pos = params.indexOf(' ', 4);
+
+        if (space_pos <= 0 || !params.substring(space_pos + 1).startsWith("count "))
+        {
+            USB_SERIAL.println("Usage: repeat cmd <number> count <repeat_count>");
+            return;
+        }
+
+        int cmd_num = params.substring(4, space_pos).toInt();
+        int repeat_count = params.substring(space_pos + 7).toInt();
+
+        if (!DShotCommandManager::isValidCommand(static_cast<dshot_commands_t>(cmd_num)) ||
+            repeat_count <= 0 || repeat_count > 100)
+        {
+            USB_SERIAL.println("Invalid command or repeat count (1-100)");
+            return;
+        }
+
+        USB_SERIAL.printf("Sending command %d (%s) %d times... ", cmd_num,
+                          DShotCommandManager::getCommandName(static_cast<dshot_commands_t>(cmd_num)),
+                          repeat_count);
+        cmd_result = commandManager.sendCommand(static_cast<dshot_commands_t>(cmd_num), repeat_count);
+        printResult(cmd_result);
+        return;
     }
-    else
-    {
-        USB_SERIAL.printf("Unknown command: '%s'. Type 'h' or 'help' for help.\n", input.c_str());
-    }
+
+    // Unknown command
+    USB_SERIAL.printf("Unknown command: '%s'. Type 'h' or 'help' for help.\n", input.c_str());
 }
 
 //
@@ -313,7 +341,7 @@ void printMenu()
     USB_SERIAL.println(" status             - Show system status");
     if (IS_BIDIRECTIONAL)
     {
-    USB_SERIAL.println(" rpm                - Get telemetry data");
+        USB_SERIAL.println(" rpm                - Get telemetry data");
     }
     USB_SERIAL.println(" h / help           - Show this Menu");
     USB_SERIAL.println("**********************************************");

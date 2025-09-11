@@ -1,4 +1,6 @@
 name: ESP32 Build & Quality Check
+permissions:
+  contents: read
 
 on:
   push:
@@ -51,6 +53,7 @@ jobs:
           - "examples/dshot300/dshot300.ino"
           - "examples/command_manager/command_manager.ino"
           - "examples/web_control/web_control.ino"
+          - "examples/web_client/web_client.ino"
 
     steps:
       - name: Checkout Repository

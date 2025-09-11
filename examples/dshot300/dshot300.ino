@@ -83,8 +83,8 @@ void loop()
         // Get Motor RPM if bidirectional
         if (IS_BIDIRECTIONAL)
         {
-            dshot_telemetry_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
-            printDShotTelemetry(telem_result);
+            dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            printDShotResult(telem_result);
         }
 
         USB_SERIAL.println("Type 'help' to show Menu");
@@ -132,8 +132,8 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     }
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {
-        dshot_telemetry_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
-        printDShotTelemetry(result);
+        dshot_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+        printDShotResult(result);
     }
     else if (input.startsWith("cmd "))
     {

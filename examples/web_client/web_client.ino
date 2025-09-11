@@ -16,7 +16,7 @@
 #include <ESPAsyncWebServer.h>
 
 // WiFi Client Configuration - UPDATE THESE VALUES!
-static constexpr auto *WIFI_SSID = "YOUR_SSID";      // Enter your WiFi SSID
+static constexpr auto *WIFI_SSID = "YOUR_SSID";         // Enter your WiFi SSID
 static constexpr auto *WIFI_PASSWORD = "YOUR_PASSWORD"; // Enter your WiFi password
 
 // Connection timeout in milliseconds

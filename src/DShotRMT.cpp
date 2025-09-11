@@ -254,11 +254,11 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command)
     return _sendDShotFrame(_packet);
 }
 
-// Get telemetry data with timing and error handling
-dshot_telemetry_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
+// Get telemetry data
+dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
 {
-    // Result container
-    dshot_telemetry_result_t result = {false, NO_DSHOT_ERPM, NO_DSHOT_RPM, TELEMETRY_FAILED};
+    // Result container with unified structure
+    dshot_result_t result = {false, TELEMETRY_FAILED, NO_DSHOT_ERPM, NO_DSHOT_RPM};
 
     // Check if bidirectional mode is enabled
     if (!_is_bidirectional)
@@ -550,21 +550,13 @@ void DShotRMT::printCpuInfo(Stream &output) const
 // --- HELPERS ---
 void printDShotResult(dshot_result_t &result, Stream &output)
 {
-    output.printf("Status: %s - %s\n", result.success ? "SUCCESS" : "FAILED", result.msg);
-    output.println(" ");
-}
+    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", result.msg);
 
-//
-void printDShotTelemetry(dshot_telemetry_result_t &result, Stream &output)
-{
-    if (result.success)
+    // Print telemetry data if available
+    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
     {
-        output.printf("Telemetry: eRPM=%u, Motor RPM=%u\n", result.erpm, result.motor_rpm);
-    }
-    else
-    {
-        output.printf("Telemetry: FAILED - %s\n", result.msg);
+        output.printf(" | eRPM: %u, Motor RPM: %u", result.erpm, result.motor_rpm);
     }
 
-    output.println(" ");
+    output.println();
 }

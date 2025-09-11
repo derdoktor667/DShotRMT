@@ -73,28 +73,20 @@ typedef struct
     uint16_t ticks_zero_low;
 } dshot_timing_t;
 
-// Error handling
+// Unified DShot result structure
 typedef struct
 {
     bool success;
     const char *msg;
+    uint16_t erpm; 
+    uint16_t motor_rpm; 
 } dshot_result_t;
-
-// DShot telemetry result
-typedef struct
-{
-    bool success;
-    uint16_t erpm;
-    uint16_t motor_rpm;
-    const char *msg;
-} dshot_telemetry_result_t;
 
 // Naming convention
 typedef dshotCommands_e dshot_commands_t;
 
 // --- HELPERS ---
 void printDShotResult(dshot_result_t &result, Stream &output = Serial);
-void printDShotTelemetry(dshot_telemetry_result_t &result, Stream &output = Serial);
 
 //
 class DShotRMT
@@ -123,7 +115,7 @@ public:
     uint16_t getDShotPacket() const { return _parsed_packet; }
     bool is_bidirectional() const { return _is_bidirectional; }
     dshot_mode_t getMode() const { return _mode; }
-    dshot_telemetry_result_t getTelemetry(uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
+    dshot_result_t getTelemetry(uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     // --- INFO ---
     void printDShotInfo(Stream &output = Serial) const;
@@ -148,7 +140,7 @@ public:
     uint32_t getMotorRPM(uint8_t magnet_count)
     {
         auto result = getTelemetry(magnet_count);
-        return result.success;
+        return result.motor_rpm;
     }
 
 private:

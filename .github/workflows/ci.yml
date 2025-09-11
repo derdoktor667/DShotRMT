@@ -1,4 +1,6 @@
 name: ESP32 Build & Quality Check
+permissions:
+  contents: read
 
 on:
   push:

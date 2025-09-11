@@ -16,7 +16,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DShotRMT_Web</title>
+    <title>DShotRMT Web Client</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -195,7 +195,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 </head>
 
 <body>
-    <h1>DShotRMT Control Demo</h1>
+    <h1>DShotRMT Web Client</h1>
     <div class="control-container">
         <!-- Arming Section -->
         <div class="arming-section">
@@ -210,7 +210,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <span id="armingStatus" class="status-disarmed">DISARMED</span>
             </div>
             <div class="warning-text">
-                ⚠️ Motor control disabled when disarmed
+                ⚠️ Disabled when disarmed!
             </div>
         </div>
 
@@ -311,7 +311,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         // Update UI based on arming status
         function updateArmingUI() {
-        
+            
             // Synch checkbox, as well
             armingSwitch.checked = isArmed;
 
@@ -357,4 +357,5 @@ const char index_html[] PROGMEM = R"rawliteral(
 </body>
 
 </html>
+
 )rawliteral";

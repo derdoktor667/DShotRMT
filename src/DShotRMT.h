@@ -20,29 +20,7 @@ static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 static constexpr auto DSHOT_THROTTLE_MIN = 48;
 static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto DSHOT_PAUSE_US = 30; // Additional frame pause time
-static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
-static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
-static constexpr auto DSHOT_CRC_MASK = 0b0000000000001111;
-static constexpr auto DSHOT_RX_TIMEOUT_MS = 2; // Never reached, just a timeeout
-static constexpr auto GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame (1 start + 16 data + 4 CRC)
 static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
-static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
-static constexpr auto MIN_POLE_PAIRS = 1;
-static constexpr auto NO_DSHOT_ERPM = 0;
-static constexpr auto NO_DSHOT_RPM = 0;
-
-// RMT Configuration Constants
-constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
-constexpr auto DSHOT_RMT_RESOLUTION = 10 * 1000 * 1000; // 10 MHz resolution
-constexpr auto RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
-constexpr auto RMT_BUFFER_SYMBOLS = 64;
-constexpr auto RMT_QUEUE_DEPTH = 1;
-
-// Smallest pulse for DShot1200 is 2us. Largest for DShot150 is 40us.
-// The range is set from 3us (3000ns) to 60us (60000ns) to be safe across all modes.
-constexpr uint32_t DSHOT_PULSE_MIN = 3000;
-constexpr uint32_t DSHOT_PULSE_MAX = 60000;
 
 // DShot Modes
 typedef enum
@@ -62,16 +40,22 @@ typedef struct
     uint16_t checksum : 4;
 } dshot_packet_t;
 
-// DShot Timing Configuration
+// DShot Timings
 typedef struct
 {
-    uint32_t frame_length_us;
+    double bit_length_us;
+    double t1h_lenght_us;
+} dshot_timing_us_t;
+
+// RMT Ticks Configuration
+typedef struct
+{
     uint16_t ticks_per_bit;
-    uint16_t ticks_one_high;
-    uint16_t ticks_one_low;
-    uint16_t ticks_zero_high;
-    uint16_t ticks_zero_low;
-} dshot_timing_t;
+    uint16_t t1h_ticks;
+    uint16_t t1l_ticks;
+    uint16_t t0h_ticks;
+    uint16_t t0l_ticks;
+} rmt_ticks_t;
 
 // Unified DShot result structure
 typedef struct
@@ -149,11 +133,12 @@ private:
     dshot_mode_t _mode;
     bool _is_bidirectional;
     uint32_t _frame_timer_us;
-    const dshot_timing_t &_timing_config;
+    rmt_ticks_t _rmt_ticks;
+    const dshot_timing_us_t &_dshot_timing;
     uint16_t _last_throttle;
 
     // --- TIMING & PACKET VARIABLES ---
-    uint64_t _last_transmission_time;
+    uint64_t _last_transmission_time_us;
     uint16_t _parsed_packet;
     dshot_packet_t _packet;
     uint8_t _bitPositions[DSHOT_BITS_PER_FRAME];
@@ -193,13 +178,12 @@ private:
 
     // -- CALLBACKS ---
     rmt_rx_event_callbacks_t _rx_event_callbacks;
-    volatile rmt_symbol_word_t _rx_symbols_direct[GCR_BITS_PER_FRAME];
     volatile uint16_t _last_erpm_atomic;
     volatile bool _telemetry_ready_flag;
     static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // --- DSHOT DEFAULTS ---
-    static constexpr auto const DSHOT_TELEMETRY_INVALID = (0xffff);
+    static constexpr auto const DSHOT_TELEMETRY_INVALID = 0b1111111111111111;
 
     // --- CONSTANTS & ERROR MESSAGES ---
     static constexpr bool DSHOT_OK = 0;
@@ -226,4 +210,26 @@ private:
     static constexpr char const *TELEMETRY_FAILED = "No valid Telemetric Frame received!";
     static constexpr char const *INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
     static constexpr char const *TIMING_CORRECTION = "Timing correction!";
+
+    // Configuration Constants
+    static constexpr auto const DSHOT_NULL_PACKET = 0b0000000000000000;
+    static constexpr auto const DSHOT_FULL_PACKET = 0b1111111111111111;
+    static constexpr auto const DSHOT_CRC_MASK = 0b0000000000001111;
+    static constexpr auto const DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
+    static constexpr auto const DSHOT_RMT_RESOLUTION = 8 * 1000 * 1000;                      // 8 MHz resolution
+    static constexpr auto const RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / (1 * 1000 * 1000); // RMT Ticks per microsecond, based on the RMT resolution in MHz
+    static constexpr auto const RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
+    static constexpr auto const DSHOT_RX_TIMEOUT_MS = 2; // Never reached
+    static constexpr auto const DSHOT_PADDING_US = 3;
+    static constexpr auto const RMT_BUFFER_SYMBOLS = 64;
+    static constexpr auto const RMT_QUEUE_DEPTH = 1;
+    static constexpr auto const GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame (1 start + 16 data + 4 CRC)
+    static constexpr auto const POLE_PAIRS_MIN = 1;
+    static constexpr auto const MAGNETS_PER_POLE_PAIR = 2;
+    static constexpr auto const NO_DSHOT_TELEMETRY = 0;
+
+    // Smallest pulse for DShot1200 is 2us. Largest for DShot150 is 40us.
+    // The range is set from 3us (3000ns) to 60us (60000ns) to be safe across all modes.
+    static constexpr auto const DSHOT_PULSE_MIN = 3000;
+    static constexpr auto const DSHOT_PULSE_MAX = 60000;
 };

@@ -8,14 +8,28 @@
 
 #include "DShotRMT.h"
 
+// --- HELPERS ---
+void printDShotResult(dshot_result_t &result, Stream &output)
+{
+    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", result.msg);
+
+    // Print telemetry data if available
+    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
+    {
+        output.printf(" | eRPM: %u, Motor RPM: %u", result.erpm, result.motor_rpm);
+    }
+
+    output.println();
+}
+
 // Timing parameters for each DShot mode
-// Format: {frame_length_us, ticks_per_bit, ticks_one_high, ticks_one_low, ticks_zero_high, ticks_zero_low}
-static constexpr dshot_timing_t DSHOT_TIMINGS[] = {
-    {0, 0, 0, 0, 0, 0},        // DSHOT_OFF
-    {128, 64, 48, 16, 24, 40}, // DSHOT150
-    {64, 32, 24, 8, 12, 20},   // DSHOT300
-    {32, 16, 12, 4, 6, 10},    // DSHOT600
-    {16, 8, 6, 2, 3, 5}        // DSHOT1200
+// Format: {frame_length_ticks, ticks_per_bit, t1h_ticks, t1l_ticks, t0h_ticks, t0l_ticks}
+static constexpr dshot_timing_us_t DSHOT_TIMING_US[] = {
+    {0.00, 0.00},
+    {6.67, 5.00},
+    {3.33, 2.50},
+    {1.67, 1.25},
+    {0.83, 0.67}
 };
 
 // Constructor with GPIO number
@@ -26,9 +40,10 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _last_erpm_atomic(0),
       _telemetry_ready_flag(false),
       _frame_timer_us(0),
-      _timing_config(DSHOT_TIMINGS[mode]),
+      _dshot_timing(DSHOT_TIMING_US[mode]),
+      _rmt_ticks{0},
       _last_throttle(DSHOT_CMD_MOTOR_STOP),
-      _last_transmission_time(0),
+      _last_transmission_time_us(0),
       _parsed_packet(0),
       _packet{0},
       _bitPositions{0},
@@ -42,8 +57,15 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _transmit_config{},
       _receive_config{}
 {
-    // Calculate frame timing including switch/pause time
-    _frame_timer_us = _timing_config.frame_length_us + DSHOT_PAUSE_US;
+    // Convert DShot timings (us) to RMT ticks
+    _rmt_ticks.ticks_per_bit = static_cast<uint16_t>(_dshot_timing.bit_length_us * RMT_TICKS_PER_US);
+    _rmt_ticks.t1h_ticks = static_cast<uint16_t>(_dshot_timing.t1h_lenght_us * RMT_TICKS_PER_US);
+    _rmt_ticks.t0h_ticks = _rmt_ticks.t1h_ticks >> 1;    // High time for a 1 is always double that of a 0
+    _rmt_ticks.t1l_ticks = _rmt_ticks.ticks_per_bit - _rmt_ticks.t1h_ticks;
+    _rmt_ticks.t0l_ticks = _rmt_ticks.ticks_per_bit - _rmt_ticks.t0h_ticks;
+
+    // Pause between frames is frame time in us, some padding and about 30 us is added by hardware
+    _frame_timer_us = (static_cast<uint32_t>(_dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;
 
     // Double frame time for bidirectional mode (includes response time)
     if (_is_bidirectional)
@@ -54,7 +76,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
 
 // Constructor using pin number
 DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional)
-    : DShotRMT((gpio_num_t)pin_nr, mode, is_bidirectional)
+    : DShotRMT(static_cast<gpio_num_t>(pin_nr), mode, is_bidirectional)
 {
     // Delegates to primary constructor with type cast
 }
@@ -152,7 +174,6 @@ dshot_result_t DShotRMT::_initTXChannel()
 // Init RMT RX channel
 dshot_result_t DShotRMT::_initRXChannel()
 {
-
     // Direct RMT symbol processing - Performance optimized
     _rx_event_callbacks.on_recv_done = _rmt_rx_done_callback;
 
@@ -258,7 +279,7 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command)
 dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
 {
     // Result container with unified structure
-    dshot_result_t result = {false, TELEMETRY_FAILED, NO_DSHOT_ERPM, NO_DSHOT_RPM};
+    dshot_result_t result = {false, TELEMETRY_FAILED, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
 
     // Check if bidirectional mode is enabled
     if (!_is_bidirectional)
@@ -277,7 +298,7 @@ dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
         //
         if (erpm != DSHOT_NULL_PACKET && magnet_count >= 1)
         {
-            uint8_t pole_pairs = max(MIN_POLE_PAIRS, (magnet_count / MAGNETS_PER_POLE_PAIR));
+            uint8_t pole_pairs = max(POLE_PAIRS_MIN, (magnet_count / MAGNETS_PER_POLE_PAIR));
             uint32_t motor_rpm = (erpm / pole_pairs);
 
             result.success = true;
@@ -426,9 +447,9 @@ bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t
 
         bool bit = (_parsed_packet >> bit_position) & 0b0000000000000001;
         symbols[i].level0 = _level0;
-        symbols[i].duration0 = bit ? _timing_config.ticks_one_high : _timing_config.ticks_zero_high;
+        symbols[i].duration0 = bit ? _rmt_ticks.t1h_ticks : _rmt_ticks.t0h_ticks;
         symbols[i].level1 = _level1;
-        symbols[i].duration1 = bit ? _timing_config.ticks_one_low : _timing_config.ticks_zero_low;
+        symbols[i].duration1 = bit ? _rmt_ticks.t1l_ticks : _rmt_ticks.t0l_ticks;
     }
 
     return DSHOT_OK;
@@ -487,7 +508,7 @@ bool DShotRMT::_timer_signal()
     uint64_t current_time = esp_timer_get_time();
 
     // Handle potential overflow
-    uint64_t elapsed = current_time - _last_transmission_time;
+    uint64_t elapsed = current_time - _last_transmission_time_us;
 
     return elapsed >= _frame_timer_us;
 }
@@ -495,7 +516,7 @@ bool DShotRMT::_timer_signal()
 // Reset transmission timer to current time
 bool DShotRMT::_timer_reset()
 {
-    _last_transmission_time = esp_timer_get_time();
+    _last_transmission_time_us = esp_timer_get_time();
 
     return DSHOT_OK;
 }
@@ -545,18 +566,4 @@ void DShotRMT::printCpuInfo(Stream &output) const
     output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
     output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
     output.printf("APB Freq = %lu Hz\n", getApbFrequency());
-}
-
-// --- HELPERS ---
-void printDShotResult(dshot_result_t &result, Stream &output)
-{
-    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", result.msg);
-
-    // Print telemetry data if available
-    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
-    {
-        output.printf(" | eRPM: %u, Motor RPM: %u", result.erpm, result.motor_rpm);
-    }
-
-    output.println();
 }

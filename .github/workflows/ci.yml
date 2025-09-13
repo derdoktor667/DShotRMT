@@ -1,4 +1,5 @@
 name: ESP32 Build & Quality Check
+
 permissions:
   contents: read
 
@@ -8,80 +9,106 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ============================================================================
   # Code Quality & Linting
   # ============================================================================
   quality-check:
-    name: 'Arduino Lint Check'
+    name: Arduino Lint Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v2
+      - uses: arduino/setup-arduino-cli@v2
 
-      - name: Install ESP32 core
+      - name: Cache Arduino Core
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/cache
+          key: arduino-core-${{ runner.os }}-esp32-v1
+          restore-keys: |
+            arduino-core-${{ runner.os }}-
+
+      - name: Install ESP32 Core
         run: |
-          arduino-cli core update-index > /dev/null
-          arduino-cli core install esp32:esp32 > /dev/null
+          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core install esp32:esp32
 
-      - name: Arduino Lint
-        uses: arduino/arduino-lint-action@v2
+      - uses: arduino/arduino-lint-action@v2
         with:
           path: ${{ github.workspace }}
           compliance: strict
           library-manager: update
           verbose: true
 
-# ============================================================================
+  # ============================================================================
   # Compilation Test
   # ============================================================================
   compile-test:
-    name: 'Compile Example Sketches'
+    name: Compile Example Sketches
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     strategy:
       fail-fast: false
       matrix:
-        examples:
-          - "examples/dshot300/dshot300.ino"
-          - "examples/command_manager/command_manager.ino"
-          - "examples/web_control/web_control.ino"
-          - "examples/web_client/web_client.ino"
+        example:
+          - examples/dshot300/dshot300.ino
+          - examples/command_manager/command_manager.ino
+          - examples/web_control/web_control.ino
+          - examples/web_client/web_client.ino
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup Arduino CLI
-        uses: arduino/setup-arduino-cli@v2
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Cache Arduino Core & Libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/cache
+            ~/Arduino/libraries
+          key: arduino-full-${{ runner.os }}-esp32-v1
+          restore-keys: |
+            arduino-full-${{ runner.os }}-
 
       - name: Install ESP32 Core and Dependencies
         run: |
-          arduino-cli core update-index
+          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core install esp32:esp32
-
           arduino-cli lib install "ArduinoJson"
 
-          # Workround for ESPAsyncWebServer
-          git clone https://github.com/ESP32Async/ESPAsyncWebServer ~/Arduino/libraries/ESPAsyncWebServer
-          git clone https://github.com/ESP32Async/AsyncTCP ~/Arduino/libraries/AsyncTCP
-      
+          mkdir -p ~/Arduino/libraries
+
+          # Cached repository check
+          if [ ! -d ~/Arduino/libraries/ESPAsyncWebServer ]; then
+            git clone --depth=1 https://github.com/ESP32Async/ESPAsyncWebServer ~/Arduino/libraries/ESPAsyncWebServer
+          fi
+
+          if [ ! -d ~/Arduino/libraries/AsyncTCP ]; then
+            git clone --depth=1 https://github.com/ESP32Async/AsyncTCP ~/Arduino/libraries/AsyncTCP
+          fi
+
       - name: Compile Sketch
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32 --library ${{ github.workspace }} ${{ matrix.examples}}
+          arduino-cli compile \
+            --fqbn esp32:esp32:esp32 \
+            --library ${{ github.workspace }} \
+            ${{ matrix.example }}
 
   # ============================================================================
   # Build Status Report
   # ============================================================================
   build-summary:
-    name: 'Build Summary'
+    name: Build Summary
     runs-on: ubuntu-latest
     if: always()
     needs: [quality-check, compile-test]
@@ -90,32 +117,21 @@ jobs:
       - name: Create Build Summary
         run: |
           echo "# 🔧 DShotRMT Build Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY  
+          echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-          
-          # Quality Check Status
-          if [[ "${{ needs.quality-check.result }}" == "success" ]]; then
-            echo "| 📋 Quality Check | ✅ Passed | Arduino Lint completed successfully |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| 📋 Quality Check | ❌ Failed | Check Arduino Lint report |" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Compile Test Status  
-          if [[ "${{ needs.compile-test.result }}" == "success" ]]; then
-            echo "| 🔨 Compilation | ✅ Passed | All examples compiled successfully |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| 🔨 Compilation | ❌ Failed | Compilation errors detected |" >> $GITHUB_STEP_SUMMARY
-          fi
-          
+
+          [[ "${{ needs.quality-check.result }}" == "success" ]] \
+            && echo "| 📋 Quality Check | ✅ Passed | Arduino Lint completed successfully |" >> $GITHUB_STEP_SUMMARY \
+            || echo "| 📋 Quality Check | ❌ Failed | Check Arduino Lint report |" >> $GITHUB_STEP_SUMMARY
+
+          [[ "${{ needs.compile-test.result }}" == "success" ]] \
+            && echo "| 🔨 Compilation | ✅ Passed | All examples compiled successfully |" >> $GITHUB_STEP_SUMMARY \
+            || echo "| 🔨 Compilation | ❌ Failed | Compilation errors detected |" >> $GITHUB_STEP_SUMMARY
+
           echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Overall Status
-          if [[ "${{ needs.quality-check.result }}" == "success" && 
-                "${{ needs.compile-test.result }}" == "success" ]]; then
-            echo "## 🎉 All Checks Passed!" >> $GITHUB_STEP_SUMMARY
-            echo "Your DShotRMT library is ready for deployment." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ⚠️ Action Required" >> $GITHUB_STEP_SUMMARY
-            echo "Please review the failed checks and address any issues."
-          fi
+
+          [[ "${{ needs.quality-check.result }}" == "success" && "${{ needs.compile-test.result }}" == "success" ]] \
+            && echo "## 🎉 All Checks Passed!" >> $GITHUB_STEP_SUMMARY \
+            && echo "Your DShotRMT library is ready for deployment." >> $GITHUB_STEP_SUMMARY \
+            || echo "## ⚠️ Action Required" >> $GITHUB_STEP_SUMMARY \
+            && echo "Please review the failed checks and address any issues." >> $GITHUB_STEP_SUMMARY

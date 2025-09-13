@@ -162,7 +162,7 @@ private:
     dshot_result_t _initDShotEncoder();
 
     // --- PACKET MANAGEMENT ---
-    dshot_packet_t _buildDShotPacket(const uint16_t value);
+    dshot_packet_t _buildDShotPacket(const uint16_t &value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
     uint16_t _calculateCRC(const uint16_t data);
     void _preCalculateBitPositions();

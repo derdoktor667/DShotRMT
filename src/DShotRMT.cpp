@@ -312,7 +312,7 @@ dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
 }
 
 // Build a complete DShot packet
-dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t value)
+dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value)
 {
     // Init packet structure
     dshot_packet_t packet = {};

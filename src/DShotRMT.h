@@ -221,13 +221,13 @@ private:
 
     // Private Frame Processing Functions
     dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
-    bool IRAM_ATTR _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
+    bool _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
     
     // Private Timing Control Functions
-    bool IRAM_ATTR _timer_signal();
+    bool _timer_signal();
     bool _timer_reset();
     
     // Static Callback Functions
-    static bool IRAM_ATTR _rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
+    static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };

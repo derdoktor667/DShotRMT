@@ -286,7 +286,7 @@ dshot_result_t DShotRMT::_initTXChannel()
 dshot_result_t DShotRMT::_initRXChannel()
 {
     // Direct RMT symbol processing - Performance optimized
-    _rx_event_callbacks.on_recv_done = _rmt_rx_done_callback;
+    _rx_event_callbacks.on_recv_done = _on_rx_done;
 
     // Config RMT RX
     _rx_channel_config.gpio_num = _gpio;
@@ -325,7 +325,7 @@ dshot_result_t DShotRMT::_initDShotEncoder()
         return {false, ENCODER_INIT_FAILED};
     }
 
-    return {true, TX_INIT_SUCCESS};
+    return {true, ENCODER_INIT_SUCCESS};
 }
 
 // Private Packet Management Functions
@@ -474,7 +474,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 }
 
 // Encode DShot packet into RMT symbol format (placed in IRAM for performance)
-bool DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     _parsed_packet = _parseDShotPacket(packet);
 
@@ -541,7 +541,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 
 // Private Timing Control Functions
 // Check if enough time has passed for next transmission
-bool DShotRMT::_timer_signal()
+bool IRAM_ATTR DShotRMT::_timer_signal()
 {
     uint64_t current_time = esp_timer_get_time();
 
@@ -561,7 +561,7 @@ bool DShotRMT::_timer_reset()
 
 // Static Callback Functions
 // Callback for RMT RX
-bool DShotRMT::_rmt_rx_done_callback(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
+bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
     DShotRMT *instance = static_cast<DShotRMT *>(user_data);
 

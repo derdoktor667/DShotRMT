@@ -53,14 +53,14 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _dshot_encoder(nullptr),
       _tx_channel_config{},
       _rx_channel_config{},
-      _transmit_config{},
-      _receive_config{},
+      _rmt_tx_config{},
+      _rmt_rx_config{},
       _rx_event_callbacks{},
       _last_erpm_atomic(0),
       _telemetry_ready_flag_atomic(false)
 {
     // Configure RMT ticks for DShot timings
-    _preCalculateRMTTiming();
+    _preCalculateRMTTicks();
 }
 
 // Constructor using pin number
@@ -226,7 +226,7 @@ void DShotRMT::printDShotInfo(Stream &output) const
     // Print bit by bit
     for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
     {
-        if ((_parsed_packet >> i) & 1)
+        if ((_parsed_packet >> i) & 0b0000000000000001)
         {
             output.print("1");
         }
@@ -264,8 +264,8 @@ dshot_result_t DShotRMT::_initTXChannel()
     _tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
 
     // Config RMT TX
-    _transmit_config.loop_count = 0;                              // No automatic loops - real-time calculation
-    _transmit_config.flags.eot_level = _is_bidirectional ? 1 : 0; // Telemetric Bit used as bidir flag
+    _rmt_tx_config.loop_count = 0;                              // No automatic loops - real-time calculation
+    _rmt_tx_config.flags.eot_level = _is_bidirectional ? 1 : 0; // Telemetric Bit used as bidir flag
 
     // Create RMT TX channel
     if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
@@ -295,8 +295,8 @@ dshot_result_t DShotRMT::_initRXChannel()
     _rx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
 
     // Config RMT RX parameters
-    _receive_config.signal_range_min_ns = DSHOT_PULSE_MIN;
-    _receive_config.signal_range_max_ns = DSHOT_PULSE_MAX;
+    _rmt_rx_config.signal_range_min_ns = DSHOT_PULSE_MIN;
+    _rmt_rx_config.signal_range_max_ns = DSHOT_PULSE_MAX;
 
     // Create RMT RX channel
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
@@ -329,7 +329,7 @@ dshot_result_t DShotRMT::_initDShotEncoder()
 }
 
 // Private Packet Management Functions
-// Build a complete DShot packet
+// Build a complete DShot packet from a valid value
 dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value)
 {
     // Init packet structure
@@ -343,10 +343,10 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value)
     }
 
     // Build packet
-    packet.throttle_value = value & 0b0000011111111111;
+    packet.throttle_value = value & DSHOT_THROTTLE_MAX;
     packet.telemetric_request = _is_bidirectional ? 1 : 0;
 
-    // CRC is calculated over 11bit
+    // CRC is calculated over 12bit
     uint16_t data = (packet.throttle_value << 1) | packet.telemetric_request;
 
     packet.checksum = _calculateCRC(data);
@@ -359,9 +359,7 @@ uint16_t DShotRMT::_parseDShotPacket(const dshot_packet_t &packet)
 {
     // Parse DShot frame into "raw" 16 bit value
     uint16_t data_and_telemetry = (packet.throttle_value << 1) | packet.telemetric_request;
-    uint16_t parsed_packet = (data_and_telemetry << 4) | packet.checksum;
-
-    return parsed_packet;
+    return (data_and_telemetry << 4) | packet.checksum;
 }
 
 // Calculate CRC
@@ -380,7 +378,7 @@ uint16_t DShotRMT::_calculateCRC(const uint16_t &data)
 }
 
 // Configure RMT ticks for DShot timings
-void DShotRMT::_preCalculateRMTTiming()
+void DShotRMT::_preCalculateRMTTicks()
 {
     // Convert DShot timings (us) to RMT ticks
     _rmt_ticks.bit_length_ticks = static_cast<uint16_t>(_dshot_timing.bit_length_us * RMT_TICKS_PER_US);
@@ -390,7 +388,7 @@ void DShotRMT::_preCalculateRMTTiming()
     _rmt_ticks.t0l_ticks = _rmt_ticks.bit_length_ticks - _rmt_ticks.t0h_ticks;
 
     // Pause between frames is frame time in us, some padding and about 30 us is added by hardware
-    _frame_timer_us = (static_cast<uint32_t>(_dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;
+    _frame_timer_us = (static_cast<uint64_t>(_dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;
 
     // Double frame time for bidirectional mode (includes response time)
     if (_is_bidirectional)
@@ -425,9 +423,9 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
 
         // Performance reasons
-        rmt_symbol_word_t rx_symbols[DSHOT_BITS_PER_FRAME];
+        rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
 
-        if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &_receive_config) != DSHOT_OK)
+        if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &_rmt_rx_config) != DSHOT_OK)
         {
             return {false, RECEIVER_FAILED};
         }
@@ -453,7 +451,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     }
 
     // Perform RMT transmission
-    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_transmit_config) != DSHOT_OK)
+    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_rmt_tx_config) != DSHOT_OK)
     {
         return {false, TRANSMISSION_FAILED};
     }
@@ -474,7 +472,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 }
 
 // Encode DShot packet into RMT symbol format (placed in IRAM for performance)
-bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
+dshot_result_t IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
     _parsed_packet = _parseDShotPacket(packet);
 
@@ -491,7 +489,7 @@ bool IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_sym
         symbols[i].duration1 = bit ? _rmt_ticks.t1l_ticks : _rmt_ticks.t0l_ticks;
     }
 
-    return DSHOT_OK;
+    return {true, ENCODING_SUCCESS};
 }
 
 // Decode DShot telemetry frame from received RMT symbols

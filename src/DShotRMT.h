@@ -144,7 +144,7 @@ private:
     static constexpr auto const NO_DSHOT_TELEMETRY = 0;
     static constexpr auto const DSHOT_PULSE_MIN = 3000;  // 3us minimum pulse
     static constexpr auto const DSHOT_PULSE_MAX = 60000; // 60us maximum pulse
-    static constexpr auto const DSHOT_TELEMETRY_INVALID = 0b1111111111111111;
+    static constexpr auto const DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
 
     // Error Messages
     static constexpr char const *NONE = "";
@@ -157,6 +157,7 @@ private:
     static constexpr char const *RX_INIT_FAILED = "RX RMT channel init failed!";
     static constexpr char const *ENCODER_INIT_SUCCESS = "RMT encoder initialized successfully";
     static constexpr char const *ENCODER_INIT_FAILED = "RMT encoder init failed!";
+    static constexpr char const *ENCODING_SUCCESS = "Packet encoded successfully";
     static constexpr char const *TRANSMISSION_SUCCESS = "Transmission successfully";
     static constexpr char const *TRANSMISSION_FAILED = "Transmission failed!";
     static constexpr char const *RECEIVER_FAILED = "RMT receiver failed!";
@@ -173,7 +174,7 @@ private:
     dshot_mode_t _mode;
     bool _is_bidirectional;
     const dshot_timing_us_t &_dshot_timing;
-    uint32_t _frame_timer_us;
+    uint64_t _frame_timer_us;
 
     // Timing & Packet Variables
     rmt_ticks_t _rmt_ticks;
@@ -193,8 +194,8 @@ private:
     // RMT Configuration Structures
     rmt_tx_channel_config_t _tx_channel_config;
     rmt_rx_channel_config_t _rx_channel_config;
-    rmt_transmit_config_t _transmit_config;
-    rmt_receive_config_t _receive_config;
+    rmt_transmit_config_t _rmt_tx_config;
+    rmt_receive_config_t _rmt_rx_config;
 
     // Bidirectional / Telemetry Variables
     rmt_rx_event_callbacks_t _rx_event_callbacks;
@@ -210,12 +211,12 @@ private:
     dshot_packet_t _buildDShotPacket(const uint16_t &value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
     uint16_t _calculateCRC(const uint16_t &data);
-    void _preCalculateRMTTiming();
+    void _preCalculateRMTTicks();
     void _preCalculateBitPositions();
 
     // Private Frame Processing Functions
     dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
-    bool _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
+    dshot_result_t _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
     
     // Private Timing Control Functions

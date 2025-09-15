@@ -6,7 +6,7 @@
  * @license MIT
  */
 
-#pragma onve
+#pragma once
 
 // Web Site Content
 static constexpr char index_html[] = R"rawliteral(

@@ -10,7 +10,7 @@
 
 // Static Data & Helper Functions
 // Timing parameters for each DShot mode
-// Format: {frame_length_ticks, ticks_per_bit, t1h_ticks, t1l_ticks, t0h_ticks, t0l_ticks}
+// Format: {bit_length_us, t1h_length_us}
 static constexpr dshot_timing_us_t DSHOT_TIMING_US[] = {
     {0.00, 0.00},
     {6.67, 5.00},
@@ -18,7 +18,7 @@ static constexpr dshot_timing_us_t DSHOT_TIMING_US[] = {
     {1.67, 1.25},
     {0.83, 0.67}};
 
-// Helper function to print DShot results
+// Helper function to print DShot results and telemetry
 void printDShotResult(dshot_result_t &result, Stream &output)
 {
     output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", result.msg);
@@ -60,7 +60,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _telemetry_ready_flag_atomic(false)
 {
     // Configure RMT ticks for DShot timings
-    _configureRMTTiming();
+    _preCalculateRMTTiming();
 }
 
 // Constructor using pin number
@@ -365,7 +365,7 @@ uint16_t DShotRMT::_parseDShotPacket(const dshot_packet_t &packet)
 }
 
 // Calculate CRC
-uint16_t DShotRMT::_calculateCRC(const uint16_t data)
+uint16_t DShotRMT::_calculateCRC(const uint16_t &data)
 {
     // DShot CRC
     uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & DSHOT_CRC_MASK;
@@ -380,14 +380,14 @@ uint16_t DShotRMT::_calculateCRC(const uint16_t data)
 }
 
 // Configure RMT ticks for DShot timings
-void DShotRMT::_configureRMTTiming()
+void DShotRMT::_preCalculateRMTTiming()
 {
     // Convert DShot timings (us) to RMT ticks
-    _rmt_ticks.ticks_per_bit = static_cast<uint16_t>(_dshot_timing.bit_length_us * RMT_TICKS_PER_US);
+    _rmt_ticks.bit_length_ticks = static_cast<uint16_t>(_dshot_timing.bit_length_us * RMT_TICKS_PER_US);
     _rmt_ticks.t1h_ticks = static_cast<uint16_t>(_dshot_timing.t1h_lenght_us * RMT_TICKS_PER_US);
     _rmt_ticks.t0h_ticks = _rmt_ticks.t1h_ticks >> 1; // High time for a 1 is always double that of a 0
-    _rmt_ticks.t1l_ticks = _rmt_ticks.ticks_per_bit - _rmt_ticks.t1h_ticks;
-    _rmt_ticks.t0l_ticks = _rmt_ticks.ticks_per_bit - _rmt_ticks.t0h_ticks;
+    _rmt_ticks.t1l_ticks = _rmt_ticks.bit_length_ticks - _rmt_ticks.t1h_ticks;
+    _rmt_ticks.t0l_ticks = _rmt_ticks.bit_length_ticks - _rmt_ticks.t0h_ticks;
 
     // Pause between frames is frame time in us, some padding and about 30 us is added by hardware
     _frame_timer_us = (static_cast<uint32_t>(_dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;

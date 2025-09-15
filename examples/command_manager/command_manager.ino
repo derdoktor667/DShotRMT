@@ -308,13 +308,6 @@ void printSystemStatus()
     USB_SERIAL.println("\n=== System Status ===");
     USB_SERIAL.printf("Current throttle: %u\n", throttle_now);
     USB_SERIAL.printf("Continuous mode: %s\n", throttle_now > 0 ? "ACTIVE" : "INACTIVE");
-    USB_SERIAL.printf("GPIO Pin: %d\n", motor01.getGPIO());
-    USB_SERIAL.printf("DShot Mode: DSHOT%d\n",
-                      motor01.getMode() == DSHOT150 ? 150 : motor01.getMode() == DSHOT300 ? 300
-                                                        : motor01.getMode() == DSHOT600   ? 600
-                                                        : motor01.getMode() == DSHOT1200  ? 1200
-                                                                                          : 0);
-    USB_SERIAL.printf("Bidirectional: %s\n", motor01.is_bidirectional() ? "YES" : "NO");
     USB_SERIAL.printf("Free heap: %u bytes\n", ESP.getFreeHeap());
     USB_SERIAL.printf("Uptime: %lu seconds\n", millis() / 1000);
 }

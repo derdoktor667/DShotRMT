@@ -23,7 +23,7 @@ static constexpr auto DSHOT_BITS_PER_FRAME = 16;
 static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
 
 // DShot Modes
-typedef enum
+typedef enum dshot_mode
 {
     DSHOT_OFF,
     DSHOT150,
@@ -33,7 +33,7 @@ typedef enum
 } dshot_mode_t;
 
 // DShot Packet Structure
-typedef struct
+typedef struct dshot_packet
 {
     uint16_t throttle_value : 11;
     bool telemetric_request : 1;
@@ -41,16 +41,16 @@ typedef struct
 } dshot_packet_t;
 
 // DShot Timing Configuration
-typedef struct
+typedef struct dshot_timing
 {
     double bit_length_us;
     double t1h_lenght_us;
 } dshot_timing_us_t;
 
 // RMT Timing Configuration
-typedef struct
+typedef struct rmt_ticks
 {
-    uint16_t ticks_per_bit;
+    uint16_t bit_length_ticks;
     uint16_t t1h_ticks;
     uint16_t t1l_ticks;
     uint16_t t0h_ticks;
@@ -58,7 +58,7 @@ typedef struct
 } rmt_ticks_t;
 
 // Unified DShot Result Structure
-typedef struct
+typedef struct dshot_result
 {
     bool success;
     const char *msg;
@@ -80,27 +80,22 @@ public:
     // Constructors & Destructor
     explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
+    
     ~DShotRMT();
 
     // Public Core Functions
     // Initialize the RMT module and DShot config
     dshot_result_t begin();
     
-    // Send throttle value (48-2047)
+    // Send throttle value (48 - 2047)
     dshot_result_t sendThrottle(uint16_t throttle);
     
-    // Send DShot command (0-47)
+    // Send DShot command (0 - 47)
     dshot_result_t sendCommand(uint16_t command);
     
     // Get telemetry data (bidirectional mode only)
     dshot_result_t getTelemetry(uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
     
-    // Public Getter Functions
-    gpio_num_t getGPIO() const { return _gpio; }
-    uint16_t getDShotPacket() const { return _parsed_packet; }
-    bool is_bidirectional() const { return _is_bidirectional; }
-    dshot_mode_t getMode() const { return _mode; }
-
     // Public Info & Debug Functions
     void printDShotInfo(Stream &output = Serial) const;
     void printCpuInfo(Stream &output = Serial) const;
@@ -140,7 +135,7 @@ private:
     static constexpr auto const RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / (1 * 1000 * 1000); // RMT Ticks per microsecond
     static constexpr auto const RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
     static constexpr auto const DSHOT_RX_TIMEOUT_MS = 2;
-    static constexpr auto const DSHOT_PADDING_US = 3;
+    static constexpr auto const DSHOT_PADDING_US = 20;  // Add to pause between frames for compatibility
     static constexpr auto const RMT_BUFFER_SYMBOLS = 64;
     static constexpr auto const RMT_QUEUE_DEPTH = 1;
     static constexpr auto const GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame
@@ -160,7 +155,6 @@ private:
     static constexpr char const *TX_INIT_FAILED = "TX RMT channel init failed!";
     static constexpr char const *RX_INIT_SUCCESS = "RX RMT channel initialized successfully";
     static constexpr char const *RX_INIT_FAILED = "RX RMT channel init failed!";
-    static constexpr char const *RX_BUFFER_FAILED = "RX RMT buffer init failed!";
     static constexpr char const *ENCODER_INIT_SUCCESS = "RMT encoder initialized successfully";
     static constexpr char const *ENCODER_INIT_FAILED = "RMT encoder init failed!";
     static constexpr char const *TRANSMISSION_SUCCESS = "Transmission successfully";
@@ -215,8 +209,8 @@ private:
     // Private Packet Management Functions
     dshot_packet_t _buildDShotPacket(const uint16_t &value);
     uint16_t _parseDShotPacket(const dshot_packet_t &packet);
-    uint16_t _calculateCRC(const uint16_t data);
-    void _configureRMTTiming();
+    uint16_t _calculateCRC(const uint16_t &data);
+    void _preCalculateRMTTiming();
     void _preCalculateBitPositions();
 
     // Private Frame Processing Functions

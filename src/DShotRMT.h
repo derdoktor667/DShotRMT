@@ -133,17 +133,16 @@ private:
     static constexpr auto const DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
     static constexpr auto const DSHOT_RMT_RESOLUTION = 8 * 1000 * 1000;                      // 8 MHz resolution
     static constexpr auto const RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / (1 * 1000 * 1000); // RMT Ticks per microsecond
-    static constexpr auto const RMT_BUFFER_SIZE = DSHOT_BITS_PER_FRAME;
     static constexpr auto const DSHOT_RX_TIMEOUT_MS = 2;
     static constexpr auto const DSHOT_PADDING_US = 20;  // Add to pause between frames for compatibility
-    static constexpr auto const RMT_BUFFER_SYMBOLS = 64;
-    static constexpr auto const RMT_QUEUE_DEPTH = 1;
+    static constexpr auto const RMT_BUFFER_SYMBOLS = 192;
+    static constexpr auto const RMT_QUEUE_DEPTH = 4;
     static constexpr auto const GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame
     static constexpr auto const POLE_PAIRS_MIN = 1;
     static constexpr auto const MAGNETS_PER_POLE_PAIR = 2;
     static constexpr auto const NO_DSHOT_TELEMETRY = 0;
-    static constexpr auto const DSHOT_PULSE_MIN = 3000;  // 3us minimum pulse
-    static constexpr auto const DSHOT_PULSE_MAX = 60000; // 60us maximum pulse
+    static constexpr auto const DSHOT_PULSE_MIN = 800;   // 0.8us minimum pulse
+    static constexpr auto const DSHOT_PULSE_MAX = 10000; // 10us maximum pulse
     static constexpr auto const DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
 
     // Error Messages

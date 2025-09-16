@@ -50,6 +50,8 @@ void loop()
 {
     // Safety first
     static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
+
+    // Initialize the esc with "0"
     static bool continuous_throttle = true;
 
     // Time Measurement

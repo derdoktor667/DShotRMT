@@ -10,6 +10,7 @@
 #include <WiFi.h>
 
 #include <DShotRMT.h>
+#include <web_content.h>
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>

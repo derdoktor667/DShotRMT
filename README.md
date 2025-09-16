@@ -57,7 +57,7 @@ The library requires these additional libraries for full functionality:
 **Core DShotRMT (always required):**
 - ESP32 Arduino Core
 
-**Web Interface Example (dshot300.ino):**
+**Web Interface Example (web_control.ino / web_client.ino):**
 ```ini
 lib_deps = 
     https://github.com/derdoktor667/DShotRMT
@@ -101,92 +101,6 @@ void loop() {
     }
 }
 ```
-
-### Web Control Interface 
-
-```cpp
-#include <DShotRMT.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-
-DShotRMT motor(17, DSHOT300, false);
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
-
-void setup() {
-    // Initialize motor
-    motor.begin();
-    
-    // Create WiFi Access Point
-    WiFi.softAP("DShotRMT Control", "12345678");
-    
-    // Setup web interface
-    ws.onEvent(onWsEvent);
-    server.addHandler(&ws);
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send_P(200, "text/html", index_html);
-    });
-    server.begin();
-    
-    // Access at http://10.10.10.1
-}
-
-void loop() {
-    // Handle WebSocket communication and motor control
-    ws.cleanupClients();
-}
-```
-
-### Advanced Command Management
-
-```cpp
-#include <DShotRMT.h>
-#include <DShotCommandManager.h>
-
-DShotRMT motor(17, DSHOT300, false);
-DShotCommandManager cmdManager(motor);
-
-void setup() {
-    motor.begin();
-    cmdManager.begin();
-}
-
-void loop() {
-    // High-level ESC control
-    cmdManager.stopMotor();
-    cmdManager.activateBeacon(1);
-    cmdManager.setSpinDirection(false);
-    cmdManager.executeInitSequence();
-}
-```
-
-### Bidirectional DShot (RPM Telemetry)
-
-```cpp
-#include <DShotRMT.h>
-
-// Enable bidirectional mode for telemetry
-DShotRMT motor(17, DSHOT300, true);
-
-void setup() {
-    Serial.begin(115200);
-    motor.begin();
-}
-
-void loop() {
-    // Send throttle
-    motor.sendThrottle(1000);
-    
-    // Get telemetry data
-    dshot_telemetry_result_t telemetry = motor.getTelemetry(14); // 14 magnets
-    if (telemetry.success) {
-        Serial.printf("eRPM: %u, Motor RPM: %u\n", 
-          telemetry.erpm, 
-          telemetry.motor_rpm);
-    }
-}
-```
-
 ---
 
 ## 🌐 Web Control Interface
@@ -228,7 +142,7 @@ Make sure you are using these libraries for [ESPAsyncWebServer](https://github.c
 
 The library includes comprehensive examples:
 
-### 1. Basic DShot Control with Web Interface (`dshot300.ino`)
+### 1. Basic DShot Control with Web Interface (`web_control.ino`)
 - **Web Control Interface:** Modern responsive web UI accessible at `http://10.10.10.1`
 - **WiFi Access Point:** Creates hotspot "DShotRMT Control" for wireless control
 - **Safety Features:** Arming/disarming system with motor safety lockout
@@ -257,8 +171,8 @@ Interactive ESC control with full menu system:
  0 - Emergency Stop
 
 Advanced Commands:
- cmd <number>       - Send DShot command (0-47)
- throttle <value>   - Set throttle (48-2047)
+ cmd <number>       - Send DShot command (0 - 47)
+ throttle <value>   - Set throttle (48 - 2047)
  repeat cmd <num> count <count> - Repeat command
 ```
 
@@ -273,6 +187,8 @@ Advanced Commands:
 | 150   | 150 kbit/s  | 5.00  | 2.50   | 6.67          | ~106.72         |
 | 300   | 300 kbit/s  | 2.50  | 1.25   | 3.33          | ~53.28          |
 | 600   | 600 kbit/s  | 1.25  | 0.625  | 1.67          | ~26.72          |
+
+For DShot, T1H length is always double T0H length.
 
 ### GPIO Configuration
 ```cpp
@@ -294,14 +210,14 @@ DShotRMT motor(17, DSHOT300, true);
 | Command | Value | Description | Usage |
 |---------|-------|-------------|-------|
 | MOTOR_STOP | 0 | Stop motor | Always available |
-| BEACON1 - 5 | 1 - 5 | Motor beeping | Motor identification |
+| BEACON 1 - 5 | 1 - 5 | Motor beeping | Motor identification |
 | ESC_INFO | 6 | Request ESC info | Get ESC version/settings |
 | SPIN_DIRECTION_1/2 | 7 - 8 | Set spin direction | Motor configuration |
 | 3D_MODE_OFF/ON | 9 - 10 | 3D mode control | Bidirectional flight |
 | SAVE_SETTINGS | 12 | Save to EEPROM | Permanent configuration |
 | EXTENDED_TELEMETRY_ENABLE/DISABLE | 13 - 14 | Telemetry control | Data transmission |
 | SPIN_DIRECTION_NORMAL/REVERSED | 20 - 21 | Spin direction | Alias commands |
-| LED0-3_ON/OFF | 22 - 29 | LED control | BLHeli32 only |
+| LED 0-3_ON/OFF | 22 - 29 | LED control | BLHeli32 only |
 | AUDIO_STREAM_MODE | 30 | Audio mode toggle | KISS ESCs |
 | SILENT_MODE | 31 | Silent mode toggle | KISS ESCs |
 
@@ -341,7 +257,7 @@ The library utilizes the ESP32's RMT (Remote Control) peripheral for precise sig
 ### Advantages
 - **Hardware Timing:** No CPU intervention during transmission
 - **Concurrent Operation:** Multiple channels can run simultaneously  
-- **DMA Support:** Efficient memory-to-peripheral transfers
+- **DMA Support:** Efficient, automatic memory-to-peripheral transfers
 
 ---
 

@@ -1,15 +1,15 @@
 /**
  * @file web_content.h
- * @brief DShotRMT_Control Website content with Arming Switch
+ * @brief DShot signal generation using ESP32 RMT with bidirectional support
  * @author Wastl Kraus
- * @date 2025-09-09
+ * @date 2025-09-13
  * @license MIT
  */
 
 #pragma once
 
 // Web Site Content
-const char index_html[] PROGMEM = R"rawliteral(
+static constexpr char index_html[] = R"rawliteral(
 <!DOCTYPE html>
 <html lang="de">
 
@@ -357,5 +357,4 @@ const char index_html[] PROGMEM = R"rawliteral(
 </body>
 
 </html>
-
 )rawliteral";

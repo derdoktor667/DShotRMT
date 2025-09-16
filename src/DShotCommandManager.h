@@ -10,7 +10,6 @@
 
 #include <Arduino.h>
 #include <DShotRMT.h>
-#include <dshot_commands.h>
 
 // Command item
 typedef struct

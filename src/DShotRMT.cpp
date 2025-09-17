@@ -6,7 +6,7 @@
  * @license MIT
  */
 
-#include "DShotRMT.h"
+#include <DShotRMT.h>
 
 // Static Data & Helper Functions
 // Timing parameters for each DShot mode
@@ -61,6 +61,9 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
 {
     // Configure RMT ticks for DShot timings
     _preCalculateRMTTicks();
+
+    // Bit positions precalculation
+    _preCalculateBitPositions();
 }
 
 // Constructor using pin number
@@ -106,6 +109,12 @@ DShotRMT::~DShotRMT()
 // Initialize DShotRMT
 dshot_result_t DShotRMT::begin()
 {
+    // Init TX channel
+    if (!_initTXChannel().success)
+    {
+        return {false, TX_INIT_FAILED};
+    }
+
     // Init RX channel first (for bidirectional mode)
     if (_is_bidirectional)
     {
@@ -115,20 +124,11 @@ dshot_result_t DShotRMT::begin()
         }
     }
 
-    // Init TX channel
-    if (!_initTXChannel().success)
-    {
-        return {false, TX_INIT_FAILED};
-    }
-
     // Init DShot encoder
     if (!_initDShotEncoder().success)
     {
         return {false, ENCODER_INIT_FAILED};
     }
-
-    // Bit positions precalculation
-    _preCalculateBitPositions();
 
     return {true, INIT_SUCCESS};
 }
@@ -285,8 +285,11 @@ dshot_result_t DShotRMT::_initTXChannel()
 // Initialize RMT RX channel
 dshot_result_t DShotRMT::_initRXChannel()
 {
-    // Direct RMT symbol processing - Performance optimized
-    _rx_event_callbacks.on_recv_done = _on_rx_done;
+    // Check if the bidirectional mode is enabled to be sure
+    if (!_is_bidirectional)
+    {
+        return {true, NONE};
+    }
 
     // Config RMT RX
     _rx_channel_config.gpio_num = _gpio;
@@ -294,7 +297,7 @@ dshot_result_t DShotRMT::_initRXChannel()
     _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
     _rx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
 
-    // Config RMT RX parameters
+     // Config RMT RX parameters
     _rmt_rx_config.signal_range_min_ns = DSHOT_PULSE_MIN;
     _rmt_rx_config.signal_range_max_ns = DSHOT_PULSE_MAX;
 
@@ -304,10 +307,26 @@ dshot_result_t DShotRMT::_initRXChannel()
         return {false, RX_INIT_FAILED};
     }
 
+    // Register RX event callback
+    _rx_event_callbacks.on_recv_done = _on_rx_done;
+    if (rmt_rx_register_event_callbacks(_rmt_rx_channel, &_rx_event_callbacks, this) != DSHOT_OK)
+    {
+        return {false, CALLBACK_REGISTERING_FAILED};
+    }
+    
     // Enable RX channel
     if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
     {
         return {false, RX_INIT_FAILED};
+    }
+
+    // Calculate transmission data size
+    rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
+    size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+
+    if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &_rmt_rx_config) != DSHOT_OK)
+    {
+        return {false, RECEIVER_FAILED};
     }
 
     return {true, RX_INIT_SUCCESS};
@@ -416,53 +435,23 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         return {false, TIMING_CORRECTION};
     }
 
-    // Enable RMT RX before RMT TX (bidirectional mode)
-    if (_is_bidirectional)
-    {
-        // Calculate transmission data size
-        size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
-
-        // Performance reasons
-        rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
-
-        if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &_rmt_rx_config) != DSHOT_OK)
-        {
-            return {false, RECEIVER_FAILED};
-        }
-    }
-
     // Local for performance
     rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
 
     // Encode DShot packet into RMT symbols
-    _encodeDShotFrame(packet, tx_symbols);
+    dshot_result_t result = _encodeDShotFrame(packet, tx_symbols);
+    if (!result.success)
+    {
+        return result;
+    }
 
     // Calculate transmission data size
     size_t tx_size_bytes = DSHOT_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
-
-    // TODO: Find out, why this is needed
-    if (_is_bidirectional)
-    {
-        // Disable RMT RX for sending
-        if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
-        {
-            return {false, RECEIVER_FAILED};
-        }
-    }
 
     // Perform RMT transmission
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_rmt_tx_config) != DSHOT_OK)
     {
         return {false, TRANSMISSION_FAILED};
-    }
-
-    // Re-enable RMT RX
-    if (_is_bidirectional)
-    {
-        if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
-        {
-            return {false, RECEIVER_FAILED};
-        }
     }
 
     // Update timestamp and calculate execution time
@@ -537,7 +526,7 @@ uint16_t DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     return received_data & DSHOT_THROTTLE_MAX;
 }
 
-// Private Timing Control Functions
+// Timing Control Functions
 // Check if enough time has passed for next transmission
 bool IRAM_ATTR DShotRMT::_timer_signal()
 {
@@ -557,23 +546,22 @@ bool DShotRMT::_timer_reset()
     return DSHOT_OK;
 }
 
-// Static Callback Functions
 // Callback for RMT RX
 bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
+    // Casts the user data back to class instance
     DShotRMT *instance = static_cast<DShotRMT *>(user_data);
 
-    // ISR check for valid data
-    if (edata && edata->num_symbols >= GCR_BITS_PER_FRAME && edata->num_symbols <= GCR_BITS_PER_FRAME)
+    // Process received symbols only if the frame size is correct
+    if (edata && edata->num_symbols == GCR_BITS_PER_FRAME)
     {
-        // Direct decoding
+        // Parse the GCR frame and store the result
         uint16_t erpm = instance->_decodeDShotFrame(edata->received_symbols);
-
         if (erpm != DSHOT_NULL_PACKET)
         {
             // Atomic writes - thread-safe
-            instance->_last_erpm_atomic = erpm;
-            instance->_telemetry_ready_flag_atomic = true;
+            instance->_last_erpm_atomic.store(erpm);
+            instance->_telemetry_ready_flag_atomic.store(true);
         }
     }
 

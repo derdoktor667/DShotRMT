@@ -141,8 +141,8 @@ private:
     static constexpr auto const POLE_PAIRS_MIN = 1;
     static constexpr auto const MAGNETS_PER_POLE_PAIR = 2;
     static constexpr auto const NO_DSHOT_TELEMETRY = 0;
-    static constexpr auto const DSHOT_PULSE_MIN = 800;   // 0.8us minimum pulse
-    static constexpr auto const DSHOT_PULSE_MAX = 10000; // 10us maximum pulse
+    static constexpr auto const DSHOT_PULSE_MIN = 1000;   // 1.0us minimum pulse
+    static constexpr auto const DSHOT_PULSE_MAX = 8000;  // 10.0us maximum pulse
     static constexpr auto const DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
 
     // Error Messages
@@ -167,7 +167,8 @@ private:
     static constexpr char const *TELEMETRY_FAILED = "No valid Telemetric Frame received!";
     static constexpr char const *INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
     static constexpr char const *TIMING_CORRECTION = "Timing correction!";
-    
+    static constexpr char const *CALLBACK_REGISTERING_FAILED = "RMT RX Callback registering failed!";
+
     // Core Configuration Variables
     gpio_num_t _gpio;
     dshot_mode_t _mode;

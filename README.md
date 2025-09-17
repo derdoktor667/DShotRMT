@@ -1,9 +1,9 @@
-[![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml)
+[![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml/badge.svg)](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml)
 
 # DShotRMT - ESP32 Library (Rewrite for ESP-IDF 5)
 
-A modern, robust C++ library for generating DShot signals on the ESP32 using the new ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
-Supports all standard DShot modes (150, 300, 600, 1200) and features continuous frame transmission with configurable timing.  
+A simple Arduino IDE / C++ library for generating DShot signals on the ESP32 (`fqbn: esp32:esp32:esp32`) using the ESP-IDF 5 RMT encoder API (`rmt_tx.h` / `rmt_rx.h`).  
+Supports all standard DShot modes (150, 300, 600, 1200) and features signal generation and frame transmission with configurable timing.  
 
 **Now with BiDirectional DShot support, advanced command management, and modern web control interface!**
 
@@ -43,6 +43,9 @@ Add to your `platformio.ini`:
 ```ini
 lib_deps = 
     https://github.com/derdoktor667/DShotRMT.git
+    https://github.com/bblanchon/ArduinoJson
+    https://github.com/ESP32Async/ESPAsyncWebServer
+    https://github.com/ESP32Async/AsyncTCP
 ```
 
 ### Manual Installation
@@ -52,12 +55,10 @@ git clone https://github.com/derdoktor667/DShotRMT.git
 
 ### Dependencies
 
-The library requires these additional libraries for full functionality:
+There are no dependencies for the main library. The extended
+example sketches are using these libraries:
 
-**Core DShotRMT (always required):**
-- ESP32 Arduino Core
-
-**Web Interface Example (web_control.ino / web_client.ino):**
+**Web Interface Examples (web_control.ino / web_client.ino):**
 ```ini
 lib_deps = 
     https://github.com/derdoktor667/DShotRMT
@@ -66,9 +67,6 @@ lib_deps =
     https://github.com/ESP32Async/AsyncTCP
 ```
 
-**Command Manager Example:**
-- No additional dependencies required
-
 ---
 
 ## ⚡ Quick Start
@@ -76,30 +74,7 @@ lib_deps =
 ### Basic Usage (DShotRMT)
 
 ```cpp
-#include <DShotRMT.h>
-
-// Create motor instance (GPIO 17, DSHOT300, non-bidirectional)
-DShotRMT motor(17, DSHOT300, false);
-
-void setup() {
-    Serial.begin(115200);
-    
-    // Initialize the motor
-    dshot_result_t result = motor.begin();
-    if (result.success) {
-        Serial.println("Motor initialized successfully");
-    } else {
-        Serial.printf("Motor init failed: %s\n", result.msg);
-    }
-}
-
-void loop() {
-    // Send throttle value (48-2047)
-    dshot_result_t result = motor.sendThrottle(1000);
-    if (!result.success) {
-        Serial.printf("Throttle command failed: %s\n", result.msg);
-    }
-}
+// Generate "dshot300" example sketch with Arduino IDE / CLI.
 ```
 ---
 
@@ -119,6 +94,11 @@ The DShotRMT library now includes a modern web interface for wireless motor cont
 1. Connect to WiFi network: **"DShotRMT Control"**
 2. Password: **12345678**
 3. Open browser and navigate to: **http://10.10.10.1**
+
+### Web Client Mode
+1. Setup SSID and Password in web_client.ino
+2. Open serial for IP
+3. Open browser, http://IP
 
 ### Safety Features
 - Motor control is **disabled by default** (disarmed state)
@@ -185,7 +165,7 @@ Advanced Commands:
 | DSHOT | Bitrate     | TH1   | TH0    | Bit Time (µs) | Frame Time (µs) |
 |-------|-------------|-------|--------|---------------|-----------------|
 | 150   | 150 kbit/s  | 5.00  | 2.50   | 6.67          | ~106.72         |
-| 300   | 300 kbit/s  | 2.50  | 1.25   | 3.33          | ~53.28          |
+| **300**   | **300 kbit/s**  | **2.50**  | **1.25**   | **3.33**          | **~53.28**          |
 | 600   | 600 kbit/s  | 1.25  | 0.625  | 1.67          | ~26.72          |
 
 For DShot, T1H length is always double T0H length.
@@ -200,12 +180,15 @@ DShotRMT motor(GPIO_NUM_17, DSHOT300);
 
 // With bidirectional support
 DShotRMT motor(17, DSHOT300, true);
+
+// Also possible, defaults (17, DSHOT300, false)
+DShotRMT motor();
 ```
 
 
 ---
 
-## 🎯 DShot Commands
+## 🎯 DShot Commands (experimental)
 
 | Command | Value | Description | Usage |
 |---------|-------|-------------|-------|

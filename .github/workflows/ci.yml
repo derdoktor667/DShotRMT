@@ -84,11 +84,14 @@ jobs:
         run: |
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core install esp32:esp32
-          arduino-cli lib install "ArduinoJson"
-
+          
           mkdir -p ~/Arduino/libraries
 
           # Cached repository check
+          if [ ! -d ~/Arduino/libraries/ArduinoJson ]; then
+            git clone --depth=1 https://github.com/bblanchon/ArduinoJson.git ~/Arduino/libraries/Json
+          fi
+          
           if [ ! -d ~/Arduino/libraries/ESPAsyncWebServer ]; then
             git clone --depth=1 https://github.com/ESP32Async/ESPAsyncWebServer ~/Arduino/libraries/ESPAsyncWebServer
           fi

@@ -91,9 +91,13 @@ public:
     dshot_result_t begin();
     dshot_result_t sendThrottle(uint16_t throttle);
     dshot_result_t sendCommand(uint16_t command);
+    dshot_result_t sendCommand(dshot_commands_t dshot_command, uint16_t repeat_count = DEFAULT_CMD_REPEAT_COUNT, uint16_t delay_us = DEFAULT_CMD_DELAY_US);
     dshot_result_t getTelemetry(uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
+    dshot_result_t getESCInfo();
+    dshot_result_t setMotorSpinDirection(bool reversed);
+    dshot_result_t saveESCSettings();
 
-    // Public Info & Debug Functions
+    // Public Utility & Info Functions
     void printDShotInfo(Stream &output = Serial) const;
     void printCpuInfo(Stream &output = Serial) const;
 
@@ -129,14 +133,14 @@ private:
     static constexpr auto const RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / (1 * 1000 * 1000); // RMT Ticks per microsecond
     static constexpr auto const DSHOT_RX_TIMEOUT_MS = 2;
     static constexpr auto const DSHOT_PADDING_US = 20; // Add to pause between frames for compatibility
-    static constexpr auto const RMT_BUFFER_SYMBOLS = 192;
-    static constexpr auto const RMT_QUEUE_DEPTH = 4;
+    static constexpr auto const RMT_BUFFER_SYMBOLS = 128;
+    static constexpr auto const RMT_QUEUE_DEPTH = 1;
     static constexpr auto const GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame
     static constexpr auto const POLE_PAIRS_MIN = 1;
     static constexpr auto const MAGNETS_PER_POLE_PAIR = 2;
     static constexpr auto const NO_DSHOT_TELEMETRY = 0;
-    static constexpr auto const DSHOT_PULSE_MIN = 1000; // 1.0us minimum pulse
-    static constexpr auto const DSHOT_PULSE_MAX = 8000; // 10.0us maximum pulse
+    static constexpr auto const DSHOT_PULSE_MIN = 800;  // 0.8us minimum pulse
+    static constexpr auto const DSHOT_PULSE_MAX = 8000; // 8.0us maximum pulse
     static constexpr auto const DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
 
     // Error Messages
@@ -162,6 +166,12 @@ private:
     static constexpr char const *INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
     static constexpr char const *TIMING_CORRECTION = "Timing correction!";
     static constexpr char const *CALLBACK_REGISTERING_FAILED = "RMT RX Callback registering failed!";
+    static constexpr char const *INVALID_COMMAND = "Invalid command!";
+    static constexpr char const *COMMAND_SUCCESS = "DShot command sent successfully";
+
+    // --- UTILITY METHODS ---
+    bool _isValidCommand(dshot_commands_t command);
+    dshot_result_t _executeCommand(dshot_commands_t command);
 
     // Core Configuration Variables
     gpio_num_t _gpio;
@@ -174,6 +184,7 @@ private:
     rmt_ticks_t _rmt_ticks;
     uint16_t _last_throttle;
     uint64_t _last_transmission_time_us;
+    uint64_t _last_command_timestamp;
     uint16_t _parsed_packet;
     dshot_packet_t _packet;
     uint8_t _bitPositions[DSHOT_BITS_PER_FRAME];
@@ -219,4 +230,10 @@ private:
 
     // Static Callback Functions
     static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
+
+    // Command Constants
+    static constexpr auto DEFAULT_CMD_DELAY_US = 10;
+    static constexpr auto DEFAULT_CMD_REPEAT_COUNT = 1;
+    static constexpr auto SETTINGS_COMMAND_REPEATS = 10; // Settings commands need 10 repeats
+    static constexpr auto SETTINGS_COMMAND_DELAY_US = 5;
 };

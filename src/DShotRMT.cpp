@@ -42,6 +42,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
       _rmt_ticks{0},
       _last_throttle(DSHOT_CMD_MOTOR_STOP),
       _last_transmission_time_us(0),
+      _last_command_timestamp(0),
       _parsed_packet(0),
       _packet{0},
       _bitPositions{0},
@@ -154,6 +155,49 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command)
     return _sendDShotFrame(_packet);
 }
 
+// Send full DShot commands for setup etc
+dshot_result_t DShotRMT::sendCommand(dshot_commands_t dshot_command, uint16_t repeat_count, uint16_t delay_us)
+{
+    dshot_result_t result = {false, UNKNOWN_ERROR};
+
+    if (!_isValidCommand(dshot_command))
+    {
+        result.msg = INVALID_COMMAND;
+        return result;
+    }
+
+    bool all_successful = true;
+
+    // Send command multiple times with delay
+    for (uint16_t i = 0; i < repeat_count; i++)
+    {
+        dshot_result_t single_result = _executeCommand(dshot_command);
+
+        if (!single_result.success)
+        {
+            all_successful = false;
+            result.msg = single_result.msg;
+            break;
+        }
+
+        // Add delay between repetitions (except for last repetition)
+        if (i < repeat_count - 1)
+        {
+            delayMicroseconds(delay_us);
+        }
+    }
+
+    //
+    result.success = all_successful;
+
+    if (result.success)
+    {
+        result.msg = COMMAND_SUCCESS;
+    }
+
+    return result;
+}
+
 // Get telemetry data
 dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
 {
@@ -187,6 +231,26 @@ dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
     return result;
 }
 
+// Reverse motor direction directly
+dshot_result_t DShotRMT::setMotorSpinDirection(bool reversed)
+{
+    // Use command as a yes / no switch
+    dshot_commands_t command = reversed ? DSHOT_CMD_SPIN_DIRECTION_REVERSED : DSHOT_CMD_SPIN_DIRECTION_NORMAL;
+
+    return sendCommand(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
+}
+
+dshot_result_t DShotRMT::getESCInfo()
+{
+    return sendCommand(DSHOT_CMD_ESC_INFO);
+}
+
+// Use with caution
+dshot_result_t DShotRMT::saveESCSettings()
+{
+    return sendCommand(DSHOT_CMD_SAVE_SETTINGS, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
+}
+
 // Public Info & Debug Functions
 void DShotRMT::printDShotInfo(Stream &output) const
 {
@@ -216,6 +280,26 @@ void DShotRMT::printCpuInfo(Stream &output) const
     output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
     output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
     output.printf("APB Freq = %lu Hz\n", getApbFrequency());
+}
+
+// Simple check
+bool DShotRMT::_isValidCommand(dshot_commands_t command)
+{
+    return (command >= DSHOT_CMD_MOTOR_STOP && command <= DSHOT_CMD_MAX);
+}
+
+//
+dshot_result_t DShotRMT::_executeCommand(dshot_commands_t command)
+{
+    uint64_t start_time = esp_timer_get_time();
+
+    // Execute the command using the DShotRMT instance
+    dshot_result_t result = sendCommand(static_cast<uint16_t>(command));
+
+    uint64_t end_time = esp_timer_get_time();
+    _last_command_timestamp = end_time;
+
+    return result;
 }
 
 // Private Initialization Functions
@@ -371,7 +455,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     // Ensure enough time has passed since the last transmission
     if (!_timer_signal())
     {
-        return {false, TIMING_CORRECTION};
+        return {true, NONE};
     }
 
     rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];

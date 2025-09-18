@@ -16,7 +16,6 @@ Supports all standard DShot modes (150, 300, 600, 1200) and features signal gene
 - **All DShot Modes:** DSHOT150, DSHOT300 (default), DSHOT600, DSHOT1200
 - **BiDirectional DShot:** Full support for RPM telemetry feedback
 - **Web Control Interface:** Modern responsive web UI with WiFi access point
-- **Advanced Command Manager:** High-level API for ESC configuration and control
 - **Safety Features:** Arming/disarming system with motor lockout protection
 - **Dual Control Options:** Web interface and serial console control
 - **Real-time Telemetry:** Live RPM monitoring and data display
@@ -118,11 +117,9 @@ Make sure you are using these libraries for [ESPAsyncWebServer](https://github.c
 
 ---
 
-## 📚 Examples
+## 📚 Extras
 
-The library includes comprehensive examples:
-
-### 1. Basic DShot Control with Web Interface (`web_control.ino`)
+### Basic DShot Control with Web Interface (`web_control.ino`)
 - **Web Control Interface:** Modern responsive web UI accessible at `http://10.10.10.1`
 - **WiFi Access Point:** Creates hotspot "DShotRMT Control" for wireless control
 - **Safety Features:** Arming/disarming system with motor safety lockout
@@ -136,25 +133,6 @@ The library includes comprehensive examples:
 - Smooth throttle slider with real-time feedback
 - Live RPM monitoring display
 - Automatic reconnection on connection loss
-
-### 2. Advanced Command Management (`command_manager.ino`)
-Interactive ESC control with full menu system:
-```
-=== DShot Command Manager Menu ===
- 1 - Stop Motor
- 2 - Activate Beacon 1
- 3 - Set Normal Spin Direction
- 4 - Set Reversed Spin Direction
- 5 - Get ESC Info
- 6 - Turn LED 0 ON
- 7 - Turn LED 0 OFF
- 0 - Emergency Stop
-
-Advanced Commands:
- cmd <number>       - Send DShot command (0 - 47)
- throttle <value>   - Set throttle (48 - 2047)
- repeat cmd <num> count <count> - Repeat command
-```
 
 ---
 

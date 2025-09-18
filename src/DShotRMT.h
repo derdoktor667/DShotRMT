@@ -1,8 +1,8 @@
 /**
  * @file DShotRMT.h
- * @brief DShot signal generation using ESP32 RMT with bidirectional support
+ * @brief Optimized DShot signal generation using ESP32 RMT with bidirectional support
  * @author Wastl Kraus
- * @date 2025-06-11
+ * @date 2025-09-18
  * @license MIT
  */
 
@@ -21,6 +21,10 @@ static constexpr auto DSHOT_THROTTLE_MIN = 48;
 static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_BITS_PER_FRAME = 16;
 static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
+
+// Custom status codes
+static constexpr auto DSHOT_OK = 0;
+static constexpr auto DSHOT_ERROR = 1;
 
 // DShot Modes
 typedef enum dshot_mode
@@ -62,8 +66,8 @@ typedef struct dshot_result
 {
     bool success;
     const char *msg;
-    uint16_t erpm; 
-    uint16_t motor_rpm; 
+    uint16_t erpm;
+    uint16_t motor_rpm;
 } dshot_result_t;
 
 // Command Type Alias
@@ -80,26 +84,19 @@ public:
     // Constructors & Destructor
     explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
-    
+
     ~DShotRMT();
 
     // Public Core Functions
-    // Initialize the RMT module and DShot config
     dshot_result_t begin();
-    
-    // Send throttle value (48 - 2047)
     dshot_result_t sendThrottle(uint16_t throttle);
-    
-    // Send DShot command (0 - 47)
     dshot_result_t sendCommand(uint16_t command);
-    
-    // Get telemetry data (bidirectional mode only)
     dshot_result_t getTelemetry(uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
-    
+
     // Public Info & Debug Functions
     void printDShotInfo(Stream &output = Serial) const;
     void printCpuInfo(Stream &output = Serial) const;
-    
+
     // Deprecated Methods
     [[deprecated("Use sendThrottle() instead")]]
     bool setThrottle(uint16_t throttle)
@@ -123,10 +120,7 @@ public:
     }
 
 private:
-     // Configuration Constants
-    static constexpr bool DSHOT_OK = 0;
-    static constexpr bool DSHOT_ERROR = 1;
-    
+    // Configuration Constants
     static constexpr auto const DSHOT_NULL_PACKET = 0b0000000000000000;
     static constexpr auto const DSHOT_FULL_PACKET = 0b1111111111111111;
     static constexpr auto const DSHOT_CRC_MASK = 0b0000000000001111;
@@ -134,15 +128,15 @@ private:
     static constexpr auto const DSHOT_RMT_RESOLUTION = 8 * 1000 * 1000;                      // 8 MHz resolution
     static constexpr auto const RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / (1 * 1000 * 1000); // RMT Ticks per microsecond
     static constexpr auto const DSHOT_RX_TIMEOUT_MS = 2;
-    static constexpr auto const DSHOT_PADDING_US = 20;  // Add to pause between frames for compatibility
+    static constexpr auto const DSHOT_PADDING_US = 20; // Add to pause between frames for compatibility
     static constexpr auto const RMT_BUFFER_SYMBOLS = 192;
     static constexpr auto const RMT_QUEUE_DEPTH = 4;
     static constexpr auto const GCR_BITS_PER_FRAME = 21; // Number of GCR bits in a DShot answer frame
     static constexpr auto const POLE_PAIRS_MIN = 1;
     static constexpr auto const MAGNETS_PER_POLE_PAIR = 2;
     static constexpr auto const NO_DSHOT_TELEMETRY = 0;
-    static constexpr auto const DSHOT_PULSE_MIN = 1000;   // 1.0us minimum pulse
-    static constexpr auto const DSHOT_PULSE_MAX = 8000;  // 10.0us maximum pulse
+    static constexpr auto const DSHOT_PULSE_MIN = 1000; // 1.0us minimum pulse
+    static constexpr auto const DSHOT_PULSE_MAX = 8000; // 10.0us maximum pulse
     static constexpr auto const DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
 
     // Error Messages
@@ -183,9 +177,9 @@ private:
     uint16_t _parsed_packet;
     dshot_packet_t _packet;
     uint8_t _bitPositions[DSHOT_BITS_PER_FRAME];
-    uint16_t _level0;
-    uint16_t _level1;
-    
+    uint16_t _level0; // Signal level for the first part of a pulse (always HIGH for DShot)
+    uint16_t _level1; // Signal level for the second part of a pulse (always LOW for DShot)
+
     // RMT Hardware Handles
     rmt_channel_handle_t _rmt_tx_channel;
     rmt_channel_handle_t _rmt_rx_channel;
@@ -218,11 +212,11 @@ private:
     dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
     dshot_result_t _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
-    
+
     // Private Timing Control Functions
     bool _timer_signal();
     bool _timer_reset();
-    
+
     // Static Callback Functions
     static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };

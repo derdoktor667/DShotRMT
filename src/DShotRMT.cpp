@@ -215,10 +215,10 @@ dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
         _telemetry_ready_flag_atomic = false; // Reset the flag
         uint16_t erpm = _last_erpm_atomic;    // Read the atomic variable
 
-        if (erpm != DSHOT_NULL_PACKET && magnet_count >= 1)
+        if (erpm != DSHOT_NULL_PACKET && magnet_count >= MAGNETS_PER_POLE_PAIR)
         {
             // Calculate motor RPM from eRPM and magnet count
-            uint8_t pole_pairs = max(POLE_PAIRS_MIN, (magnet_count / MAGNETS_PER_POLE_PAIR));
+            uint8_t pole_pairs = magnet_count / MAGNETS_PER_POLE_PAIR;
             uint32_t motor_rpm = (erpm / pole_pairs);
 
             result.success = true;

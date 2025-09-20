@@ -82,22 +82,29 @@ class DShotRMT
 {
 public:
     // Constructors & Destructor
-    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false);
-    DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional);
+    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
+    DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     ~DShotRMT();
 
     // Public Core Functions
     dshot_result_t begin();
     dshot_result_t sendThrottle(uint16_t throttle);
+    dshot_result_t sendThrottlePercent(float percent);
     dshot_result_t sendCommand(uint16_t command);
     dshot_result_t sendCommand(dshot_commands_t dshot_command, uint16_t repeat_count = DEFAULT_CMD_REPEAT_COUNT, uint16_t delay_us = DEFAULT_CMD_DELAY_US);
-    dshot_result_t getTelemetry(uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
+    /**
+     * @brief Gets telemetry data from the ESC.
+     * @param magnet_count Optional. Number of motor magnets. If 0 or omitted, uses the value set by setMotorMagnetCount().
+     * @return dshot_result_t Result containing success status, message, and telemetry data.
+     */
+    dshot_result_t getTelemetry(uint16_t magnet_count = 0);
     dshot_result_t getESCInfo();
     dshot_result_t setMotorSpinDirection(bool reversed);
     dshot_result_t saveESCSettings();
 
     // Public Utility & Info Functions
+    void setMotorMagnetCount(uint16_t magnet_count);
     void printDShotInfo(Stream &output = Serial) const;
     void printCpuInfo(Stream &output = Serial) const;
 
@@ -159,6 +166,7 @@ private:
     static constexpr char const *TRANSMISSION_FAILED = "Transmission failed!";
     static constexpr char const *RECEIVER_FAILED = "RMT receiver failed!";
     static constexpr char const *THROTTLE_NOT_IN_RANGE = "Throttle not in range! (48 - 2047)";
+    static constexpr char const *PERCENT_NOT_IN_RANGE = "Percent not in range! (0.0 - 100.0)";
     static constexpr char const *COMMAND_NOT_VALID = "Command not valid! (0 - 47)";
     static constexpr char const *BIDIR_NOT_ENABLED = "Bidirectional DShot not enabled!";
     static constexpr char const *TELEMETRY_SUCCESS = "Valid Telemetric Frame received!";
@@ -177,6 +185,7 @@ private:
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
+    uint16_t _motor_magnet_count;
     const dshot_timing_us_t &_dshot_timing;
     uint64_t _frame_timer_us;
 

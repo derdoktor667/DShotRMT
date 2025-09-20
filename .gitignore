@@ -22,3 +22,7 @@ examples/dshot300/debug_custom.json
 examples/dshot300/debug.svd
 /build
 .vscode/c_cpp_properties.json
+
+.gemini/
+gha-creds-*.json
+GEMINI.md

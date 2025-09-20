@@ -217,6 +217,7 @@ static constexpr char index_html[] = R"rawliteral(
         <!-- Throttle Section -->
         <div class="throttle-section" id="throttleSection">
             <div id="throttleValue">0</div>
+            <div id="throttlePercent" style="font-size: 1.2rem; color: #bdc3c7; margin-top: -15px; margin-bottom: 15px;">0%</div>
             <input type="range" min="48" max="2047" value="0" id="throttleSlider" disabled>
         </div>
 
@@ -253,6 +254,19 @@ static constexpr char index_html[] = R"rawliteral(
             setTimeout(initWebSocket, 2000);
         }
 
+        function updateThrottleDisplays(rawValue) {
+            const DSHOT_MIN = 48;
+            const DSHOT_MAX = 2047;
+            const clampedValue = Math.max(0, Math.min(DSHOT_MAX, rawValue));
+            document.getElementById('throttleValue').innerText = clampedValue;
+            let percent = 0;
+            if (clampedValue > 0) {
+                percent = (clampedValue - DSHOT_MIN) / (DSHOT_MAX - DSHOT_MIN) * 100;
+            }
+            document.getElementById('throttlePercent').innerText = Math.round(percent) + '%';
+            document.getElementById('throttleSlider').value = clampedValue;
+        }
+
         // Getting data from sketch
         function onMessage(event) {
             try {
@@ -265,8 +279,7 @@ static constexpr char index_html[] = R"rawliteral(
                 // Sync web and serial throttle inputs
                 if (data.throttle !== undefined) {
                     if (isArmed) {
-                        document.getElementById('throttleSlider').value = data.throttle;
-                        document.getElementById('throttleValue').innerText = data.throttle;
+                        updateThrottleDisplays(data.throttle);
                     }
                 }
 
@@ -304,8 +317,7 @@ static constexpr char index_html[] = R"rawliteral(
 
             // If disarmed, set throttle to 0
             if (!isArmed) {
-                slider.value = 0;
-                sliderValue.innerText = 0;
+                updateThrottleDisplays(0);
             }
         });
 
@@ -325,8 +337,7 @@ static constexpr char index_html[] = R"rawliteral(
                 armingStatus.className = 'status-disarmed';
                 throttleSection.classList.remove('armed');
                 slider.disabled = true;
-                slider.value = 0;
-                sliderValue.innerText = 0;
+                updateThrottleDisplays(0);
             }
         }
 
@@ -334,13 +345,12 @@ static constexpr char index_html[] = R"rawliteral(
         slider.addEventListener('input', () => {
             if (!isArmed) {
                 slider.disabled = true;
-                slider.value = 0;
-                sliderValue.innerText = 0;
+                updateThrottleDisplays(0);
                 return;
             }
 
             const throttle = slider.value;
-            sliderValue.innerText = throttle;
+            updateThrottleDisplays(throttle);
 
             const message = JSON.stringify({
                 "throttle": parseInt(throttle),

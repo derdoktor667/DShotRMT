@@ -6,6 +6,15 @@
  * @license MIT
  */
 
+/******************************************************************
+ * SECURITY WARNING
+ * This example provides a web interface to control a motor
+ * without any authentication. It is intended for use on a
+ * trusted local network only.
+ *
+ * DO NOT EXPOSE THIS DEVICE DIRECTLY TO THE INTERNET.
+ ******************************************************************/
+
 #include <Arduino.h>
 #include <Update.h>
 #include <WiFi.h>

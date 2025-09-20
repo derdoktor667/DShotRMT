@@ -25,4 +25,3 @@ examples/dshot300/debug.svd
 
 .gemini/
 gha-creds-*.json
-GEMINI.md

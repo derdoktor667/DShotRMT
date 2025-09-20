@@ -65,7 +65,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, ui
     _preCalculateBitPositions();
 
     // Activate internal pullup resistor
-    gpio_set_pull_mode(_gpio, GPIO_PULLUP_ONLY);
+    // gpio_set_pull_mode(_gpio, GPIO_PULLUP_ONLY);
 }
 
 // Constructor using pin number
@@ -350,9 +350,6 @@ dshot_result_t DShotRMT::_initTXChannel()
     _tx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
     _tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
 
-    // Set the final signal level after transmission
-    // For bidirectional, line must be high (pulled up) to allow ESC to respond
-    // For unidirectional, line returns to low (idle)
     _rmt_tx_config.loop_count = 0;  // No automatic loops - real-time calculation
     _rmt_tx_config.flags.eot_level = _is_bidirectional ? 1 : 0;
 

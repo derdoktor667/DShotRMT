@@ -93,11 +93,6 @@ public:
     dshot_result_t sendThrottlePercent(float percent);
     dshot_result_t sendCommand(uint16_t command);
     dshot_result_t sendCommand(dshot_commands_t dshot_command, uint16_t repeat_count = DEFAULT_CMD_REPEAT_COUNT, uint16_t delay_us = DEFAULT_CMD_DELAY_US);
-    /**
-     * @brief Gets telemetry data from the ESC.
-     * @param magnet_count Optional. Number of motor magnets. If 0 or omitted, uses the value set by setMotorMagnetCount().
-     * @return dshot_result_t Result containing success status, message, and telemetry data.
-     */
     dshot_result_t getTelemetry(uint16_t magnet_count = 0);
     dshot_result_t getESCInfo();
     dshot_result_t setMotorSpinDirection(bool reversed);

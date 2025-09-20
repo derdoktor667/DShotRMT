@@ -33,10 +33,11 @@ void printDShotResult(dshot_result_t &result, Stream &output)
 
 // Constructors & Destructor
 // Constructor with GPIO number
-DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
+DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count)
     : _gpio(gpio),
       _mode(mode),
       _is_bidirectional(is_bidirectional),
+      _motor_magnet_count(magnet_count),
       _dshot_timing(DSHOT_TIMING_US[mode]),
       _frame_timer_us(0),
       _rmt_ticks{0},
@@ -68,8 +69,8 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
 }
 
 // Constructor using pin number
-DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional)
-    : DShotRMT(static_cast<gpio_num_t>(pin_nr), mode, is_bidirectional)
+DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count)
+    : DShotRMT(static_cast<gpio_num_t>(pin_nr), mode, is_bidirectional, magnet_count)
 {
     // Delegates to primary constructor with type cast
 }
@@ -118,12 +119,25 @@ dshot_result_t DShotRMT::begin()
     {
         if (!_initRXChannel().success)
         {
+            // Cleanup previously allocated TX channel on failure
+            rmt_disable(_rmt_tx_channel);
+            rmt_del_channel(_rmt_tx_channel);
+            _rmt_tx_channel = nullptr;
             return {false, RX_INIT_FAILED};
         }
     }
 
     if (!_initDShotEncoder().success)
     {
+        // Cleanup previously allocated channels on failure
+        rmt_disable(_rmt_tx_channel);
+        rmt_del_channel(_rmt_tx_channel);
+        _rmt_tx_channel = nullptr;
+        if (_rmt_rx_channel) {
+            rmt_disable(_rmt_rx_channel);
+            rmt_del_channel(_rmt_rx_channel);
+            _rmt_rx_channel = nullptr;
+        }
         return {false, ENCODER_INIT_FAILED};
     }
 
@@ -144,6 +158,20 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
 
     _packet = _buildDShotPacket(_last_throttle);
     return _sendDShotFrame(_packet);
+}
+
+// Send throttle value as a percentage
+dshot_result_t DShotRMT::sendThrottlePercent(float percent)
+{
+    if (percent < 0.0f || percent > 100.0f)
+    {
+        return {false, PERCENT_NOT_IN_RANGE};
+    }
+
+    // Map percent to DShot throttle range
+    uint16_t throttle = static_cast<uint16_t>(DSHOT_THROTTLE_MIN + ((DSHOT_THROTTLE_MAX - DSHOT_THROTTLE_MIN) / 100.0f) * percent);
+
+    return sendThrottle(throttle);
 }
 
 // Send DShot command to ESC
@@ -212,16 +240,19 @@ dshot_result_t DShotRMT::getTelemetry(uint16_t magnet_count)
         return result;
     }
 
+    // Use stored magnet count if parameter is 0 (default)
+    uint16_t final_magnet_count = (magnet_count == 0) ? _motor_magnet_count : magnet_count;
+
     // Check if the callback has set the flag for new data
     if (_telemetry_ready_flag_atomic)
     {
         _telemetry_ready_flag_atomic = false; // Reset the flag
         uint16_t erpm = _last_erpm_atomic;    // Read the atomic variable
 
-        if (erpm != DSHOT_NULL_PACKET && magnet_count >= MAGNETS_PER_POLE_PAIR)
+        if (erpm != DSHOT_NULL_PACKET && final_magnet_count >= MAGNETS_PER_POLE_PAIR)
         {
             // Calculate motor RPM from eRPM and magnet count
-            uint8_t pole_pairs = magnet_count / MAGNETS_PER_POLE_PAIR;
+            uint8_t pole_pairs = final_magnet_count / MAGNETS_PER_POLE_PAIR;
             uint32_t motor_rpm = (erpm / pole_pairs);
 
             result.success = true;
@@ -255,6 +286,11 @@ dshot_result_t DShotRMT::saveESCSettings()
 }
 
 // Public Info & Debug Functions
+void DShotRMT::setMotorMagnetCount(uint16_t magnet_count)
+{
+    _motor_magnet_count = magnet_count;
+}
+
 void DShotRMT::printDShotInfo(Stream &output) const
 {
     output.println("\n === DShot Signal Info === ");

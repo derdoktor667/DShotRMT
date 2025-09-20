@@ -11,7 +11,7 @@ This library is a rewrite using the modern ESP-IDF 5 RMT encoder API (`rmt_tx.h`
 - **Multiple DShot Modes:** Supports DSHOT150, DSHOT300, DSHOT600, and DSHOT1200.
 - **Bidirectional DShot:** Full support for RPM telemetry feedback.
 - **Hardware-Timed Signals:** Precise signal generation using the ESP32 RMT peripheral, ensuring stable and reliable motor control.
-- **Simple API:** Easy-to-use C++ class for sending throttle commands and receiving telemetry data.
+- **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
 - **Efficient and Lightweight:** The core library has no external dependencies.
 - **Arduino and ESP-IDF Compatible:** Can be used in both Arduino and ESP-IDF projects.
 
@@ -52,16 +52,16 @@ void setup() {
   // Initialize the DShot motor
   motor.begin();
 
-  Serial.println("Motor initialized. Sending low throttle for 5 seconds...");
+  Serial.println("Motor initialized. Ramping up to 25% throttle...");
   
-  // Send a low throttle command for 5 seconds
-  for (int i = 0; i < 500; i++) {
-    motor.sendThrottle(100);
-    delay(10);
+  // Ramp up to 25% throttle over 2.5 seconds
+  for (int i = 0; i <= 25; i++) {
+    motor.sendThrottlePercent(i);
+    delay(100);
   }
   
   Serial.println("Stopping motor.");
-  motor.sendThrottle(0);
+  motor.sendThrottlePercent(0);
 }
 
 void loop() {
@@ -73,7 +73,8 @@ void loop() {
 
 The `examples` folder contains more advanced examples:
 
-- **`dshot300`:** A simple example demonstrating how to send DShot commands and receive telemetry via the serial monitor.
+- **`throttle_percent`:** A focused example showing how to control motor speed using percentage values (0-100) via the serial monitor.
+- **`dshot300`:** A more advanced example demonstrating how to send raw DShot commands and receive telemetry via the serial monitor.
 - **`web_control`:** A full-featured web application for controlling a motor from a web browser. It creates a WiFi access point and serves a web page with a throttle slider and arming switch.
 - **`web_client`:** A variation of the `web_control` example that connects to an existing WiFi network instead of creating its own access point.
 
@@ -101,7 +102,8 @@ The main class is `DShotRMT`. Here are the most important methods:
 
 - `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false)`: Constructor to create a new DShotRMT instance.
 - `begin()`: Initializes the RMT peripheral and the DShot encoder.
-- `sendThrottle(uint16_t throttle)`: Sends a throttle value (48-2047) to the motor.
+- `sendThrottlePercent(float percent)`: Sends a throttle value as a percentage (0.0-100.0).
+- `sendThrottle(uint16_t throttle)`: Sends a raw throttle value (48-2047) to the motor.
 - `sendCommand(uint16_t command)`: Sends a DShot command (0-47) to the motor.
 - `getTelemetry(uint16_t magnet_count)`: Receives and parses telemetry data from the motor (for bidirectional DShot).
 

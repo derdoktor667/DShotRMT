@@ -1,8 +1,8 @@
 /**
- * @file dshot300.ino
- * @brief Demo sketch for DShotRMT library
+ * @file throttle_percent.ino
+ * @brief Demo sketch for DShotRMT library using percentage throttle.
  * @author Wastl Kraus
- * @date 2025-06-11
+ * @date 2025-09-20
  * @license MIT
  */
 
@@ -15,7 +15,6 @@ static constexpr auto USB_SERIAL_BAUD = 115200;
 
 // Motor configuration - Pin number or GPIO_PIN
 static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
-// static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
@@ -28,6 +27,10 @@ static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
+
+// Forward declaration
+void handleSerialInput(const String &input);
+void printMenu();
 
 //
 void setup()
@@ -48,15 +51,6 @@ void setup()
 //
 void loop()
 {
-    // Safety first
-    static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
-
-    // Initialize the esc with "0"
-    static bool continuous_throttle = true;
-
-    // Time Measurement
-    static uint64_t last_stats_print = 0;
-
     // Handle serial input
     if (USB_SERIAL.available() > 0)
     {
@@ -65,34 +59,8 @@ void loop()
 
         if (input.length() > 0)
         {
-            handleSerialInput(input, throttle, continuous_throttle);
+            handleSerialInput(input);
         }
-    }
-
-    // Send throttle value in continuous mode
-    if (continuous_throttle)
-    {
-        motor01.sendThrottle(throttle);
-    }
-
-    // Print motor stats every 3 seconds in continuous mode
-    if (continuous_throttle && (esp_timer_get_time() - last_stats_print >= 3000000))
-    {
-        motor01.printDShotInfo();
-
-        USB_SERIAL.println(" ");
-
-        // Get Motor RPM if bidirectional
-        if (IS_BIDIRECTIONAL)
-        {
-            dshot_result_t telem_result = motor01.getTelemetry();
-            printDShotResult(telem_result);
-        }
-
-        USB_SERIAL.println("Type 'help' to show Menu");
-
-        // Time Stamp
-        last_stats_print = esp_timer_get_time();
     }
 }
 
@@ -101,9 +69,9 @@ void printMenu()
 {
     USB_SERIAL.println(" ");
     USB_SERIAL.println("*******************************************");
-    USB_SERIAL.println("               DShotRMT Demo               ");
+    USB_SERIAL.println("            DShotRMT Percent Demo          ");
     USB_SERIAL.println("*******************************************");
-    USB_SERIAL.println(" <value>      - Set throttle (48 – 2047)");
+    USB_SERIAL.println(" <value>      - Set throttle (0 - 100)");
     USB_SERIAL.println(" 0            - Stop motor");
     USB_SERIAL.println("*******************************************");
     USB_SERIAL.println(" cmd <number> - Send DShot command (0 - 47)");
@@ -118,14 +86,12 @@ void printMenu()
 }
 
 //
-void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous_throttle)
+void handleSerialInput(const String &input)
 {
     if (input == "0")
     {
         // Stop motor
-        throttle = 0;
-        continuous_throttle = true;
-        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        dshot_result_t result = motor01.sendThrottlePercent(0.0f);
         printDShotResult(result);
     }
     else if (input == "info")
@@ -139,8 +105,6 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     }
     else if (input.startsWith("cmd "))
     {
-        continuous_throttle = false;
-
         // Send DShot command
         int cmd_num = input.substring(4).toInt();
 
@@ -160,22 +124,19 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     }
     else
     {
-        // Parse input throttle value
-        int throttle_value = input.toInt();
+        // Parse input throttle value as a percentage
+        float throttle_percent = input.toFloat();
 
-        if (throttle_value >= DSHOT_THROTTLE_MIN && throttle_value <= DSHOT_THROTTLE_MAX)
+        if (throttle_percent >= 0.0f && throttle_percent <= 100.0f)
         {
-            throttle = throttle_value;
-            continuous_throttle = true;
-
-            dshot_result_t result = motor01.sendThrottle(throttle);
+            dshot_result_t result = motor01.sendThrottlePercent(throttle_percent);
             printDShotResult(result);
         }
         else
         {
             USB_SERIAL.println(" ");
-            USB_SERIAL.printf("Invalid input: '%s'\n", input);
-            USB_SERIAL.printf("Valid throttle range: %d - %d\n", DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
+            USB_SERIAL.printf("Invalid input: '%s'\n", input.c_str());
+            USB_SERIAL.printf("Valid throttle range: 0.0 - 100.0\n");
         }
     }
 }

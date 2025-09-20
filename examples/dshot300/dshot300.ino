@@ -14,14 +14,14 @@ static constexpr auto &USB_SERIAL = Serial0;
 static constexpr auto USB_SERIAL_BAUD = 115200;
 
 // Motor configuration - Pin number or GPIO_PIN
-static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_17;
+static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
 // static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
-static constexpr auto IS_BIDIRECTIONAL = false;
+static constexpr auto IS_BIDIRECTIONAL = true;
 
 // Motor magnet count for RPM calculation
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;

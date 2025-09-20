@@ -62,6 +62,9 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional)
     // Pre-calculate timing and bit positions for performance
     _preCalculateRMTTicks();
     _preCalculateBitPositions();
+
+    // Activate internal pullup resistor
+    gpio_set_pull_mode(_gpio, GPIO_PULLUP_ONLY);
 }
 
 // Constructor using pin number

@@ -101,8 +101,8 @@ The main class is `DShotRMT`. Here are the most important methods:
 
 - `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false)`: Constructor to create a new DShotRMT instance.
 - `begin()`: Initializes the RMT peripheral and the DShot encoder.
-- `sendThrottle(uint16_t throttle)`: Sends a throttle value (48-2047) to the motor.
-- `sendCommand(uint16_t command)`: Sends a DShot command (0-47) to the motor.
+- `sendThrottle(uint16_t throttle)`: Sends a throttle value (48 - 2047) to the motor.
+- `sendCommand(uint16_t command)`: Sends a DShot command (0 - 47) to the motor.
 - `getTelemetry(uint16_t magnet_count)`: Receives and parses telemetry data from the motor (for bidirectional DShot).
 
 For more details, please refer to the `DShotRMT.h` header file.

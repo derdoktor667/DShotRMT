@@ -27,3 +27,4 @@ Dieses Dokument beschreibt die Kernprinzipien und projektspezifischen Regeln, na
 -   **Namenskonventionen:** `_private_var` für private Member, `camelCase` für öffentliche Funktionen.
 -   **Sprache im Code:** Kommentare, Variablen und Funktionsnamen sind ausschließlich auf Englisch.
 -   **Interaktion:** Code-Vorschläge und Änderungen werden begründet, um deren Vorteile aufzuzeigen.
+-   **Bidirektionales DShot:** Der bidirektionale DShot-Modus ist zwar im Code vorhanden, wird aber aufgrund von Instabilität und externen Hardware-Anforderungen nicht offiziell unterstützt. Bei der Arbeit an diesem Projekt sollte dies berücksichtigt werden.

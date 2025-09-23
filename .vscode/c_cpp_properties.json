@@ -463,9 +463,9 @@
             "intelliSenseMode": "gcc-x64",
             "includePath": [
                 "/home/derdoktor667/Github/DShotRMT/examples/dshot300",
-                "/home/derdoktor667/.arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-b66b5448-v1/esp32/qio_qspi/include",
-                "/home/derdoktor667/.arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32",
-                "/home/derdoktor667/.arduino15/packages/esp32/hardware/esp32/3.3.0/variants/esp32",
+                "/home/derdoktor667/.arduino15/packages/esp32/tools/esp32-arduino-libs/idf-release_v5.5-129cd0d2-v4/esp32/qio_qspi/include",
+                "/home/derdoktor667/.arduino15/packages/esp32/hardware/esp32/3.3.1/cores/esp32",
+                "/home/derdoktor667/.arduino15/packages/esp32/hardware/esp32/3.3.1/variants/esp32",
                 "/home/derdoktor667/Arduino/libraries/DShotRMT/src",
                 "/home/derdoktor667/.arduino15/packages/esp32/tools/esp-x32/2411/xtensa-esp-elf/include/c++/14.2.0",
                 "/home/derdoktor667/.arduino15/packages/esp32/tools/esp-x32/2411/xtensa-esp-elf/include/c++/14.2.0/xtensa-esp-elf/esp32",
@@ -475,7 +475,7 @@
                 "/home/derdoktor667/.arduino15/packages/esp32/tools/esp-x32/2411/xtensa-esp-elf/include"
             ],
             "forcedInclude": [
-                "/home/derdoktor667/.arduino15/packages/esp32/hardware/esp32/3.3.0/cores/esp32/Arduino.h"
+                "/home/derdoktor667/.arduino15/packages/esp32/hardware/esp32/3.3.1/cores/esp32/Arduino.h"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",

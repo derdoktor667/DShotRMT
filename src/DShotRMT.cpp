@@ -133,11 +133,13 @@ dshot_result_t DShotRMT::begin()
         rmt_disable(_rmt_tx_channel);
         rmt_del_channel(_rmt_tx_channel);
         _rmt_tx_channel = nullptr;
+
         if (_rmt_rx_channel) {
             rmt_disable(_rmt_rx_channel);
             rmt_del_channel(_rmt_rx_channel);
             _rmt_rx_channel = nullptr;
         }
+        
         return {false, ENCODER_INIT_FAILED};
     }
 
@@ -412,7 +414,8 @@ dshot_result_t DShotRMT::_initRXChannel()
 
 dshot_result_t DShotRMT::_initDShotEncoder()
 {
-        rmt_copy_encoder_config_t encoder_config = {};
+    rmt_copy_encoder_config_t encoder_config = {};
+    
     if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
         return {false, ENCODER_INIT_FAILED};

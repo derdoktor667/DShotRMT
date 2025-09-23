@@ -9,7 +9,7 @@ This library is a rewrite using the modern ESP-IDF 5 RMT encoder API (`rmt_tx.h`
 ## 🚀 Core Features
 
 - **Multiple DShot Modes:** Supports DSHOT150, DSHOT300, DSHOT600, and DSHOT1200.
-- **Bidirectional DShot:** Full support for RPM telemetry feedback.
+- **Bidirectional DShot:** Implemented, but currently not officially supported due to instability and external hardware requirements.
 - **Hardware-Timed Signals:** Precise signal generation using the ESP32 RMT peripheral, ensuring stable and reliable motor control.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
 - **Efficient and Lightweight:** The core library has no external dependencies.
@@ -100,12 +100,12 @@ lib_deps =
 
 The main class is `DShotRMT`. Here are the most important methods:
 
-- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false)`: Constructor to create a new DShotRMT instance.
+- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false)`: Constructor to create a new DShotRMT instance. (Note: Bidirectional DShot is currently not officially supported.)
 - `begin()`: Initializes the RMT peripheral and the DShot encoder.
 - `sendThrottlePercent(float percent)`: Sends a throttle value as a percentage (0.0-100.0).
 - `sendThrottle(uint16_t throttle)`: Sends a raw throttle value (48-2047) to the motor.
 - `sendCommand(uint16_t command)`: Sends a DShot command (0-47) to the motor.
-- `getTelemetry(uint16_t magnet_count)`: Receives and parses telemetry data from the motor (for bidirectional DShot).
+- `getTelemetry(uint16_t magnet_count)`: Receives and parses telemetry data from the motor (for bidirectional DShot, which is currently not officially supported).
 
 For more details, please refer to the `DShotRMT.h` header file.
 

@@ -6,6 +6,15 @@
  * @license MIT
  */
 
+/******************************************************************
+ * SECURITY WARNING
+ * This example provides a web interface to control a motor
+ * without any authentication. It is intended for use on a
+ * trusted local network only.
+ *
+ * DO NOT EXPOSE THIS DEVICE DIRECTLY TO THE INTERNET.
+ ******************************************************************/
+
 #include <Arduino.h>
 #include <WiFi.h>
 
@@ -35,7 +44,7 @@ static constexpr auto MOTOR01_PIN = 17;
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
-static constexpr auto IS_BIDIRECTIONAL = false;
+static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
 
 // Motor magnet count for RPM calculation
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;

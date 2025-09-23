@@ -1,14 +1,26 @@
+.vs
+.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
 # Local History for Visual Studio Code
 .history/
 
 # Built Visual Studio Code Extensions
 *.vsix
 
-# Builds
-*.code-workspace
+# Caching ESP32 Builds
 buildCache
 build
 examples/dshot300/debug.cfg
 examples/dshot300/esp32.svd
 examples/dshot300/debug_custom.json
 examples/dshot300/debug.svd
+
+GEMINI.md
+.gemini/
+gha-creds-*.json

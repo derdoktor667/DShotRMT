@@ -6,10 +6,21 @@
  * @license MIT
  */
 
+/******************************************************************
+ * SECURITY WARNING
+ * This example provides a web interface to control a motor
+ * without any authentication. It is intended for use on a
+ * trusted local network only.
+ *
+ * DO NOT EXPOSE THIS DEVICE DIRECTLY TO THE INTERNET.
+ ******************************************************************/
+
 #include <Arduino.h>
+#include <Update.h>
 #include <WiFi.h>
 
 #include <DShotRMT.h>
+#include <ota_update.h>
 #include <web_content.h>
 
 #include <ArduinoJson.h>
@@ -34,7 +45,7 @@ static constexpr auto MOTOR01_PIN = 17;
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
-static constexpr auto IS_BIDIRECTIONAL = false;
+static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
 
 // Motor magnet count for RPM calculation
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
@@ -62,6 +73,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 bool connectToWiFi();
 void printWiFiStatus();
+void setupOTA();
+void handleOTAUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
 
 //
 void setup()
@@ -79,15 +92,18 @@ void setup()
 
     if (wifi_connected)
     {
+        // Setup OTA first
+        setupOTA();
+
         // Init WebSockets and Webserver
         USB_SERIAL.println("\nStarting Webserver...");
-        
+
         ws.onEvent(onWsEvent);
         server.addHandler(&ws);
 
         server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                   { request->send_P(200, "text/html", index_html); });
-                  
+
         server.begin();
         USB_SERIAL.println("HTTP server started.");
 
@@ -96,7 +112,7 @@ void setup()
     else
     {
         USB_SERIAL.println("\n*** WARNING: WiFi connection failed! ***");
-        USB_SERIAL.println("*** Web interface not available ***");
+        USB_SERIAL.println("*** Web interface and OTA not available ***");
         USB_SERIAL.println("*** Only serial control available ***");
     }
 
@@ -215,6 +231,87 @@ void loop()
     }
 }
 
+// Setup OTA Update functionality
+void setupOTA()
+{
+    USB_SERIAL.println("Setting up OTA Update...");
+
+    // Serve OTA update page
+    server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send_P(200, "text/html", ota_html); });
+
+    // Handle OTA update upload
+    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
+              {
+            bool shouldReboot = !Update.hasError();
+
+            AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", 
+                shouldReboot ? "OK" : "FAIL");
+
+            response->addHeader("Connection", "close");
+            request->send(response);
+            
+            if (shouldReboot) {
+                USB_SERIAL.println("OTA Update successful! Rebooting...");
+                delay(1000);
+                ESP.restart();
+            } else {
+                USB_SERIAL.println("OTA Update failed!");
+            } }, handleOTAUpload);
+
+    USB_SERIAL.println("OTA Update ready at: /update");
+}
+
+// Handle OTA upload process
+void handleOTAUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+{
+    static unsigned long ota_progress_millis = 0;
+
+    if (!index)
+    {
+        // Safety: Ensure motor is stopped during update
+        motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        setArmingStatus(false);
+
+        USB_SERIAL.printf("OTA Update Start: %s\n", filename.c_str());
+
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+        {
+            Update.printError(USB_SERIAL);
+            return;
+        }
+    }
+
+    if (len)
+    {
+        if (Update.write(data, len) != len)
+        {
+            Update.printError(USB_SERIAL);
+            return;
+        }
+
+        // Print progress every 2 seconds to avoid spam
+        if (millis() - ota_progress_millis > 2000)
+        {
+            size_t progress = index + len;
+            USB_SERIAL.printf("OTA Progress: %zu bytes\n", progress);
+            ota_progress_millis = millis();
+        }
+    }
+
+    if (final)
+    {
+        if (Update.end(true))
+        {
+            USB_SERIAL.printf("OTA Update Success: %zu bytes\n", index + len);
+        }
+        else
+        {
+            Update.printError(USB_SERIAL);
+        }
+    }
+}
+
 // Connect to WiFi network
 bool connectToWiFi()
 {
@@ -262,6 +359,7 @@ void printWiFiStatus()
         USB_SERIAL.printf("MAC Address: %s\n", WiFi.macAddress().c_str());
         USB_SERIAL.println("***********************************************");
         USB_SERIAL.printf("Web Interface: http://%s\n", WiFi.localIP().toString().c_str());
+        USB_SERIAL.printf("OTA Update: http://%s/update\n", WiFi.localIP().toString().c_str());
         USB_SERIAL.println("***********************************************");
     }
     else
@@ -305,10 +403,12 @@ void printMenu()
     if (wifi_connected)
     {
         USB_SERIAL.printf(" Web Interface: http://%s \n", WiFi.localIP().toString().c_str());
+        USB_SERIAL.printf(" OTA Update: http://%s/update \n", WiFi.localIP().toString().c_str());
     }
     else
     {
         USB_SERIAL.println(" Web Interface: NOT AVAILABLE             ");
+        USB_SERIAL.println(" OTA Update: NOT AVAILABLE                ");
     }
 
     USB_SERIAL.println("***********************************************");
@@ -321,6 +421,7 @@ void printMenu()
     USB_SERIAL.println(" info             - Show motor info");
     USB_SERIAL.println(" wifi             - Show WiFi status");
     USB_SERIAL.println(" reconnect        - Reconnect to WiFi");
+    USB_SERIAL.println(" ota              - Show OTA info");
     if (IS_BIDIRECTIONAL)
     {
         USB_SERIAL.println(" rpm              - Get telemetry data");
@@ -359,6 +460,24 @@ void handleSerialInput(const String &input)
     if (input == "wifi")
     {
         printWiFiStatus();
+        return;
+    }
+
+    if (input == "ota")
+    {
+        if (wifi_connected)
+        {
+            USB_SERIAL.println(" ");
+            USB_SERIAL.println("=== OTA UPDATE INFO ===");
+            USB_SERIAL.printf("OTA Update URL: http://%s/update\n", WiFi.localIP().toString().c_str());
+            USB_SERIAL.printf("Free Sketch Space: %u bytes\n", ESP.getFreeSketchSpace());
+            USB_SERIAL.printf("Sketch Size: %u bytes\n", ESP.getSketchSize());
+            USB_SERIAL.println("========================");
+        }
+        else
+        {
+            USB_SERIAL.println("OTA Update not available - WiFi not connected!");
+        }
         return;
     }
 
@@ -431,6 +550,7 @@ void handleSerialInput(const String &input)
         if (wifi_connected)
         {
             USB_SERIAL.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
+            USB_SERIAL.printf("OTA URL: http://%s/update\n", WiFi.localIP().toString().c_str());
         }
         return;
     }

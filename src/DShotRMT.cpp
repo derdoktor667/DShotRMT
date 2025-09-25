@@ -58,8 +58,8 @@ DShotRMT::~DShotRMT()
     {
         if (rmt_disable(_rmt_tx_channel) == DSHOT_OK)
         {
-        rmt_del_channel(_rmt_tx_channel);
-        _rmt_tx_channel = nullptr;
+            rmt_del_channel(_rmt_tx_channel);
+            _rmt_tx_channel = nullptr;
         }
     }
 
@@ -68,8 +68,8 @@ DShotRMT::~DShotRMT()
     {
         if (rmt_disable(_rmt_rx_channel) == DSHOT_OK)
         {
-        rmt_del_channel(_rmt_rx_channel);
-        _rmt_rx_channel = nullptr;
+            rmt_del_channel(_rmt_rx_channel);
+            _rmt_rx_channel = nullptr;
         }
     }
 
@@ -109,12 +109,13 @@ dshot_result_t DShotRMT::begin()
         rmt_del_channel(_rmt_tx_channel);
         _rmt_tx_channel = nullptr;
 
-        if (_rmt_rx_channel) {
+        if (_rmt_rx_channel)
+        {
             rmt_disable(_rmt_rx_channel);
             rmt_del_channel(_rmt_rx_channel);
             _rmt_rx_channel = nullptr;
         }
-        
+
         return {false, dshot_msg_code_t::DSHOT_ERROR_ENCODER_INIT_FAILED};
     }
 
@@ -292,7 +293,7 @@ dshot_result_t DShotRMT::_initTXChannel()
     _tx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
     _tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
 
-    _rmt_tx_config.loop_count = 0;  // No automatic loops - real-time calculation
+    _rmt_tx_config.loop_count = 0; // No automatic loops - real-time calculation
     _rmt_tx_config.flags.eot_level = _is_bidirectional ? 1 : 0;
 
     if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
@@ -355,7 +356,7 @@ dshot_result_t DShotRMT::_initRXChannel()
 dshot_result_t DShotRMT::_initDShotEncoder()
 {
     rmt_copy_encoder_config_t encoder_config = {};
-    
+
     if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
         return {false, dshot_msg_code_t::DSHOT_ERROR_ENCODER_INIT_FAILED};
@@ -543,4 +544,33 @@ bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const 
     }
 
     return false;
+}
+
+// Public Static Utility Functions
+void DShotRMT::printDShotInfo(const DShotRMT &dshot_rmt, Stream &output)
+{
+    output.println("\n === DShot Signal Info === ");
+    output.printf("Current Mode: DSHOT%d\n", dshot_rmt.getMode() == dshot_mode_t::DSHOT150 ? 150 : dshot_rmt.getMode() == dshot_mode_t::DSHOT300 ? 300
+                                                                                               : dshot_rmt.getMode() == dshot_mode_t::DSHOT600   ? 600
+                                                                                               : dshot_rmt.getMode() == dshot_mode_t::DSHOT1200  ? 1200
+                                                                                                                                                 : 0);
+    output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
+    output.printf("Current Packet: ");
+
+    for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
+    {
+        output.print((dshot_rmt.getEncodedFrameValue() >> i) & 1);
+    }
+
+    output.printf("\nCurrent Value: %u\n", dshot_rmt.getThrottleValue());
+}
+
+void DShotRMT::printCpuInfo(Stream &output)
+{
+    output.println("\n ===  CPU Info  === ");
+    output.printf("Chip Model: %s\n", ESP.getChipModel());
+    output.printf("Chip Revision: %d\n", ESP.getChipRevision());
+    output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
+    output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
+    output.printf("APB Freq = %lu Hz\n", getApbFrequency());
 }

@@ -41,7 +41,7 @@ static constexpr auto USB_SERIAL_BAUD = 115200;
 static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
@@ -57,7 +57,7 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 // Global variables
-static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
+static uint16_t throttle = static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP);
 static bool isArmed = false;
 static bool continuous_throttle = true;
 
@@ -109,7 +109,7 @@ void setup()
 void loop()
 {
     static uint64_t last_serial_update = 0;
-    static uint16_t last_sent_throttle = DSHOT_CMD_MOTOR_STOP;
+    static uint16_t last_sent_throttle = static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP);
     static bool last_sent_armed = false;
     static String last_sent_rpm = "N/A";
 
@@ -131,14 +131,13 @@ void loop()
     }
     else if (!isArmed && continuous_throttle)
     {
-        // Ensure motor is stopped when disarmed
-        motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        motor01.sendCommand(static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP));
     }
 
     // Print motor stats every 3 seconds in continuous mode
     if ((esp_timer_get_time() - last_serial_update >= 3000000))
     {
-        motor01.printDShotInfo();
+        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
 
         USB_SERIAL.println(" ");
 
@@ -207,7 +206,7 @@ void setArmingStatus(bool armed)
     // Safety: Stop motor and reset throttle when disarming
     throttle = 0;
     continuous_throttle = false;
-    motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+    motor01.sendCommand(static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP));
     USB_SERIAL.println(" ");
     USB_SERIAL.println("=== MOTOR DISARMED - SAFETY STOP EXECUTED ===");
 }
@@ -254,7 +253,7 @@ void handleSerialInput(const String &input)
     }
     if (input == "info")
     {
-        motor01.printDShotInfo();
+        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         return;
@@ -285,7 +284,7 @@ void handleSerialInput(const String &input)
         continuous_throttle = false;
         int cmd_num = input.substring(4).toInt();
 
-        if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
+        if (cmd_num >= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP) && cmd_num <= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX))
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
             printDShotResult(result);
@@ -293,7 +292,7 @@ void handleSerialInput(const String &input)
         else
         {
             USB_SERIAL.println(" ");
-            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, DSHOT_CMD_MAX);
+            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX));
         }
         return;
     }
@@ -340,7 +339,7 @@ void handleSerialInput(const String &input)
     {
         throttle = 0;
         continuous_throttle = false;
-        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        dshot_result_t result = motor01.sendCommand(static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP));
         printDShotResult(result);
         return;
     }
@@ -394,7 +393,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
         {
             throttle = 0;
             continuous_throttle = false;
-            motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+            motor01.sendCommand(static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP));
         }
         else if (web_throttle >= DSHOT_THROTTLE_MIN && web_throttle <= DSHOT_THROTTLE_MAX)
         {

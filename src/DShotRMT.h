@@ -9,7 +9,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include "dshot_definitions.h"
+#include <dshot_definitions.h>
 #include <driver/gpio.h>
 #include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
@@ -17,7 +17,7 @@
 
 /**
  * @brief DShotRMT Main Class for DShot signal generation and reception.
- * 
+ *
  * This class provides an interface to generate DShot signals for Electronic Speed Controllers (ESCs)
  * and to receive telemetry data using the ESP32's RMT peripheral.
  */
@@ -114,6 +114,19 @@ public:
 
     // Public Utility & Info Functions
     /**
+     * @brief Prints detailed DShot signal information for a given DShotRMT instance.
+     * @param dshot_rmt The DShotRMT instance to get information from.
+     * @param output The output stream (e.g., Serial) to print to. Defaults to Serial.
+     */
+    static void printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial);
+
+    /**
+     * @brief Prints detailed CPU information.
+     * @param output The output stream (e.g., Serial) to print to. Defaults to Serial.
+     */
+    static void printCpuInfo(Stream &output = Serial);
+
+    /**
      * @brief Sets the motor magnet count for RPM calculation.
      * @param magnet_count The number of magnets in the motor.
      */
@@ -197,9 +210,9 @@ private:
     rmt_ticks_t _rmt_ticks;
     uint16_t _last_throttle;
     uint64_t _last_transmission_time_us;
-        uint64_t _last_command_timestamp;
-        uint16_t _encoded_frame_value;
-        dshot_packet_t _packet;
+    uint64_t _last_command_timestamp;
+    uint16_t _encoded_frame_value;
+    dshot_packet_t _packet;
     uint16_t _level0; // DShot protocol: Signal is idle-low, so pulses start by going HIGH.
     uint16_t _level1; // DShot protocol: Signal returns to LOW after the high pulse.
 

@@ -102,7 +102,7 @@ typedef struct dshot_result
  * @brief DShot Commands
  * Enum class for standard DShot commands that can be sent to an ESC.
  */
-enum class dshotCommands_e
+enum dshotCommands_e
 {
     DSHOT_CMD_MOTOR_STOP = 0,
     DSHOT_CMD_BEACON1,

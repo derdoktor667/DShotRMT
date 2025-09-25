@@ -110,14 +110,14 @@ void handleSerialInput(const String &input)
         // Send DShot command
         int cmd_num = input.substring(4).toInt();
 
-        if (cmd_num >= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP) && cmd_num <= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX))
+        if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
             printDShotResult(result);
         }
         else
         {
-            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX));
+            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, DSHOT_CMD_MAX);
         }
     }
     else if (input == "h" || input == "help")

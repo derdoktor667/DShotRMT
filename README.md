@@ -51,6 +51,9 @@ void setup() {
   // Initialize the DShot motor
   motor.begin();
 
+  // Print CPU Info
+  DShotRMT::printCpuInfo(Serial);
+
   Serial.println("Motor initialized. Ramping up to 25% throttle...");
   
   // Ramp up to 25% throttle over 2.5 seconds
@@ -61,6 +64,9 @@ void setup() {
   
   Serial.println("Stopping motor.");
   motor.sendThrottlePercent(0);
+
+  // Print DShot Info
+  DShotRMT::printDShotInfo(motor, Serial);
 }
 
 void loop() {
@@ -106,6 +112,8 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `sendCommand(uint16_t command)`: Sends a DShot command (0-47) to the motor.
 - `getTelemetry(uint16_t magnet_count)`: Receives and parses telemetry data from the motor (for bidirectional DShot, which is currently not officially supported).
 - `printDShotResult(dshot_result_t &result, Stream &output = Serial)`: Helper function to print DShot operation results and telemetry to a specified serial output.
+- `DShotRMT::printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial)`: Static helper function to print detailed DShot signal information for a given DShotRMT instance.
+- `DShotRMT::printCpuInfo(Stream &output = Serial)`: Static helper function to print detailed CPU information.
 
 ## 🤝 Contributing
 

@@ -51,7 +51,7 @@ void setup()
 void loop()
 {
     // Safety first
-    static uint16_t throttle = static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP);
+    static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
 
     // Initialize the esc with "0"
     static bool continuous_throttle = true;
@@ -127,7 +127,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         // Stop motor
         throttle = 0;
         continuous_throttle = true;
-        dshot_result_t result = motor01.sendCommand(static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP));
+        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
         printDShotResult(result);
     }
     else if (input == "info")
@@ -146,14 +146,14 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         // Send DShot command
         int cmd_num = input.substring(4).toInt();
 
-        if (cmd_num >= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP) && cmd_num <= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX))
+        if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
             printDShotResult(result);
         }
         else
         {
-            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX));
+            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, DSHOT_CMD_MAX);
         }
     }
     else if (input == "h" || input == "help")

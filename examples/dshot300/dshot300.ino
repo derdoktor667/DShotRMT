@@ -7,7 +7,8 @@
  */
 
 #include <Arduino.h>
-#include <DShotRMT.h>
+#include "DShotRMT.h"
+#include "DShotRMT_Utils.h" // Include utility functions
 
 // USB serial port settings
 static constexpr auto &USB_SERIAL = Serial0;
@@ -18,7 +19,7 @@ static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
 // static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 // Note: Bidirectional DShot is currently not officially supported 
@@ -41,7 +42,7 @@ void setup()
     motor01.begin();
 
     // Print CPU Info
-    motor01.printCpuInfo();
+    printCpuInfo(USB_SERIAL);
 
     //
     printMenu();
@@ -51,7 +52,7 @@ void setup()
 void loop()
 {
     // Safety first
-    static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
+    static uint16_t throttle = static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP);
 
     // Initialize the esc with "0"
     static bool continuous_throttle = true;
@@ -80,7 +81,7 @@ void loop()
     // Print motor stats every 3 seconds in continuous mode
     if (continuous_throttle && (esp_timer_get_time() - last_stats_print >= 3000000))
     {
-        motor01.printDShotInfo();
+        printDShotInfo(motor01, USB_SERIAL);
 
         USB_SERIAL.println(" ");
 
@@ -127,12 +128,12 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         // Stop motor
         throttle = 0;
         continuous_throttle = true;
-        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        dshot_result_t result = motor01.sendCommand(static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP));
         printDShotResult(result);
     }
     else if (input == "info")
     {
-        motor01.printDShotInfo();
+        printDShotInfo(motor01, USB_SERIAL);
     }
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {
@@ -146,14 +147,14 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         // Send DShot command
         int cmd_num = input.substring(4).toInt();
 
-        if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
+        if (cmd_num >= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MOTOR_STOP) && cmd_num <= static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX))
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
             printDShotResult(result);
         }
         else
         {
-            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, DSHOT_CMD_MAX);
+            USB_SERIAL.printf("Invalid command: %d (valid range: 0 - %d)\n", cmd_num, static_cast<uint16_t>(dshotCommands_e::DSHOT_CMD_MAX));
         }
     }
     else if (input == "h" || input == "help")

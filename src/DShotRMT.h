@@ -189,7 +189,7 @@ private:
     uint16_t _last_throttle;
     uint64_t _last_transmission_time_us;
     uint64_t _last_command_timestamp;
-    uint16_t _parsed_packet;
+    uint16_t _encoded_frame_value;
     dshot_packet_t _packet;
     uint8_t _bitPositions[DSHOT_BITS_PER_FRAME];
     uint16_t _level0; // Signal level for the first part of a pulse (always HIGH for DShot)

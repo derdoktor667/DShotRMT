@@ -44,7 +44,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, ui
       _last_throttle(DSHOT_CMD_MOTOR_STOP),
       _last_transmission_time_us(0),
       _last_command_timestamp(0),
-      _parsed_packet(0),
+      _encoded_frame_value(0),
       _packet{0},
       _bitPositions{0},
       _level0(1), // DShot standard: signal is idle-low, so pulses start by going HIGH
@@ -306,7 +306,7 @@ void DShotRMT::printDShotInfo(Stream &output) const
 
     for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
     {
-        output.print((_parsed_packet >> i) & 1);
+        output.print((_encoded_frame_value >> i) & 1);
     }
 
     output.printf("\nCurrent Value: %u\n", _packet.throttle_value);
@@ -520,12 +520,12 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 // This function needs to be fast, as it generates the RMT symbols just before sending
 dshot_result_t IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
 {
-    _parsed_packet = _parseDShotPacket(packet);
+    _encoded_frame_value = _parseDShotPacket(packet);
 
     for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
     {
         int bit_position = _bitPositions[i];
-        bool bit = (_parsed_packet >> bit_position) & 1;
+        bool bit = (_encoded_frame_value >> bit_position) & 1;
 
         // A '1' bit has a longer high-time, a '0' bit has a shorter high-time
         symbols[i].level0 = _level0; // Go HIGH

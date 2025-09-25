@@ -20,8 +20,6 @@
 
 #pragma once
 
-#define DSHOT_MAX_COMMAND 47
-
 /*
   DshotSettingRequest (KISS24). Spin direction, 3d and save Settings require 10 requests.. and the TLM Byte must always be high if 1-47 are used to send settings
 

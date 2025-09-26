@@ -2,7 +2,7 @@
 
 [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml/badge.svg)](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml)
 
-A C++ library for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT encoder API** (`rmt_tx.h` / `rmt_rx.h`). It leverages the standard `rmt_bytes_encoder` to ensure an efficient, hardware-timed, and maintainable implementation. The library provides a simple way to control brushless motors in both Arduino and ESP-IDF projects. The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
+A C++ library for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT encoder API** (`rmt_tx.h` / `rmt_rx.h`). It provides a simple, efficient, and hardware-timed way to control brushless motors in both Arduino and ESP-IDF projects. The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
 
 ## 🚀 Core Features
 

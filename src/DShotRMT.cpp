@@ -23,8 +23,8 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, ui
       _last_command_timestamp(0),
       _encoded_frame_value(0),
       _packet{0},
-      _level0(1), // DShot standard: signal is idle-low, so pulses start by going HIGH
-      _level1(0), // DShot standard: signal returns to LOW after the high pulse
+      _pulse_level(1), // DShot standard: signal is idle-low, so pulses start by going HIGH
+      _idle_level(0), // DShot standard: signal returns to LOW after the high pulse
       _rmt_tx_channel(nullptr),
       _rmt_rx_channel(nullptr),
       _dshot_encoder(nullptr),
@@ -355,9 +355,25 @@ dshot_result_t DShotRMT::_initRXChannel()
 
 dshot_result_t DShotRMT::_initDShotEncoder()
 {
-    rmt_copy_encoder_config_t encoder_config = {};
+    rmt_bytes_encoder_config_t encoder_config = {
+        .bit0 = {
+            .duration0 = _rmt_ticks.t0h_ticks,
+            .level0 = _pulse_level,
+            .duration1 = _rmt_ticks.t0l_ticks,
+            .level1 = _idle_level,
+        },
+        .bit1 = {
+            .duration0 = _rmt_ticks.t1h_ticks,
+            .level0 = _pulse_level,
+            .duration1 = _rmt_ticks.t1l_ticks,
+            .level1 = _idle_level,
+        },
+        .flags = {
+            .msb_first = 1 // DShot is MSB first
+        }
+    };
 
-    if (rmt_new_copy_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
+    if (rmt_new_bytes_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
         return {false, dshot_msg_code_t::DSHOT_ERROR_ENCODER_INIT_FAILED};
     }
@@ -424,50 +440,30 @@ void DShotRMT::_preCalculateRMTTicks()
 dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 {
     // Ensure enough time has passed since the last transmission
-    if (!_timer_signal())
+    if (!_isFrameIntervalElapsed())
     {
         return {true, dshot_msg_code_t::DSHOT_ERROR_NONE};
     }
 
-    rmt_symbol_word_t tx_symbols[DSHOT_BITS_PER_FRAME];
-    dshot_result_t result = _encodeDShotFrame(packet, tx_symbols);
+    _encoded_frame_value = _buildDShotFrameValue(packet);
 
-    if (!result.success)
-    {
-        return result;
-    }
+    // Byte-swap the 16-bit value for correct transmission order (ESP32 is little-endian, DShot is MSB first)
+    uint16_t swapped_value = __builtin_bswap16(_encoded_frame_value);
 
-    size_t tx_size_bytes = DSHOT_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+    // The DShot frame is 16 bits, which is 2 bytes
+    size_t tx_size_bytes = sizeof(swapped_value);
 
-    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, tx_symbols, tx_size_bytes, &_rmt_tx_config) != DSHOT_OK)
+    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, tx_size_bytes, &_rmt_tx_config) != DSHOT_OK)
     {
         return {false, dshot_msg_code_t::DSHOT_ERROR_TRANSMISSION_FAILED};
     }
 
-    _timer_reset(); // Reset the timer for the next frame
+    _recordFrameTransmissionTime(); // Reset the timer for the next frame
 
     return {true, dshot_msg_code_t::DSHOT_ERROR_TRANSMISSION_SUCCESS};
 }
 
 // This function needs to be fast, as it generates the RMT symbols just before sending
-dshot_result_t IRAM_ATTR DShotRMT::_encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols)
-{
-    _encoded_frame_value = _buildDShotFrameValue(packet);
-
-    for (int i = 0; i < DSHOT_BITS_PER_FRAME; ++i)
-    {
-        int bit_position = DSHOT_BITS_PER_FRAME - 1 - i;
-        bool bit = (_encoded_frame_value >> bit_position) & 1;
-
-        // A '1' bit has a longer high-time, a '0' bit has a shorter high-time
-        symbols[i].level0 = _level0; // Go HIGH
-        symbols[i].duration0 = bit ? _rmt_ticks.t1h_ticks : _rmt_ticks.t0h_ticks;
-        symbols[i].level1 = _level1; // Go LOW
-        symbols[i].duration1 = bit ? _rmt_ticks.t1l_ticks : _rmt_ticks.t0l_ticks;
-    }
-
-    return {true, dshot_msg_code_t::DSHOT_ERROR_ENCODING_SUCCESS};
-}
 
 // Placed in IRAM for high performance, as it's called from an ISR context
 uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
@@ -510,7 +506,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 }
 
 // Timing Control Functions
-bool IRAM_ATTR DShotRMT::_timer_signal()
+bool IRAM_ATTR DShotRMT::_isFrameIntervalElapsed()
 {
     // Check if the minimum interval between frames has passed
     uint64_t current_time = esp_timer_get_time();
@@ -518,11 +514,10 @@ bool IRAM_ATTR DShotRMT::_timer_signal()
     return elapsed >= _frame_timer_us;
 }
 
-bool DShotRMT::_timer_reset()
+void DShotRMT::_recordFrameTransmissionTime()
 {
     // Record the time of the current transmission
     _last_transmission_time_us = esp_timer_get_time();
-    return true;
 }
 
 // Static Callback Functions

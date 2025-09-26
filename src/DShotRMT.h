@@ -213,8 +213,8 @@ private:
     uint64_t _last_command_timestamp;
     uint16_t _encoded_frame_value;
     dshot_packet_t _packet;
-    uint16_t _level0; // DShot protocol: Signal is idle-low, so pulses start by going HIGH.
-    uint16_t _level1; // DShot protocol: Signal returns to LOW after the high pulse.
+    uint16_t _pulse_level; // DShot protocol: Signal is idle-low, so pulses start by going HIGH.
+    uint16_t _idle_level;  // DShot protocol: Signal returns to LOW after the high pulse.
 
     // RMT Hardware Handles
     rmt_channel_handle_t _rmt_tx_channel;
@@ -245,12 +245,11 @@ private:
 
     // Private Frame Processing Functions
     dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
-    dshot_result_t _encodeDShotFrame(const dshot_packet_t &packet, rmt_symbol_word_t *symbols);
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
 
     // Private Timing Control Functions
-    bool _timer_signal();
-    bool _timer_reset();
+    bool _isFrameIntervalElapsed();
+    void _recordFrameTransmissionTime();
 
     // Static Callback Functions
     static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);

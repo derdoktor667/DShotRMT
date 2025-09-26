@@ -94,7 +94,7 @@ void handleSerialInput(const String &input)
     {
         // Stop motor
         dshot_result_t result = motor01.sendThrottlePercent(0.0f);
-        printDShotResult(result);
+        DShotRMT::printDShotResult(result);
     }
     else if (input == "info")
     {
@@ -103,7 +103,7 @@ void handleSerialInput(const String &input)
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {
         dshot_result_t result = motor01.getTelemetry();
-        printDShotResult(result);
+        DShotRMT::printDShotResult(result);
     }
     else if (input.startsWith("cmd "))
     {
@@ -113,7 +113,7 @@ void handleSerialInput(const String &input)
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
-            printDShotResult(result);
+            DShotRMT::printDShotResult(result);
         }
         else
         {
@@ -132,7 +132,7 @@ void handleSerialInput(const String &input)
         if (throttle_percent >= 0.0f && throttle_percent <= 100.0f)
         {
             dshot_result_t result = motor01.sendThrottlePercent(throttle_percent);
-            printDShotResult(result);
+            DShotRMT::printDShotResult(result);
         }
         else
         {

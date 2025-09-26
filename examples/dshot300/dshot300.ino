@@ -88,7 +88,7 @@ void loop()
         if (IS_BIDIRECTIONAL)
         {
             dshot_result_t telem_result = motor01.getTelemetry();
-            printDShotResult(telem_result);
+            DShotRMT::printDShotResult(telem_result);
         }
 
         USB_SERIAL.println("Type 'help' to show Menu");
@@ -128,7 +128,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         throttle = 0;
         continuous_throttle = true;
         dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        printDShotResult(result);
+        DShotRMT::printDShotResult(result);
     }
     else if (input == "info")
     {
@@ -137,7 +137,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {
         dshot_result_t result = motor01.getTelemetry();
-        printDShotResult(result);
+        DShotRMT::printDShotResult(result);
     }
     else if (input.startsWith("cmd "))
     {
@@ -149,7 +149,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
-            printDShotResult(result);
+            DShotRMT::printDShotResult(result);
         }
         else
         {
@@ -171,7 +171,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
             continuous_throttle = true;
 
             dshot_result_t result = motor01.sendThrottle(throttle);
-            printDShotResult(result);
+            DShotRMT::printDShotResult(result);
         }
         else
         {

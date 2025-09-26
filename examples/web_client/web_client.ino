@@ -178,7 +178,7 @@ void loop()
         if (IS_BIDIRECTIONAL && isArmed)
         {
             dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
-            printDShotResult(telem_result);
+            DShotRMT::printDShotResult(telem_result);
         }
 
         USB_SERIAL.println("Type 'help' to show Menu");
@@ -495,7 +495,7 @@ void handleSerialInput(const String &input)
         if (isArmed)
         {
             dshot_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
-            printDShotResult(result);
+            DShotRMT::printDShotResult(result);
         }
         else
         {
@@ -520,7 +520,7 @@ void handleSerialInput(const String &input)
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
-            printDShotResult(result);
+            DShotRMT::printDShotResult(result);
         }
         else
         {
@@ -581,7 +581,7 @@ void handleSerialInput(const String &input)
         throttle = 0;
         continuous_throttle = false;
         dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        printDShotResult(result);
+        DShotRMT::printDShotResult(result);
         return;
     }
 

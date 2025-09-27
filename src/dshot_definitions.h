@@ -44,38 +44,38 @@ typedef struct rmt_ticks
 // Enum class for specific error and success codes returned by DShotRMT functions.
 enum class dshot_msg_code_t
 {
-    DSHOT_ERROR_NONE = 0,
-    DSHOT_ERROR_UNKNOWN,
-    DSHOT_ERROR_TX_INIT_FAILED,
-    DSHOT_ERROR_RX_INIT_FAILED,
-    DSHOT_ERROR_ENCODER_INIT_FAILED,
-    DSHOT_ERROR_CALLBACK_REGISTERING_FAILED,
-    DSHOT_ERROR_RECEIVER_FAILED,
-    DSHOT_ERROR_TRANSMISSION_FAILED,
-    DSHOT_ERROR_THROTTLE_NOT_IN_RANGE,
-    DSHOT_ERROR_PERCENT_NOT_IN_RANGE,
-    DSHOT_ERROR_COMMAND_NOT_VALID,
-    DSHOT_ERROR_BIDIR_NOT_ENABLED,
-    DSHOT_ERROR_TELEMETRY_FAILED,
-    DSHOT_ERROR_INVALID_MAGNET_COUNT,
-    DSHOT_ERROR_INVALID_COMMAND,
-    DSHOT_ERROR_TIMING_CORRECTION,
-    DSHOT_ERROR_INIT_FAILED,
-    DSHOT_ERROR_INIT_SUCCESS,
-    DSHOT_ERROR_TX_INIT_SUCCESS,
-    DSHOT_ERROR_RX_INIT_SUCCESS,
-    DSHOT_ERROR_ENCODER_INIT_SUCCESS,
-    DSHOT_ERROR_ENCODING_SUCCESS,
-    DSHOT_ERROR_TRANSMISSION_SUCCESS,
-    DSHOT_ERROR_TELEMETRY_SUCCESS,
-    DSHOT_ERROR_COMMAND_SUCCESS
+    DSHOT_NONE = 0,
+    DSHOT_UNKNOWN,
+    DSHOT_TX_INIT_FAILED,
+    DSHOT_RX_INIT_FAILED,
+    DSHOT_ENCODER_INIT_FAILED,
+    DSHOT_CALLBACK_REGISTERING_FAILED,
+    DSHOT_RECEIVER_FAILED,
+    DSHOT_TRANSMISSION_FAILED,
+    DSHOT_THROTTLE_NOT_IN_RANGE,
+    DSHOT_PERCENT_NOT_IN_RANGE,
+    DSHOT_COMMAND_NOT_VALID,
+    DSHOT_BIDIR_NOT_ENABLED,
+    DSHOT_TELEMETRY_FAILED,
+    DSHOT_INVALID_MAGNET_COUNT,
+    DSHOT_INVALID_COMMAND,
+    DSHOT_TIMING_CORRECTION,
+    DSHOT_INIT_FAILED,
+    DSHOT_INIT_SUCCESS,
+    DSHOT_TX_INIT_SUCCESS,
+    DSHOT_RX_INIT_SUCCESS,
+    DSHOT_ENCODER_INIT_SUCCESS,
+    DSHOT_ENCODING_SUCCESS,
+    DSHOT_TRANSMISSION_SUCCESS,
+    DSHOT_TELEMETRY_SUCCESS,
+    DSHOT_COMMAND_SUCCESS
 };
 
 // Contains the success status, an error code, and optional telemetry data.
 typedef struct dshot_result
 {
     bool success;
-    dshot_msg_code_t error_code; // Specific error or success code.
+    char *result_code; // Specific error or success code.
     uint16_t erpm;               // Electrical RPM (eRPM) if telemetry is successful.
     uint16_t motor_rpm;          // Motor RPM if telemetry is successful and magnet count is known.
 } dshot_result_t;
@@ -168,115 +168,36 @@ const dshot_timing_us_t DSHOT_TIMING_US[] = {
     {0.83, 0.67}}; // DSHOT1200
 
 // Error Messages
-const char *const NONE = "";
-const char *const UNKNOWN_ERROR = "Unknown Error!";
-const char *const INIT_SUCCESS = "SignalGeneratorRMT initialized successfully";
-const char *const INIT_FAILED = "SignalGeneratorRMT init failed!";
-const char *const TX_INIT_SUCCESS = "TX RMT channel initialized successfully";
-const char *const TX_INIT_FAILED = "TX RMT channel init failed!";
-const char *const RX_INIT_SUCCESS = "RX RMT channel initialized successfully";
-const char *const RX_INIT_FAILED = "RX RMT channel init failed!";
-const char *const ENCODER_INIT_SUCCESS = "RMT encoder initialized successfully";
-const char *const ENCODER_INIT_FAILED = "RMT encoder init failed!";
-const char *const ENCODING_SUCCESS = "Packet encoded successfully";
-const char *const TRANSMISSION_SUCCESS = "Transmission successfully";
-const char *const TRANSMISSION_FAILED = "Transmission failed!";
-const char *const RECEIVER_FAILED = "RMT receiver failed!";
-const char *const THROTTLE_NOT_IN_RANGE = "Throttle not in range! (48 - 2047)";
-const char *const PERCENT_NOT_IN_RANGE = "Percent not in range! (0.0 - 100.0)";
-const char *const COMMAND_NOT_VALID = "Command not valid! (0 - 47)";
-const char *const BIDIR_NOT_ENABLED = "Bidirectional DShot not enabled!";
-const char *const TELEMETRY_SUCCESS = "Valid Telemetric Frame received!";
-const char *const TELEMETRY_FAILED = "No valid Telemetric Frame received!";
-const char *const INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
-const char *const TIMING_CORRECTION = "Timing correction!";
-const char *const CALLBACK_REGISTERING_FAILED = "RMT RX Callback registering failed!";
-const char *const INVALID_COMMAND = "Invalid command!";
-const char *const COMMAND_SUCCESS = "DShot command sent successfully";
+static constexpr char *NONE = "";
+static constexpr char *UNKNOWN_ERROR = "Unknown Error!";
+static constexpr char *INIT_SUCCESS = "SignalGeneratorRMT initialized successfully";
+static constexpr char *INIT_FAILED = "SignalGeneratorRMT init failed!";
+static constexpr char *TX_INIT_SUCCESS = "TX RMT channel initialized successfully";
+static constexpr char *TX_INIT_FAILED = "TX RMT channel init failed!";
+static constexpr char *RX_INIT_SUCCESS = "RX RMT channel initialized successfully";
+static constexpr char *RX_INIT_FAILED = "RX RMT channel init failed!";
+static constexpr char *ENCODER_INIT_SUCCESS = "RMT encoder initialized successfully";
+static constexpr char *ENCODER_INIT_FAILED = "RMT encoder init failed!";
+static constexpr char *ENCODING_SUCCESS = "Packet encoded successfully";
+static constexpr char *TRANSMISSION_SUCCESS = "Transmission successfully";
+static constexpr char *TRANSMISSION_FAILED = "Transmission failed!";
+static constexpr char *RECEIVER_FAILED = "RMT receiver failed!";
+static constexpr char *THROTTLE_NOT_IN_RANGE = "Throttle not in range! (48 - 2047)";
+static constexpr char *PERCENT_NOT_IN_RANGE = "Percent not in range! (0.0 - 100.0)";
+static constexpr char *COMMAND_NOT_VALID = "Command not valid! (0 - 47)";
+static constexpr char *BIDIR_NOT_ENABLED = "Bidirectional DShot not enabled!";
+static constexpr char *TELEMETRY_SUCCESS = "Valid Telemetric Frame received!";
+static constexpr char *TELEMETRY_FAILED = "No valid Telemetric Frame received!";
+static constexpr char *INVALID_MAGNET_COUNT = "Invalid motor magnet count!";
+static constexpr char *TIMING_CORRECTION = "Timing correction!";
+static constexpr char *CALLBACK_REGISTERING_FAILED = "RMT RX Callback registering failed!";
+static constexpr char *INVALID_COMMAND = "Invalid command!";
+static constexpr char *COMMAND_SUCCESS = "DShot command sent successfully";
 
-// Helper Functions
+// Helpers
 inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 {
-    const char *msg_str;
-    switch (result.error_code)
-    {
-    case dshot_msg_code_t::DSHOT_ERROR_NONE:
-        msg_str = "None";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_UNKNOWN:
-        msg_str = "Unknown Error!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TX_INIT_FAILED:
-        msg_str = "TX RMT channel init failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_RX_INIT_FAILED:
-        msg_str = "RX RMT channel init failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_ENCODER_INIT_FAILED:
-        msg_str = "RMT encoder init failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_CALLBACK_REGISTERING_FAILED:
-        msg_str = "RMT RX Callback registering failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_RECEIVER_FAILED:
-        msg_str = "RMT receiver failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TRANSMISSION_FAILED:
-        msg_str = "Transmission failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_THROTTLE_NOT_IN_RANGE:
-        msg_str = "Throttle not in range! (48 - 2047)";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_PERCENT_NOT_IN_RANGE:
-        msg_str = "Percent not in range! (0.0 - 100.0)";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_COMMAND_NOT_VALID:
-        msg_str = "Command not valid! (0 - 47)";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_BIDIR_NOT_ENABLED:
-        msg_str = "Bidirectional DShot not enabled!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TELEMETRY_FAILED:
-        msg_str = "No valid Telemetric Frame received!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_INVALID_MAGNET_COUNT:
-        msg_str = "Invalid motor magnet count!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_INVALID_COMMAND:
-        msg_str = "Invalid command!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TIMING_CORRECTION:
-        msg_str = "Timing correction!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_INIT_FAILED:
-        msg_str = "SignalGeneratorRMT init failed!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_INIT_SUCCESS:
-        msg_str = "SignalGeneratorRMT initialized successfully";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TX_INIT_SUCCESS:
-        msg_str = "TX RMT channel initialized successfully";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_RX_INIT_SUCCESS:
-        msg_str = "RX RMT channel initialized successfully";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_ENCODING_SUCCESS:
-        msg_str = "Packet encoded successfully";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TRANSMISSION_SUCCESS:
-        msg_str = "Transmission successfully";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_TELEMETRY_SUCCESS:
-        msg_str = "Valid Telemetric Frame received!";
-        break;
-    case dshot_msg_code_t::DSHOT_ERROR_COMMAND_SUCCESS:
-        msg_str = "DShot command sent successfully";
-        break;
-    default:
-        msg_str = "Unhandled Error Code!";
-        break;
-    }
-    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", msg_str);
+    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", result.result_code);
 
     // Print telemetry data if available
     if (result.success && (result.erpm > 0 || result.motor_rpm > 0))

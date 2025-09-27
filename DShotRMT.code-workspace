@@ -7,6 +7,9 @@
     "settings": {
         "files.associations": {
             "string": "cpp"
-        }
+        },
+        "arduino.logLevel": "verbose",
+        "arduino.path": "/usr/bin/arduino-cli",
+        "arduino.useArduinoCli": true
     }
 }

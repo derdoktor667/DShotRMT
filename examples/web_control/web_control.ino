@@ -41,7 +41,7 @@ static constexpr auto USB_SERIAL_BAUD = 115200;
 static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
@@ -138,7 +138,7 @@ void loop()
     // Print motor stats every 3 seconds in continuous mode
     if ((esp_timer_get_time() - last_serial_update >= 3000000))
     {
-        motor01.printDShotInfo();
+        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
 
         USB_SERIAL.println(" ");
 
@@ -254,7 +254,7 @@ void handleSerialInput(const String &input)
     }
     if (input == "info")
     {
-        motor01.printDShotInfo();
+        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         return;

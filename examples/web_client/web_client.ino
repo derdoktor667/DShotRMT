@@ -42,7 +42,7 @@ static constexpr auto USB_SERIAL_BAUD = 115200;
 static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
@@ -166,16 +166,13 @@ void loop()
     }
     else if (!isArmed && continuous_throttle)
     {
-        // Ensure motor is stopped when disarmed
         motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
     }
 
     // Print motor stats every 3 seconds in continuous mode
     if ((esp_timer_get_time() - last_serial_update >= 3000000))
     {
-        motor01.printDShotInfo();
-
-        USB_SERIAL.println(" ");
+        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
 
         // Get Motor RPM if bidirectional and armed
         if (IS_BIDIRECTIONAL && isArmed)
@@ -269,9 +266,8 @@ void handleOTAUpload(AsyncWebServerRequest *request, String filename, size_t ind
 
     if (!index)
     {
-        // Safety: Ensure motor is stopped during update
-        motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        setArmingStatus(false);
+                    // Safety: Ensure motor is stopped during update
+                    motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);        setArmingStatus(false);
 
         USB_SERIAL.printf("OTA Update Start: %s\n", filename.c_str());
 
@@ -451,7 +447,7 @@ void handleSerialInput(const String &input)
 
     if (input == "info")
     {
-        motor01.printDShotInfo();
+        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         return;

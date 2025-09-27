@@ -7,59 +7,7 @@
 #######################################
 
 DShotRMT	KEYWORD1
-DShotCommandManager	KEYWORD1
-dshot_mode_t	KEYWORD1
-dshot_packet_t	KEYWORD1
-dshot_timing_t	KEYWORD1
-dshot_commands_t	KEYWORD1
-dshot_command_result_t	KEYWORD1
-dshot_command_sequence_item_t	KEYWORD1
-dshotCommands_e	KEYWORD1
-dshotCommandType_e	KEYWORD1
 
-#######################################
-# Methods and Functions (KEYWORD2)
-#######################################
-
-# DShotRMT Methods
-begin	KEYWORD2
-setThrottle	KEYWORD2
-sendThrottle	KEYWORD2
-sendDShotCommand	KEYWORD2
-sendCommand	KEYWORD2
-getERPM	KEYWORD2
-getMotorRPM	KEYWORD2
-getGPIO	KEYWORD2
-getDShotPacket	KEYWORD2
-is_bidirectional	KEYWORD2
-printDShotInfo	KEYWORD2
-printCpuInfo	KEYWORD2
-
-# DShotCommandManager Methods
-sendCommand	KEYWORD2
-sendCommandWithDelay	KEYWORD2
-stopMotor	KEYWORD2
-set3DMode	KEYWORD2
-setSpinDirection	KEYWORD2
-saveSettings	KEYWORD2
-setExtendedTelemetry	KEYWORD2
-requestESCInfo	KEYWORD2
-setLED	KEYWORD2
-activateBeacon	KEYWORD2
-setAudioStreamMode	KEYWORD2
-setSilentMode	KEYWORD2
-executeSequence	KEYWORD2
-executeInitSequence	KEYWORD2
-executeCalibrationSequence	KEYWORD2
-getCommandName	KEYWORD2
-isValidCommand	KEYWORD2
-printStatistics	KEYWORD2
-resetStatistics	KEYWORD2
-getTotalCommandCount	KEYWORD2
-getFailedCommandCount	KEYWORD2
-getLastExecutionTime	KEYWORD2
-printMenu	KEYWORD2
-handleMenuInput	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

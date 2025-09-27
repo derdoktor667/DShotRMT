@@ -6,10 +6,7 @@
 #include <driver/rmt_rx.h>
 #include <atomic> // Added for std::atomic
 
-/**
- * @brief DShot Modes
- * Defines the available DShot communication speeds.
- */
+// Defines the available DShot communication speeds.
 enum class dshot_mode_t
 {
     DSHOT_OFF,
@@ -19,44 +16,32 @@ enum class dshot_mode_t
     DSHOT1200
 };
 
-/**
- * @brief DShot Packet Structure
- * Represents the 16-bit DShot data packet sent to the ESC.
- */
+// Represents the 16-bit DShot data packet sent to the ESC.
 typedef struct dshot_packet
 {
-    uint16_t throttle_value : 11; ///< 11-bit throttle value or command.
-    bool telemetric_request : 1;  ///< 1-bit telemetry request flag.
-    uint16_t checksum : 4;        ///< 4-bit CRC checksum.
+    uint16_t throttle_value : 11; // 11-bit throttle value or command.
+    bool telemetric_request : 1;  // 1-bit telemetry request flag.
+    uint16_t checksum : 4;        // 4-bit CRC checksum.
 } dshot_packet_t;
 
-/**
- * @brief DShot Timing Configuration
- * Defines the bit length and high time for a '1' bit in microseconds for each DShot mode.
- */
+// Defines the bit length and high time for a '1' bit in microseconds for each DShot mode.
 typedef struct dshot_timing
 {
-    double bit_length_us; ///< Total duration of one bit in microseconds.
-    double t1h_lenght_us; ///< High time duration for a '1' bit in microseconds.
+    double bit_length_us; // Total duration of one bit in microseconds.
+    double t1h_lenght_us; // High time duration for a '1' bit in microseconds.
 } dshot_timing_us_t;
 
-/**
- * @brief RMT Timing Configuration
- * Stores pre-calculated timing values in RMT ticks for efficient signal generation.
- */
+// Stores pre-calculated timing values in RMT ticks for efficient signal generation.
 typedef struct rmt_ticks
 {
-    uint16_t bit_length_ticks; ///< Total duration of one bit in RMT ticks.
-    uint16_t t1h_ticks;        ///< High time duration for a '1' bit in RMT ticks.
-    uint16_t t1l_ticks;        ///< Low time duration for a '1' bit in RMT ticks.
-    uint16_t t0h_ticks;        ///< High time duration for a '0' bit in RMT ticks.
-    uint16_t t0l_ticks;        ///< Low time duration for a '0' bit in RMT ticks.
+    uint16_t bit_length_ticks; // Total duration of one bit in RMT ticks.
+    uint16_t t1h_ticks;        // High time duration for a '1' bit in RMT ticks.
+    uint16_t t1l_ticks;        // Low time duration for a '1' bit in RMT ticks.
+    uint16_t t0h_ticks;        // High time duration for a '0' bit in RMT ticks.
+    uint16_t t0l_ticks;        // Low time duration for a '0' bit in RMT ticks.
 } rmt_ticks_t;
 
-/**
- * @brief DShot Error Codes
- * Enum class for specific error and success codes returned by DShotRMT functions.
- */
+// Enum class for specific error and success codes returned by DShotRMT functions.
 enum class dshot_msg_code_t
 {
     DSHOT_ERROR_NONE = 0,
@@ -86,22 +71,16 @@ enum class dshot_msg_code_t
     DSHOT_ERROR_COMMAND_SUCCESS
 };
 
-/**
- * @brief Unified DShot Result Structure
- * Contains the success status, an error code, and optional telemetry data.
- */
+// Contains the success status, an error code, and optional telemetry data.
 typedef struct dshot_result
 {
     bool success;
-    dshot_msg_code_t error_code; ///< Specific error or success code.
-    uint16_t erpm;               ///< Electrical RPM (eRPM) if telemetry is successful.
-    uint16_t motor_rpm;          ///< Motor RPM if telemetry is successful and magnet count is known.
+    dshot_msg_code_t error_code; // Specific error or success code.
+    uint16_t erpm;               // Electrical RPM (eRPM) if telemetry is successful.
+    uint16_t motor_rpm;          // Motor RPM if telemetry is successful and magnet count is known.
 } dshot_result_t;
 
-/**
- * @brief DShot Commands
- * Enum class for standard DShot commands that can be sent to an ESC.
- */
+// Enum class for standard DShot commands that can be sent to an ESC.
 enum dshotCommands_e
 {
     DSHOT_CMD_MOTOR_STOP = 0,
@@ -134,14 +113,11 @@ enum dshotCommands_e
     DSHOT_CMD_MAX = 47
 };
 
-/**
- * @brief DShot Command Type Enum
- * Defines how DShot commands are sent.
- */
+// Defines how DShot commands are sent.
 enum class dshotCommandType_e
 {
-    DSHOT_CMD_TYPE_INLINE = 0, ///< Commands sent inline with motor signal (motors must be enabled).
-    DSHOT_CMD_TYPE_BLOCKING    ///< Commands sent in blocking method (motors must be disabled).
+    DSHOT_CMD_TYPE_INLINE = 0, // Commands sent inline with motor signal (motors must be enabled).
+    DSHOT_CMD_TYPE_BLOCKING    // Commands sent in blocking method (motors must be disabled).
 };
 
 // DShot Protocol Constants
@@ -219,11 +195,6 @@ const char *const INVALID_COMMAND = "Invalid command!";
 const char *const COMMAND_SUCCESS = "DShot command sent successfully";
 
 // Helper Functions
-/**
- * @brief Prints the result of a DShot operation to the specified output stream.
- * @param result The dshot_result_t structure containing the operation's outcome.
- * @param output The output stream (e.g., Serial) to print to. Defaults to Serial.
- */
 inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 {
     const char *msg_str;

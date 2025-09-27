@@ -9,7 +9,7 @@
 #pragma once
 
 // Web Site Content
-static constexpr char index_html[] = R"rawliteral(
+const char *index_html = R"rawliteral(
 <!DOCTYPE html>
 <html lang="de">
 

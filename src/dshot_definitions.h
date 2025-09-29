@@ -75,7 +75,7 @@ enum class dshot_msg_code_t
 typedef struct dshot_result
 {
     bool success;
-    char *result_code; // Specific error or success code.
+    dshot_msg_code_t result_code; // Specific error or success code.
     uint16_t erpm;               // Electrical RPM (eRPM) if telemetry is successful.
     uint16_t motor_rpm;          // Motor RPM if telemetry is successful and magnet count is known.
 } dshot_result_t;
@@ -194,10 +194,70 @@ static constexpr char *CALLBACK_REGISTERING_FAILED = "RMT RX Callback registerin
 static constexpr char *INVALID_COMMAND = "Invalid command!";
 static constexpr char *COMMAND_SUCCESS = "DShot command sent successfully";
 
+// Helper to get result code string
+inline const char* _get_result_code_str(dshot_msg_code_t code)
+{
+    switch (code)
+    {
+    case dshot_msg_code_t::DSHOT_NONE:
+        return NONE;
+    case dshot_msg_code_t::DSHOT_UNKNOWN:
+        return UNKNOWN_ERROR;
+    case dshot_msg_code_t::DSHOT_TX_INIT_FAILED:
+        return TX_INIT_FAILED;
+    case dshot_msg_code_t::DSHOT_RX_INIT_FAILED:
+        return RX_INIT_FAILED;
+    case dshot_msg_code_t::DSHOT_ENCODER_INIT_FAILED:
+        return ENCODER_INIT_FAILED;
+    case dshot_msg_code_t::DSHOT_CALLBACK_REGISTERING_FAILED:
+        return CALLBACK_REGISTERING_FAILED;
+    case dshot_msg_code_t::DSHOT_RECEIVER_FAILED:
+        return RECEIVER_FAILED;
+    case dshot_msg_code_t::DSHOT_TRANSMISSION_FAILED:
+        return TRANSMISSION_FAILED;
+    case dshot_msg_code_t::DSHOT_THROTTLE_NOT_IN_RANGE:
+        return THROTTLE_NOT_IN_RANGE;
+    case dshot_msg_code_t::DSHOT_PERCENT_NOT_IN_RANGE:
+        return PERCENT_NOT_IN_RANGE;
+    case dshot_msg_code_t::DSHOT_COMMAND_NOT_VALID:
+        return COMMAND_NOT_VALID;
+    case dshot_msg_code_t::DSHOT_BIDIR_NOT_ENABLED:
+        return BIDIR_NOT_ENABLED;
+    case dshot_msg_code_t::DSHOT_TELEMETRY_FAILED:
+        return TELEMETRY_FAILED;
+    case dshot_msg_code_t::DSHOT_INVALID_MAGNET_COUNT:
+        return INVALID_MAGNET_COUNT;
+    case dshot_msg_code_t::DSHOT_INVALID_COMMAND:
+        return INVALID_COMMAND;
+    case dshot_msg_code_t::DSHOT_TIMING_CORRECTION:
+        return TIMING_CORRECTION;
+    case dshot_msg_code_t::DSHOT_INIT_FAILED:
+        return INIT_FAILED;
+    case dshot_msg_code_t::DSHOT_INIT_SUCCESS:
+        return INIT_SUCCESS;
+    case dshot_msg_code_t::DSHOT_TX_INIT_SUCCESS:
+        return TX_INIT_SUCCESS;
+    case dshot_msg_code_t::DSHOT_RX_INIT_SUCCESS:
+        return RX_INIT_SUCCESS;
+    case dshot_msg_code_t::DSHOT_ENCODER_INIT_SUCCESS:
+        return ENCODER_INIT_SUCCESS;
+    case dshot_msg_code_t::DSHOT_ENCODING_SUCCESS:
+        return ENCODING_SUCCESS;
+    case dshot_msg_code_t::DSHOT_TRANSMISSION_SUCCESS:
+        return TRANSMISSION_SUCCESS;
+    case dshot_msg_code_t::DSHOT_TELEMETRY_SUCCESS:
+        return TELEMETRY_SUCCESS;
+    case dshot_msg_code_t::DSHOT_COMMAND_SUCCESS:
+        return COMMAND_SUCCESS;
+    default:
+        return UNKNOWN_ERROR;
+    }
+}
+
 // Helpers
 inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 {
-    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", result.result_code);
+    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", _get_result_code_str(result.result_code));
 
     // Print telemetry data if available
     if (result.success && (result.erpm > 0 || result.motor_rpm > 0))

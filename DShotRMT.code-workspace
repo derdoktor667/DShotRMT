@@ -10,6 +10,7 @@
         },
         "arduino.logLevel": "verbose",
         "arduino.path": "/usr/bin/arduino-cli",
-        "arduino.useArduinoCli": true
+        "arduino.useArduinoCli": true,
+        "arduino.disableIntelliSenseAutoGen": true
     }
 }

@@ -319,8 +319,8 @@ dshot_result_t DShotRMT::_initRXChannel()
     _rx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
 
     // Filter for pulses that are within a reasonable range for DShot telemetry
-    _rmt_rx_config.signal_range_min_ns = DSHOT_PULSE_MIN;
-    _rmt_rx_config.signal_range_max_ns = DSHOT_PULSE_MAX;
+    _rmt_rx_config.signal_range_min_ns = DSHOT_PULSE_MIN_NS;
+    _rmt_rx_config.signal_range_max_ns = DSHOT_PULSE_MAX_NS;
 
     if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
     {
@@ -542,10 +542,25 @@ bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const 
 void DShotRMT::printDShotInfo(const DShotRMT &dshot_rmt, Stream &output)
 {
     output.println("\n === DShot Signal Info === ");
-    output.printf("Current Mode: DSHOT%d\n", dshot_rmt.getMode() == dshot_mode_t::DSHOT150 ? 150 : dshot_rmt.getMode() == dshot_mode_t::DSHOT300 ? 300
-                                                                                               : dshot_rmt.getMode() == dshot_mode_t::DSHOT600   ? 600
-                                                                                               : dshot_rmt.getMode() == dshot_mode_t::DSHOT1200  ? 1200
-                                                                                                                                                 : 0);
+
+    uint16_t dshot_mode_val = 0;
+    switch (dshot_rmt.getMode())
+    {
+    case dshot_mode_t::DSHOT150:
+        dshot_mode_val = 150;
+        break;
+    case dshot_mode_t::DSHOT300:
+        dshot_mode_val = 300;
+        break;
+    case dshot_mode_t::DSHOT600:
+        dshot_mode_val = 600;
+        break;
+    case dshot_mode_t::DSHOT1200:
+        dshot_mode_val = 1200;
+        break;
+    }
+    output.printf("Current Mode: DSHOT%d\n", dshot_mode_val);
+    
     output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
     output.printf("Current Packet: ");
 

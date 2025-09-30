@@ -7,7 +7,7 @@
  */
 
 #include <Arduino.h>
-#include "DShotRMT.h"
+#include <DShotRMT.h>
 
 // USB serial port settings
 static constexpr auto &USB_SERIAL = Serial0;
@@ -29,7 +29,7 @@ static constexpr auto IS_BIDIRECTIONAL = false;
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 //
 void setup()

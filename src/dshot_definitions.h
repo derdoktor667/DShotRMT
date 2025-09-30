@@ -41,7 +41,7 @@ typedef struct rmt_ticks
     uint16_t t0l_ticks;        // Low time duration for a '0' bit in RMT ticks.
 } rmt_ticks_t;
 
-// Enum class for specific error and success codes returned by DShotRMT functions.
+// Enum class for specific error and success codes
 enum class dshot_msg_code_t
 {
     DSHOT_NONE = 0,
@@ -76,11 +76,11 @@ typedef struct dshot_result
 {
     bool success;
     dshot_msg_code_t result_code; // Specific error or success code.
-    uint16_t erpm;               // Electrical RPM (eRPM) if telemetry is successful.
-    uint16_t motor_rpm;          // Motor RPM if telemetry is successful and magnet count is known.
+    uint16_t erpm;                // Electrical RPM (eRPM) if telemetry is successful.
+    uint16_t motor_rpm;           // Motor RPM if telemetry is successful and magnet count is known.
 } dshot_result_t;
 
-// Standard DShot commands (regular enum for easier handling as per project conventions).
+// Standard DShot commands by "betaflight"
 enum dshotCommands_e
 {
     DSHOT_CMD_MOTOR_STOP = 0,
@@ -113,53 +113,51 @@ enum dshotCommands_e
     DSHOT_CMD_MAX = 47
 };
 
-// --- Type-Safe Constants ---
-
 // DShot Protocol Constants
-static constexpr uint16_t DSHOT_THROTTLE_FAILSAFE = 0;
-static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;
-static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;
-static constexpr uint16_t DSHOT_BITS_PER_FRAME = 16;
-static constexpr uint16_t DEFAULT_MOTOR_MAGNET_COUNT = 14;
+static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
+static constexpr auto DSHOT_THROTTLE_MIN = 48;
+static constexpr auto DSHOT_THROTTLE_MAX = 2047;
+static constexpr auto DSHOT_BITS_PER_FRAME = 16;
+static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
 
 // Custom status codes
 static constexpr int DSHOT_OK = 0;
 static constexpr int DSHOT_ERROR = 1;
 
 // Configuration Constants
-static constexpr uint16_t DSHOT_NULL_PACKET = 0b0000000000000000;
-static constexpr uint16_t DSHOT_FULL_PACKET = 0b1111111111111111;
-static constexpr uint16_t DSHOT_CRC_MASK = 0b0000000000001111;
-static constexpr rmt_clock_source_t DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
-static constexpr uint32_t DSHOT_RMT_RESOLUTION = 8000000; // 8 MHz resolution
-static constexpr uint16_t RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / 1000000; // RMT Ticks per microsecond
-static constexpr uint16_t DSHOT_RX_TIMEOUT_MS = 2;
-static constexpr uint16_t DSHOT_PADDING_US = 20; // Pause between frames
-static constexpr uint16_t RMT_BUFFER_SYMBOLS = 64;
-static constexpr uint16_t RMT_QUEUE_DEPTH = 1;
-static constexpr uint16_t GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer frame
-static constexpr uint16_t POLE_PAIRS_MIN = 1;
-static constexpr uint16_t MAGNETS_PER_POLE_PAIR = 2;
-static constexpr uint16_t NO_DSHOT_TELEMETRY = 0;
-static constexpr uint16_t DSHOT_PULSE_MIN_NS = 800;  // 0.8us minimum pulse
-static constexpr uint16_t DSHOT_PULSE_MAX_NS = 8000; // 8.0us maximum pulse
-static constexpr uint16_t DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
-static constexpr uint16_t DSHOT_TELEMETRY_BIT_POSITION = 11;
-static constexpr uint16_t DSHOT_CRC_BIT_SHIFT = 4;
+static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
+static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
+static constexpr auto DSHOT_CRC_MASK = 0b0000000000001111;
+static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
+static constexpr auto DSHOT_RMT_RESOLUTION = 8000000;                    // 8 MHz resolution
+static constexpr auto RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / 1000000; // RMT Ticks per microsecond
+static constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
+static constexpr auto DSHOT_PADDING_US = 20; // Pause between frames
+static constexpr auto RMT_BUFFER_SYMBOLS = 64;
+static constexpr auto RMT_QUEUE_DEPTH = 1;
+static constexpr auto GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer frame
+static constexpr auto POLE_PAIRS_MIN = 1;
+static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
+static constexpr auto NO_DSHOT_TELEMETRY = 0;
+static constexpr auto DSHOT_PULSE_MIN_NS = 800;  // 0.8us minimum pulse
+static constexpr auto DSHOT_PULSE_MAX_NS = 8000; // 8.0us maximum pulse
+static constexpr auto DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
+static constexpr auto DSHOT_TELEMETRY_BIT_POSITION = 11;
+static constexpr auto DSHOT_CRC_BIT_SHIFT = 4;
 
 // Command Constants
-static constexpr uint16_t DEFAULT_CMD_DELAY_US = 10;
-static constexpr uint16_t DEFAULT_CMD_REPEAT_COUNT = 1;
-static constexpr uint16_t SETTINGS_COMMAND_REPEATS = 10;
-static constexpr uint16_t SETTINGS_COMMAND_DELAY_US = 5;
+static constexpr auto DEFAULT_CMD_DELAY_US = 10;
+static constexpr auto DEFAULT_CMD_REPEAT_COUNT = 1;
+static constexpr auto SETTINGS_COMMAND_REPEATS = 10;
+static constexpr auto SETTINGS_COMMAND_DELAY_US = 5;
 
 // Timing parameters for each DShot mode
 const dshot_timing_us_t DSHOT_TIMING_US[] = {
-    {0.00, 0.00},  // DSHOT_OFF
-    {6.67, 5.00},  // DSHOT150
-    {3.33, 2.50},  // DSHOT300
-    {1.67, 1.25},  // DSHOT600
-    {0.83, 0.67}   // DSHOT1200
+    {0.00, 0.00}, // DSHOT_OFF
+    {6.67, 5.00}, // DSHOT150
+    {3.33, 2.50}, // DSHOT300
+    {1.67, 1.25}, // DSHOT600
+    {0.83, 0.67}  // DSHOT1200
 };
 
 // Error Messages
@@ -190,7 +188,7 @@ static constexpr char INVALID_COMMAND[] = "Invalid command!";
 static constexpr char COMMAND_SUCCESS[] = "DShot command sent successfully";
 
 // Helper to get result code string
-inline const char* _get_result_code_str(dshot_msg_code_t code)
+inline const char *_get_result_code_str(dshot_msg_code_t code)
 {
     switch (code)
     {
@@ -249,7 +247,7 @@ inline const char* _get_result_code_str(dshot_msg_code_t code)
     }
 }
 
-// Helpers
+// Helper to quick print DShot result codes
 inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 {
     output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", _get_result_code_str(result.result_code));

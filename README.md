@@ -2,7 +2,9 @@
 
 [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml/badge.svg)](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml)
 
-A C++ library for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed, and maintainable implementation. It provides a simple way to control brushless motors in both Arduino and ESP-IDF projects. The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
+An Arduino IDElibrary for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed, and maintainable implementation. It provides a simple way to control brushless motors in both Arduino and ESP-IDF projects.
+
+ The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
 
 ### DShot300 Example Output
 
@@ -16,8 +18,8 @@ Here's an example of the output from the `dshot300` example sketch:
 - **Bidirectional DShot Support:** Implemented, but note that official support is limited due to potential instability and external hardware requirements. Use with caution.
 - **Hardware-Timed Signals:** Precise signal generation using the ESP32 RMT peripheral, ensuring stable and reliable motor control.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
-- **Robust Error Handling:** Provides detailed feedback on operation success or failure via `dshot_result_t`.
-- **Efficient and Lightweight:** The core library has no external dependencies.
+- **Error Handling:** Provides detailed feedback on operation success or failure via `dshot_result_t`.
+- **Lightweight:** The core library has no external dependencies.
 - **Arduino and ESP-IDF Compatible:** Can be used in both Arduino and ESP-IDF projects.
 
 ## ⏱️ DShot Timing Information
@@ -39,18 +41,9 @@ The DShot protocol defines specific timing characteristics for each mode. The fo
 2.  Search for "DShotRMT" and click "Install".
 3.  Alternatively, you can clone this repository or download it as a ZIP file and place it in your Arduino libraries folder (`~/Arduino/libraries/DShotRMT/`).
 
-### PlatformIO
-
-Add the following to your `platformio.ini` file:
-
-```ini
-lib_deps = 
-    https://github.com/derdoktor667/DShotRMT.git
-```
-
 ## ⚡ Quick Start
 
-Here's a basic example of how to use the `DShotRMT` library to control a motor:
+Here's a basic example of how to use the `DShotRMT` library to control a motor. Please use example sketches for more detailes:
 
 ```cpp
 #include <Arduino.h>
@@ -73,6 +66,9 @@ void setup() {
 
   Serial.println("Motor initialized. Ramping up to 25% throttle...");
   
+}
+
+void loop() {
   // Ramp up to 25% throttle over 2.5 seconds
   for (int i = 0; i <= 25; i++) {
     motor.sendThrottlePercent(i);
@@ -84,10 +80,6 @@ void setup() {
 
   // Print DShot Info
   DShotRMT::printDShotInfo(motor, Serial);
-}
-
-void loop() {
-  // Your main code here
 }
 ```
 

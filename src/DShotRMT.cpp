@@ -24,7 +24,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, ui
       _encoded_frame_value(0),
       _packet{0},
       _pulse_level(1), // DShot standard: signal is idle-low, so pulses start by going HIGH
-      _idle_level(0), // DShot standard: signal returns to LOW after the high pulse
+      _idle_level(0),  // DShot standard: signal returns to LOW after the high pulse
       _rmt_tx_channel(nullptr),
       _rmt_rx_channel(nullptr),
       _dshot_encoder(nullptr),
@@ -296,7 +296,7 @@ dshot_result_t DShotRMT::_initTXChannel()
     {
         return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
     }
-    
+
     if (rmt_enable(_rmt_tx_channel) != DSHOT_OK)
     {
         return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
@@ -560,7 +560,7 @@ void DShotRMT::printDShotInfo(const DShotRMT &dshot_rmt, Stream &output)
         break;
     }
     output.printf("Current Mode: DSHOT%d\n", dshot_mode_val);
-    
+
     output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
     output.printf("Current Packet: ");
 

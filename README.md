@@ -100,16 +100,6 @@ The `web_control` and `web_client` examples require the following additional lib
 - [ESPAsyncWebServer](https://github.com/ESP32Async/ESPAsyncWebServer)
 - [AsyncTCP](https://github.com/ESP32Async/AsyncTCP)
 
-You can install these libraries using the Arduino Library Manager or by adding them to your `platformio.ini` file:
-
-```ini
-lib_deps = 
-    https://github.com/derdoktor667/DShotRMT.git
-    https://github.com/bblanchon/ArduinoJson
-    https://github.com/ESP32Async/ESPAsyncWebServer
-    https://github.com/ESP32Async/AsyncTCP
-```
-
 ## 📚 API Reference
 
 The main class is `DShotRMT`. Here are the most important methods:

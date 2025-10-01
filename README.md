@@ -62,7 +62,7 @@ void setup() {
   motor.begin();
 
   // Print CPU Info
-  DShotRMT::printCpuInfo(Serial);
+  printCpuInfo(Serial);
 
   Serial.println("Motor initialized. Ramping up to 25% throttle...");
   
@@ -79,7 +79,7 @@ void loop() {
   motor.sendThrottlePercent(0);
 
   // Print DShot Info
-  DShotRMT::printDShotInfo(motor, Serial);
+  printDShotInfo(motor, Serial);
 }
 ```
 
@@ -104,7 +104,7 @@ The `web_control` and `web_client` examples require the following additional lib
 
 The main class is `DShotRMT`. Here are the most important methods:
 
-- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT)`: Constructor to create a new DShotRMT instance.
+- `DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT)`: Constructor to create a new DShotRMT instance.
 - `begin()`: Initializes the DShot RMT channels and encoder.
 - `sendThrottlePercent(float percent)`: Sends a throttle value as a percentage (0.0-100.0) to the ESC.
 - `sendThrottle(uint16_t throttle)`: Sends a raw throttle value (48-2047) to the ESC. A value of 0 sends a motor stop command.
@@ -115,8 +115,8 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.
 - `saveESCSettings()`: Sends a command to the ESC to save its current settings. Use with caution as this writes to ESC's non-volatile memory.
 - `printDShotResult(dshot_result_t &result, Stream &output = Serial)`: Prints the result of a DShot operation to the specified output stream.
-- `DShotRMT::printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial)`: Prints detailed DShot signal information for a given DShotRMT instance.
-- `DShotRMT::printCpuInfo(Stream &output = Serial)`: Prints detailed CPU information.
+- `printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial)`: Prints detailed DShot signal information for a given DShotRMT instance.
+- `printCpuInfo(Stream &output = Serial)`: Prints detailed CPU information.
 - `setMotorMagnetCount(uint16_t magnet_count)`: Sets the motor magnet count for RPM calculation.
 - `getMode()`: Gets the current DShot mode.
 - `isBidirectional()`: Checks if bidirectional DShot is enabled.

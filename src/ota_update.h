@@ -1,6 +1,6 @@
 /**
  * @file ota_update.h
- * @brief DShot signal generation using ESP32 RMT with bidirectional support
+ * @brief Contains the HTML, CSS, and JavaScript for the OTA (Over-The-Air) update web page.
  * @author Wastl Kraus
  * @date 2025-09-13
  * @license MIT

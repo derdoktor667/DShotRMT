@@ -6,7 +6,7 @@
  * @license MIT
  */
 
-#include <DShotRMT.h>
+#include "DShotRMT.h"
 
 // Constructor with GPIO number
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count)
@@ -62,6 +62,7 @@ DShotRMT::~DShotRMT()
 dshot_result_t DShotRMT::begin()
 {
     dshot_result_t result = init_rmt_tx_channel(_gpio, &_rmt_tx_channel, _is_bidirectional);
+
     if (!result.success)
     {
         return result;
@@ -81,6 +82,7 @@ dshot_result_t DShotRMT::begin()
     }
 
     result = init_dshot_encoder(&_dshot_encoder, _rmt_ticks, _pulse_level, _idle_level);
+
     if (!result.success)
     {
         // Cleanup previously allocated channels on failure
@@ -97,7 +99,7 @@ dshot_result_t DShotRMT::begin()
         return result;
     }
 
-    return {true, dshot_msg_code_t::DSHOT_INIT_SUCCESS};
+    return {true, DSHOT_INIT_SUCCESS};
 }
 
 // Send throttle value
@@ -106,7 +108,7 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
     // A throttle value of 0 is a disarm command
     if (throttle == 0)
     {
-        return sendCommand(dshotCommands_e::DSHOT_CMD_MOTOR_STOP);
+        return sendCommand(DSHOT_CMD_MOTOR_STOP);
     }
 
     // Constrain throttle to the valid DShot range
@@ -121,7 +123,7 @@ dshot_result_t DShotRMT::sendThrottlePercent(float percent)
 {
     if (percent < 0.0f || percent > 100.0f)
     {
-        return {false, dshot_msg_code_t::DSHOT_PERCENT_NOT_IN_RANGE};
+        return {false, DSHOT_PERCENT_NOT_IN_RANGE};
     }
 
     // Map percent to DShot throttle range
@@ -135,7 +137,7 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command_value)
     // Validate the integer command value before casting
     if (command_value < DSHOT_CMD_MOTOR_STOP || command_value > DSHOT_CMD_MAX)
     {
-        return {false, dshot_msg_code_t::DSHOT_COMMAND_NOT_VALID};
+        return {false, DSHOT_COMMAND_NOT_VALID};
     }
     return sendCommand(static_cast<dshotCommands_e>(command_value));
 }
@@ -165,11 +167,11 @@ dshot_result_t DShotRMT::sendCommand(dshotCommands_e command)
 // Sends a DShot command (0-47) to the ESC with a specified repeat count and delay.
 dshot_result_t DShotRMT::sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)
 {
-    dshot_result_t result = {false, dshot_msg_code_t::DSHOT_UNKNOWN, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
+    dshot_result_t result = {false, DSHOT_UNKNOWN, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
 
     if (!_isValidCommand(command))
     {
-        result.result_code = dshot_msg_code_t::DSHOT_INVALID_COMMAND;
+        result.result_code = DSHOT_INVALID_COMMAND;
         return result;
     }
 
@@ -198,7 +200,7 @@ dshot_result_t DShotRMT::sendCommand(dshotCommands_e command, uint16_t repeat_co
 
     if (result.success)
     {
-        result.result_code = dshot_msg_code_t::DSHOT_COMMAND_SUCCESS;
+        result.result_code = DSHOT_COMMAND_SUCCESS;
     }
 
     return result;
@@ -207,11 +209,11 @@ dshot_result_t DShotRMT::sendCommand(dshotCommands_e command, uint16_t repeat_co
 // Get telemetry data
 dshot_result_t DShotRMT::getTelemetry()
 {
-    dshot_result_t result = {false, dshot_msg_code_t::DSHOT_TELEMETRY_FAILED, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
+    dshot_result_t result = {false, DSHOT_TELEMETRY_FAILED, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
 
     if (!_is_bidirectional)
     {
-        result.result_code = dshot_msg_code_t::DSHOT_BIDIR_NOT_ENABLED;
+        result.result_code = DSHOT_BIDIR_NOT_ENABLED;
         return result;
     }
 
@@ -233,7 +235,7 @@ dshot_result_t DShotRMT::getTelemetry()
             result.success = true;
             result.erpm = erpm;
             result.motor_rpm = motor_rpm;
-            result.result_code = dshot_msg_code_t::DSHOT_TELEMETRY_SUCCESS;
+            result.result_code = DSHOT_TELEMETRY_SUCCESS;
         }
     }
 
@@ -274,8 +276,6 @@ dshot_result_t DShotRMT::_executeCommand(dshotCommands_e command)
 
     return result;
 }
-
-
 
 // Private Packet Management Functions
 dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value) const
@@ -338,7 +338,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     // Ensure enough time has passed since the last transmission
     if (!_isFrameIntervalElapsed())
     {
-        return {true, dshot_msg_code_t::DSHOT_NONE};
+        return {true, DSHOT_NONE};
     }
 
     _encoded_frame_value = _buildDShotFrameValue(packet);
@@ -350,17 +350,17 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     size_t tx_size_bytes = sizeof(swapped_value);
 
     rmt_transmit_config_t tx_config = {}; // Initialize all members to zero
-    tx_config.loop_count = 0; // No automatic loops - real-time calculation
+    tx_config.loop_count = 0;             // No automatic loops - real-time calculation
     tx_config.flags.eot_level = _is_bidirectional ? 1 : 0;
 
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, tx_size_bytes, &tx_config) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_TRANSMISSION_FAILED};
+        return {false, DSHOT_TRANSMISSION_FAILED};
     }
 
     _recordFrameTransmissionTime(); // Reset the timer for the next frame
 
-    return {true, dshot_msg_code_t::DSHOT_TRANSMISSION_SUCCESS};
+    return {true, DSHOT_TRANSMISSION_SUCCESS};
 }
 
 // This function needs to be fast, as it generates the RMT symbols just before sending

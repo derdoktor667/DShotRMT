@@ -19,7 +19,7 @@
 #include <WiFi.h>
 
 #include <DShotRMT.h>
-#include <web_content.h>
+#include "web_utilities/web_content.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
@@ -50,7 +50,7 @@ static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is 
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
 
 // Web Server Configuration
 AsyncWebServer server(80);

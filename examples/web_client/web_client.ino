@@ -20,8 +20,8 @@
 #include <WiFi.h>
 
 #include <DShotRMT.h>
-#include <ota_update.h>
-#include <web_content.h>
+#include "web_utilities/ota_update.h"
+#include "web_utilities/web_content.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
@@ -51,7 +51,7 @@ static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is 
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
 
 // Web Server Configuration
 AsyncWebServer server(80);
@@ -235,11 +235,11 @@ void setupOTA()
 
     // Serve OTA update page
     server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send_P(200, "text/html", ota_html); });
+                  { request->send_P(200, "text/html", ota_html); });
 
     // Handle OTA update upload
     server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
+                  {
             bool shouldReboot = !Update.hasError();
 
             AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", 
@@ -254,7 +254,8 @@ void setupOTA()
                 ESP.restart();
             } else {
                 USB_SERIAL.println("OTA Update failed!");
-            } }, handleOTAUpload);
+            }
+        }, handleOTAUpload);
 
     USB_SERIAL.println("OTA Update ready at: /update");
 }
@@ -344,7 +345,7 @@ void printWiFiStatus()
     {
         USB_SERIAL.println();
         USB_SERIAL.println("***********************************************");
-        USB_SERIAL.println("               --- WIFI INFO ---               ");
+        USB_SERIAL.println("               --- WIFI INFO ---");
         USB_SERIAL.println("***********************************************");
         USB_SERIAL.printf("SSID: %s\n", WiFi.SSID().c_str());
         USB_SERIAL.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
@@ -393,7 +394,7 @@ void printMenu()
 {
     USB_SERIAL.println(" ");
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println("     --- DShotRMT Web Client Demo ---         ");
+    USB_SERIAL.println("     --- DShotRMT Web Client Demo ---");
     USB_SERIAL.println("***********************************************");
 
     if (wifi_connected)

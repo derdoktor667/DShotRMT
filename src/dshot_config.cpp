@@ -12,20 +12,20 @@ dshot_result_t init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
     };
 
     rmt_transmit_config_t rmt_tx_config = {}; // Initialize all members to zero
-    rmt_tx_config.loop_count = 0; // No automatic loops - real-time calculation
+    rmt_tx_config.loop_count = 0;             // No automatic loops - real-time calculation
     rmt_tx_config.flags.eot_level = is_bidirectional ? 1 : 0;
 
     if (rmt_new_tx_channel(&tx_channel_config, out_channel) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
+        return {false, DSHOT_TX_INIT_FAILED};
     }
 
     if (rmt_enable(*out_channel) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
+        return {false, DSHOT_TX_INIT_FAILED};
     }
 
-    return {true, dshot_msg_code_t::DSHOT_TX_INIT_SUCCESS};
+    return {true, DSHOT_TX_INIT_SUCCESS};
 }
 
 // Function to initialize the RMT RX channel
@@ -43,19 +43,16 @@ dshot_result_t init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
         .signal_range_max_ns = DSHOT_PULSE_MAX_NS,
     };
 
-    if (rmt_new_rx_channel(&rx_channel_config, out_channel) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_RX_INIT_FAILED};
-    }
+        return {false, DSHOT_RX_INIT_FAILED};
 
     if (rmt_rx_register_event_callbacks(*out_channel, rx_event_callbacks, user_data) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_CALLBACK_REGISTERING_FAILED};
+        return {false, DSHOT_CALLBACK_REGISTERING_FAILED};
     }
 
     if (rmt_enable(*out_channel) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_RX_INIT_FAILED};
+        return {false, DSHOT_RX_INIT_FAILED};
     }
 
     // Start the receiver to wait for incoming telemetry data
@@ -63,10 +60,10 @@ dshot_result_t init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
     size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
     if (rmt_receive(*out_channel, rx_symbols, rx_size_bytes, &rmt_rx_config) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_RECEIVER_FAILED};
+        return {false, DSHOT_RECEIVER_FAILED};
     }
 
-    return {true, dshot_msg_code_t::DSHOT_RX_INIT_SUCCESS};
+    return {true, DSHOT_RX_INIT_SUCCESS};
 }
 
 // Function to initialize the DShot RMT encoder
@@ -91,8 +88,8 @@ dshot_result_t init_dshot_encoder(rmt_encoder_handle_t *out_encoder, const rmt_t
 
     if (rmt_new_bytes_encoder(&encoder_config, out_encoder) != DSHOT_OK)
     {
-        return {false, dshot_msg_code_t::DSHOT_ENCODER_INIT_FAILED};
+        return {false, DSHOT_ENCODER_INIT_FAILED};
     }
 
-    return {true, dshot_msg_code_t::DSHOT_ENCODER_INIT_SUCCESS};
+    return {true, DSHOT_ENCODER_INIT_SUCCESS};
 }

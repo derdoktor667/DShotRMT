@@ -145,7 +145,7 @@ void loop()
         // Get Motor RPM if bidirectional and armed
         if (IS_BIDIRECTIONAL && isArmed)
         {
-            dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t telem_result = motor01.getTelemetry();
             printDShotResult(telem_result);
         }
 
@@ -160,7 +160,7 @@ void loop()
 
     if (IS_BIDIRECTIONAL && isArmed)
     {
-        dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+        dshot_result_t telem_result = motor01.getTelemetry();
         if (telem_result.success && telem_result.motor_rpm > 0)
         {
             current_rpm = String(telem_result.motor_rpm);
@@ -263,7 +263,7 @@ void handleSerialInput(const String &input)
     {
         if (isArmed)
         {
-            dshot_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t result = motor01.getTelemetry();
             printDShotResult(result);
         }
         else

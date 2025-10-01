@@ -22,7 +22,7 @@ class DShotRMT
 {
 public:
     // Constructor for DShotRMT with GPIO number.
-    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = dshot_mode_t::DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
+    explicit DShotRMT(gpio_num_t gpio = GPIO_NUM_16, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     // Constructor for DShotRMT with Arduino pin number.
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
@@ -61,12 +61,6 @@ public:
     dshot_result_t saveESCSettings();
 
     // Public Utility & Info Functions
-    // Prints detailed DShot signal information for a given DShotRMT instance.
-    static void printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial);
-
-    // Prints detailed CPU information.
-    static void printCpuInfo(Stream &output = Serial);
-
     // Sets the motor magnet count for RPM calculation.
     void setMotorMagnetCount(uint16_t magnet_count);
 
@@ -81,6 +75,9 @@ public:
 
     // Gets the last transmitted throttle value.
     uint16_t getThrottleValue() const { return _packet.throttle_value; }
+
+    // Testing return "verbose" messages
+    const char *getDShotMsg(dshot_result_t &result) const { return (_get_result_code_str(result.result_code)); }
 
     // Deprecated Methods
     // Deprecated. Use sendThrottle() instead.
@@ -109,7 +106,7 @@ public:
 
 private:
     // --- UTILITY METHODS ---
-    bool _isValidCommand(dshotCommands_e command);
+    bool _isValidCommand(dshotCommands_e command) const;
     dshot_result_t _executeCommand(dshotCommands_e command);
 
     // Core Configuration Variables
@@ -118,33 +115,33 @@ private:
     bool _is_bidirectional;
     uint16_t _motor_magnet_count;
     const dshot_timing_us_t &_dshot_timing;
-    uint64_t _frame_timer_us;
+    uint64_t _frame_timer_us = 0;
 
     // Timing & Packet Variables
-    rmt_ticks_t _rmt_ticks;
-    uint16_t _last_throttle;
-    uint64_t _last_transmission_time_us;
-    uint64_t _last_command_timestamp;
-    uint16_t _encoded_frame_value;
-    dshot_packet_t _packet;
-    uint16_t _pulse_level; // DShot protocol: Signal is idle-low, so pulses start by going HIGH.
-    uint16_t _idle_level;  // DShot protocol: Signal returns to LOW after the high pulse.
+    rmt_ticks_t _rmt_ticks{};
+    uint16_t _last_throttle = dshotCommands_e::DSHOT_CMD_MOTOR_STOP;
+    uint64_t _last_transmission_time_us = 0;
+    uint64_t _last_command_timestamp = 0;
+    uint16_t _encoded_frame_value = 0;
+    dshot_packet_t _packet{};
+    uint16_t _pulse_level = 1; // DShot protocol: Signal is idle-low, so pulses start by going HIGH.
+    uint16_t _idle_level = 0;  // DShot protocol: Signal returns to LOW after the high pulse.
 
     // RMT Hardware Handles
-    rmt_channel_handle_t _rmt_tx_channel;
-    rmt_channel_handle_t _rmt_rx_channel;
-    rmt_encoder_handle_t _dshot_encoder;
+    rmt_channel_handle_t _rmt_tx_channel = nullptr;
+    rmt_channel_handle_t _rmt_rx_channel = nullptr;
+    rmt_encoder_handle_t _dshot_encoder = nullptr;
 
     // RMT Configuration Structures
-    rmt_tx_channel_config_t _tx_channel_config;
-    rmt_rx_channel_config_t _rx_channel_config;
-    rmt_transmit_config_t _rmt_tx_config;
-    rmt_receive_config_t _rmt_rx_config;
+    rmt_tx_channel_config_t _tx_channel_config{};
+    rmt_rx_channel_config_t _rx_channel_config{};
+    rmt_transmit_config_t _rmt_tx_config{};
+    rmt_receive_config_t _rmt_rx_config{};
 
     // Bidirectional / Telemetry Variables
-    rmt_rx_event_callbacks_t _rx_event_callbacks;
-    std::atomic<uint16_t> _last_erpm_atomic;
-    std::atomic<bool> _telemetry_ready_flag_atomic;
+    rmt_rx_event_callbacks_t _rx_event_callbacks{};
+    std::atomic<uint16_t> _last_erpm_atomic{0};
+    std::atomic<bool> _telemetry_ready_flag_atomic{false};
 
     // Private Initialization Functions
     dshot_result_t _initTXChannel();
@@ -152,19 +149,22 @@ private:
     dshot_result_t _initDShotEncoder();
 
     // Private Packet Management Functions
-    dshot_packet_t _buildDShotPacket(const uint16_t &value);
-    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet);
-    uint16_t _calculateCRC(const uint16_t &data);
+    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;
+    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;
+    uint16_t _calculateCRC(const uint16_t &data) const;
     void _preCalculateRMTTicks();
 
     // Private Frame Processing Functions
     dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
-    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols);
+    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;
 
     // Private Timing Control Functions
-    bool _isFrameIntervalElapsed();
+    bool _isFrameIntervalElapsed() const;
     void _recordFrameTransmissionTime();
 
     // Static Callback Functions
     static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };
+
+// Include utility functions after class definition
+#include "dshot_utils.h"

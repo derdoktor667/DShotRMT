@@ -6,8 +6,8 @@
 #include <driver/rmt_rx.h>
 #include <atomic>
 
-// Defines the available DShot communication speeds with type safety.
-enum class dshot_mode_t
+// Defines the available DShot communication speeds.
+enum dshot_mode_t
 {
     DSHOT_OFF,
     DSHOT150,
@@ -245,18 +245,4 @@ inline const char *_get_result_code_str(dshot_msg_code_t code)
     default:
         return UNKNOWN_ERROR;
     }
-}
-
-// Helper to quick print DShot result codes
-inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
-{
-    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", _get_result_code_str(result.result_code));
-
-    // Print telemetry data if available
-    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
-    {
-        output.printf(" | eRPM: %u, Motor RPM: %u", result.erpm, result.motor_rpm);
-    }
-
-    output.println();
 }

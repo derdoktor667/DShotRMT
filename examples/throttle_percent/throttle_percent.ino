@@ -17,7 +17,7 @@ static constexpr auto USB_SERIAL_BAUD = 115200;
 static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 // Note: Bidirectional DShot is currently not officially supported 
@@ -44,7 +44,7 @@ void setup()
     motor01.begin();
 
     // Print CPU Info
-    motor01.printCpuInfo();
+    printCpuInfo(USB_SERIAL);
 
     //
     printMenu();
@@ -98,7 +98,7 @@ void handleSerialInput(const String &input)
     }
     else if (input == "info")
     {
-        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
+        printDShotInfo(motor01, USB_SERIAL);
     }
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {

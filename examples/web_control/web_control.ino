@@ -38,10 +38,10 @@ static constexpr auto &USB_SERIAL = Serial;
 static constexpr auto USB_SERIAL_BAUD = 115200;
 
 // Motor configuration - Pin number or GPIO_PIN
-static constexpr auto MOTOR01_PIN = 17;
+static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
@@ -74,7 +74,7 @@ void setup()
     USB_SERIAL.begin(USB_SERIAL_BAUD);
 
     motor01.begin();
-    motor01.printCpuInfo();
+    printCpuInfo(USB_SERIAL);
 
     // Set IP Address
     WiFi.softAPConfig(local_IP, gateway, subnet);
@@ -138,7 +138,7 @@ void loop()
     // Print motor stats every 3 seconds in continuous mode
     if ((esp_timer_get_time() - last_serial_update >= 3000000))
     {
-        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
+        printDShotInfo(motor01, USB_SERIAL);
 
         USB_SERIAL.println(" ");
 
@@ -254,7 +254,7 @@ void handleSerialInput(const String &input)
     }
     if (input == "info")
     {
-        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
+        printDShotInfo(motor01, USB_SERIAL);
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         return;

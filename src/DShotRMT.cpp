@@ -8,33 +8,13 @@
 
 #include <DShotRMT.h>
 
-// Constructors & Destructor
 // Constructor with GPIO number
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count)
     : _gpio(gpio),
       _mode(mode),
       _is_bidirectional(is_bidirectional),
       _motor_magnet_count(magnet_count),
-      _dshot_timing(DSHOT_TIMING_US[static_cast<int>(mode)]),
-      _frame_timer_us(0),
-      _rmt_ticks{0},
-      _last_throttle(dshotCommands_e::DSHOT_CMD_MOTOR_STOP),
-      _last_transmission_time_us(0),
-      _last_command_timestamp(0),
-      _encoded_frame_value(0),
-      _packet{0},
-      _pulse_level(1), // DShot standard: signal is idle-low, so pulses start by going HIGH
-      _idle_level(0),  // DShot standard: signal returns to LOW after the high pulse
-      _rmt_tx_channel(nullptr),
-      _rmt_rx_channel(nullptr),
-      _dshot_encoder(nullptr),
-      _tx_channel_config{},
-      _rx_channel_config{},
-      _rmt_tx_config{},
-      _rmt_rx_config{},
-      _rx_event_callbacks{},
-      _last_erpm_atomic(0),
-      _telemetry_ready_flag_atomic(false)
+      _dshot_timing(DSHOT_TIMING_US[static_cast<int>(mode)])
 {
     // Pre-calculate timing and bit positions for performance
     _preCalculateRMTTicks();
@@ -78,7 +58,6 @@ DShotRMT::~DShotRMT()
     }
 }
 
-// Public Core Functions
 // Initialize DShotRMT
 dshot_result_t DShotRMT::begin()
 {
@@ -261,7 +240,7 @@ dshot_result_t DShotRMT::saveESCSettings()
 }
 
 // Simple check
-bool DShotRMT::_isValidCommand(dshotCommands_e command)
+bool DShotRMT::_isValidCommand(dshotCommands_e command) const
 {
     return (command >= dshotCommands_e::DSHOT_CMD_MOTOR_STOP && command <= dshotCommands_e::DSHOT_CMD_MAX);
 }
@@ -350,6 +329,7 @@ dshot_result_t DShotRMT::_initRXChannel()
     return {true, dshot_msg_code_t::DSHOT_RX_INIT_SUCCESS};
 }
 
+//
 dshot_result_t DShotRMT::_initDShotEncoder()
 {
     rmt_bytes_encoder_config_t encoder_config = {
@@ -367,8 +347,7 @@ dshot_result_t DShotRMT::_initDShotEncoder()
         },
         .flags = {
             .msb_first = 1 // DShot is MSB first
-        }
-    };
+        }};
 
     if (rmt_new_bytes_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
     {
@@ -379,7 +358,7 @@ dshot_result_t DShotRMT::_initDShotEncoder()
 }
 
 // Private Packet Management Functions
-dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value)
+dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value) const
 {
     dshot_packet_t packet = {};
 
@@ -393,14 +372,14 @@ dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value)
     return packet;
 }
 
-uint16_t DShotRMT::_buildDShotFrameValue(const dshot_packet_t &packet)
+uint16_t DShotRMT::_buildDShotFrameValue(const dshot_packet_t &packet) const
 {
     // Combine throttle, telemetry bit, and CRC into a single 16-bit frame
     uint16_t data_and_telemetry = (packet.throttle_value << 1) | packet.telemetric_request;
     return (data_and_telemetry << 4) | packet.checksum;
 }
 
-uint16_t DShotRMT::_calculateCRC(const uint16_t &data)
+uint16_t DShotRMT::_calculateCRC(const uint16_t &data) const
 {
     // Standard DShot CRC calculation using XOR
     uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & DSHOT_CRC_MASK;
@@ -463,7 +442,7 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 // This function needs to be fast, as it generates the RMT symbols just before sending
 
 // Placed in IRAM for high performance, as it's called from an ISR context
-uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
+uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols) const
 {
     uint32_t gcr_value = 0;
 
@@ -503,7 +482,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 }
 
 // Timing Control Functions
-bool IRAM_ATTR DShotRMT::_isFrameIntervalElapsed()
+bool IRAM_ATTR DShotRMT::_isFrameIntervalElapsed() const
 {
     // Check if the minimum interval between frames has passed
     uint64_t current_time = esp_timer_get_time();
@@ -536,48 +515,4 @@ bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const 
     }
 
     return false;
-}
-
-// Public Static Utility Functions
-void DShotRMT::printDShotInfo(const DShotRMT &dshot_rmt, Stream &output)
-{
-    output.println("\n === DShot Signal Info === ");
-
-    uint16_t dshot_mode_val = 0;
-    switch (dshot_rmt.getMode())
-    {
-    case dshot_mode_t::DSHOT150:
-        dshot_mode_val = 150;
-        break;
-    case dshot_mode_t::DSHOT300:
-        dshot_mode_val = 300;
-        break;
-    case dshot_mode_t::DSHOT600:
-        dshot_mode_val = 600;
-        break;
-    case dshot_mode_t::DSHOT1200:
-        dshot_mode_val = 1200;
-        break;
-    }
-    output.printf("Current Mode: DSHOT%d\n", dshot_mode_val);
-
-    output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
-    output.printf("Current Packet: ");
-
-    for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
-    {
-        output.print((dshot_rmt.getEncodedFrameValue() >> i) & 1);
-    }
-
-    output.printf("\nCurrent Value: %u\n", dshot_rmt.getThrottleValue());
-}
-
-void DShotRMT::printCpuInfo(Stream &output)
-{
-    output.println("\n ===  CPU Info  === ");
-    output.printf("Chip Model: %s\n", ESP.getChipModel());
-    output.printf("Chip Revision: %d\n", ESP.getChipRevision());
-    output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
-    output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
-    output.printf("APB Freq = %lu Hz\n", getApbFrequency());
 }

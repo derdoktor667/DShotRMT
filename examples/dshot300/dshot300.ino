@@ -18,7 +18,7 @@ static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
 // static constexpr auto MOTOR01_PIN = 17;
 
 // Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
+static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 // Note: Bidirectional DShot is currently not officially supported
@@ -26,7 +26,7 @@ static constexpr dshot_mode_t DSHOT_MODE = dshot_mode_t::DSHOT300;
 static constexpr auto IS_BIDIRECTIONAL = false;
 
 // Motor magnet count for RPM calculation
-static constexpr auto MOTOR01_MAGNET_COUNT = 14;
+// static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
@@ -41,7 +41,7 @@ void setup()
     motor01.begin();
 
     // Print CPU Info
-    DShotRMT::printCpuInfo(USB_SERIAL);
+    printCpuInfo(USB_SERIAL);
 
     //
     printMenu();
@@ -80,7 +80,7 @@ void loop()
     // Print motor stats every 3 seconds in continuous mode
     if (continuous_throttle && (esp_timer_get_time() - last_stats_print >= 3000000))
     {
-        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
+        printDShotInfo(motor01, USB_SERIAL);
 
         USB_SERIAL.println(" ");
 
@@ -132,7 +132,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     }
     else if (input == "info")
     {
-        DShotRMT::printDShotInfo(motor01, USB_SERIAL);
+        printDShotInfo(motor01, USB_SERIAL);
     }
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {

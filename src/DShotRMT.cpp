@@ -14,7 +14,7 @@ DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, ui
       _mode(mode),
       _is_bidirectional(is_bidirectional),
       _motor_magnet_count(magnet_count),
-      _dshot_timing(DSHOT_TIMING_US[static_cast<int>(mode)])
+      _dshot_timing(DSHOT_TIMING_US[_mode])
 {
     // Pre-calculate timing and bit positions for performance
     _preCalculateRMTTicks();
@@ -61,24 +61,27 @@ DShotRMT::~DShotRMT()
 // Initialize DShotRMT
 dshot_result_t DShotRMT::begin()
 {
-    if (!_initTXChannel().success)
+    dshot_result_t result = init_rmt_tx_channel(_gpio, &_rmt_tx_channel, _is_bidirectional);
+    if (!result.success)
     {
-        return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
+        return result;
     }
 
     if (_is_bidirectional)
     {
-        if (!_initRXChannel().success)
+        result = init_rmt_rx_channel(_gpio, &_rmt_rx_channel, &_rx_event_callbacks, this);
+        if (!result.success)
         {
             // Cleanup previously allocated TX channel on failure
             rmt_disable(_rmt_tx_channel);
             rmt_del_channel(_rmt_tx_channel);
             _rmt_tx_channel = nullptr;
-            return {false, dshot_msg_code_t::DSHOT_RX_INIT_FAILED};
+            return result;
         }
     }
 
-    if (!_initDShotEncoder().success)
+    result = init_dshot_encoder(&_dshot_encoder, _rmt_ticks, _pulse_level, _idle_level);
+    if (!result.success)
     {
         // Cleanup previously allocated channels on failure
         rmt_disable(_rmt_tx_channel);
@@ -91,8 +94,7 @@ dshot_result_t DShotRMT::begin()
             rmt_del_channel(_rmt_rx_channel);
             _rmt_rx_channel = nullptr;
         }
-
-        return {false, dshot_msg_code_t::DSHOT_ENCODER_INIT_FAILED};
+        return result;
     }
 
     return {true, dshot_msg_code_t::DSHOT_INIT_SUCCESS};
@@ -127,21 +129,45 @@ dshot_result_t DShotRMT::sendThrottlePercent(float percent)
     return sendThrottle(throttle);
 }
 
-// Send DShot command to ESC
-dshot_result_t DShotRMT::sendCommand(dshotCommands_e command)
+// Sends a DShot command (0-47) to the ESC by accepting an integer value.
+dshot_result_t DShotRMT::sendCommand(uint16_t command_value)
 {
-    _packet = _buildDShotPacket(static_cast<uint16_t>(command));
-    return _sendDShotFrame(_packet);
+    // Validate the integer command value before casting
+    if (command_value < DSHOT_CMD_MOTOR_STOP || command_value > DSHOT_CMD_MAX)
+    {
+        return {false, dshot_msg_code_t::DSHOT_COMMAND_NOT_VALID};
+    }
+    return sendCommand(static_cast<dshotCommands_e>(command_value));
 }
 
+// Sends a DShot command (0-47) to the ESC.
+dshot_result_t DShotRMT::sendCommand(dshotCommands_e command)
+{
+    uint16_t repeat_count = DEFAULT_CMD_REPEAT_COUNT;
+    uint16_t delay_us = DEFAULT_CMD_DELAY_US;
 
-// Send full DShot commands for setup etc
-// This is a blocking function that uses delayMicroseconds for repetitions.
-dshot_result_t DShotRMT::_sendCommandInternal(dshotCommands_e dshot_command, uint16_t repeat_count, uint16_t delay_us)
+    switch (command)
+    {
+    case DSHOT_CMD_SAVE_SETTINGS:
+    case DSHOT_CMD_SPIN_DIRECTION_NORMAL:
+    case DSHOT_CMD_SPIN_DIRECTION_REVERSED:
+        repeat_count = SETTINGS_COMMAND_REPEATS;
+        delay_us = SETTINGS_COMMAND_DELAY_US;
+        break;
+    default:
+        // For other commands, use default repeat and delay
+        break;
+    }
+
+    return sendCommand(command, repeat_count, delay_us);
+}
+
+// Sends a DShot command (0-47) to the ESC with a specified repeat count and delay.
+dshot_result_t DShotRMT::sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)
 {
     dshot_result_t result = {false, dshot_msg_code_t::DSHOT_UNKNOWN, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
 
-    if (!_isValidCommand(dshot_command))
+    if (!_isValidCommand(command))
     {
         result.result_code = dshot_msg_code_t::DSHOT_INVALID_COMMAND;
         return result;
@@ -152,7 +178,7 @@ dshot_result_t DShotRMT::_sendCommandInternal(dshotCommands_e dshot_command, uin
     // Send command multiple times with delay
     for (uint16_t i = 0; i < repeat_count; i++)
     {
-        dshot_result_t single_result = _executeCommand(dshot_command);
+        dshot_result_t single_result = _executeCommand(command);
 
         if (!single_result.success)
         {
@@ -168,7 +194,6 @@ dshot_result_t DShotRMT::_sendCommandInternal(dshotCommands_e dshot_command, uin
         }
     }
 
-    //
     result.success = all_successful;
 
     if (result.success)
@@ -221,15 +246,13 @@ dshot_result_t DShotRMT::setMotorSpinDirection(bool reversed)
     // Use command as a yes / no switch
     dshotCommands_e command = reversed ? dshotCommands_e::DSHOT_CMD_SPIN_DIRECTION_REVERSED : dshotCommands_e::DSHOT_CMD_SPIN_DIRECTION_NORMAL;
 
-    return _sendCommandInternal(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
+    return sendCommand(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
 }
-
-
 
 // Use with caution
 dshot_result_t DShotRMT::saveESCSettings()
 {
-    return _sendCommandInternal(dshotCommands_e::DSHOT_CMD_SAVE_SETTINGS, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
+    return sendCommand(dshotCommands_e::DSHOT_CMD_SAVE_SETTINGS, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
 }
 
 // Simple check
@@ -252,103 +275,7 @@ dshot_result_t DShotRMT::_executeCommand(dshotCommands_e command)
     return result;
 }
 
-// Private Initialization Functions
-dshot_result_t DShotRMT::_initTXChannel()
-{
-    _tx_channel_config.gpio_num = _gpio;
-    _tx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
-    _tx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
-    _tx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
-    _tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
 
-    _rmt_tx_config.loop_count = 0; // No automatic loops - real-time calculation
-    _rmt_tx_config.flags.eot_level = _is_bidirectional ? 1 : 0;
-
-    if (rmt_new_tx_channel(&_tx_channel_config, &_rmt_tx_channel) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
-    }
-
-    if (rmt_enable(_rmt_tx_channel) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_TX_INIT_FAILED};
-    }
-
-    return {true, dshot_msg_code_t::DSHOT_TX_INIT_SUCCESS};
-}
-
-dshot_result_t DShotRMT::_initRXChannel()
-{
-    // Double check if bidirectional mode is enabled
-    if (!_is_bidirectional)
-    {
-        return {true, dshot_msg_code_t::DSHOT_NONE};
-    }
-
-    _rx_channel_config.gpio_num = _gpio;
-    _rx_channel_config.clk_src = DSHOT_CLOCK_SRC_DEFAULT;
-    _rx_channel_config.resolution_hz = DSHOT_RMT_RESOLUTION;
-    _rx_channel_config.mem_block_symbols = RMT_BUFFER_SYMBOLS;
-
-    // Filter for pulses that are within a reasonable range for DShot telemetry
-    _rmt_rx_config.signal_range_min_ns = DSHOT_PULSE_MIN_NS;
-    _rmt_rx_config.signal_range_max_ns = DSHOT_PULSE_MAX_NS;
-
-    if (rmt_new_rx_channel(&_rx_channel_config, &_rmt_rx_channel) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_RX_INIT_FAILED};
-    }
-
-    // Register the callback function that will be triggered when a frame is received
-    _rx_event_callbacks.on_recv_done = _on_rx_done;
-    if (rmt_rx_register_event_callbacks(_rmt_rx_channel, &_rx_event_callbacks, this) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_CALLBACK_REGISTERING_FAILED};
-    }
-
-    if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_RX_INIT_FAILED};
-    }
-
-    // Start the receiver to wait for incoming telemetry data
-    rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
-    size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
-    if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &_rmt_rx_config) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_RECEIVER_FAILED};
-    }
-
-    return {true, dshot_msg_code_t::DSHOT_RX_INIT_SUCCESS};
-}
-
-//
-dshot_result_t DShotRMT::_initDShotEncoder()
-{
-    rmt_bytes_encoder_config_t encoder_config = {
-        .bit0 = {
-            .duration0 = _rmt_ticks.t0h_ticks,
-            .level0 = _pulse_level,
-            .duration1 = _rmt_ticks.t0l_ticks,
-            .level1 = _idle_level,
-        },
-        .bit1 = {
-            .duration0 = _rmt_ticks.t1h_ticks,
-            .level0 = _pulse_level,
-            .duration1 = _rmt_ticks.t1l_ticks,
-            .level1 = _idle_level,
-        },
-        .flags = {
-            .msb_first = 1 // DShot is MSB first
-        }};
-
-    if (rmt_new_bytes_encoder(&encoder_config, &_dshot_encoder) != DSHOT_OK)
-    {
-        return {false, dshot_msg_code_t::DSHOT_ENCODER_INIT_FAILED};
-    }
-
-    return {true, dshot_msg_code_t::DSHOT_ENCODER_INIT_SUCCESS};
-}
 
 // Private Packet Management Functions
 dshot_packet_t DShotRMT::_buildDShotPacket(const uint16_t &value) const
@@ -422,7 +349,11 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     // The DShot frame is 16 bits, which is 2 bytes
     size_t tx_size_bytes = sizeof(swapped_value);
 
-    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, tx_size_bytes, &_rmt_tx_config) != DSHOT_OK)
+    rmt_transmit_config_t tx_config = {}; // Initialize all members to zero
+    tx_config.loop_count = 0; // No automatic loops - real-time calculation
+    tx_config.flags.eot_level = _is_bidirectional ? 1 : 0;
+
+    if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, tx_size_bytes, &tx_config) != DSHOT_OK)
     {
         return {false, dshot_msg_code_t::DSHOT_TRANSMISSION_FAILED};
     }

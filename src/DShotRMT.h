@@ -15,6 +15,7 @@
 
 #include "dshot_definitions.h"
 #include <driver/rmt_encoder.h>
+#include "dshot_config.h"
 
 // DShotRMT Class Definition
 class DShotRMT
@@ -41,6 +42,10 @@ public:
 
     // Sends a DShot command (0-47) to the ESC.
     dshot_result_t sendCommand(dshotCommands_e command);
+    // Sends a DShot command (0-47) to the ESC with a specified repeat count and delay.
+    dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
+    // Sends a DShot command (0-47) to the ESC by accepting an integer value.
+    dshot_result_t sendCommand(uint16_t command_value);
 
     // Retrieves telemetry data from the ESC.
     dshot_result_t getTelemetry();
@@ -71,19 +76,11 @@ public:
     const char *getDShotMsg(dshot_result_t &result) const { return (_get_result_code_str(result.result_code)); }
 
     // Deprecated Methods
-    // Deprecated. Use sendThrottle() instead.
-    [[deprecated("Use sendThrottle() instead")]]
-    dshot_result_t sendValue(uint16_t value) { return sendThrottle(value); }
-
-    // Deprecated. Use sendCommand() instead.
-    [[deprecated("Use sendCommand() instead")]]
-    dshot_result_t sendCommand(uint16_t command) { return sendCommand(static_cast<dshotCommands_e>(command)); }
 
 private:
     // --- UTILITY METHODS ---
     bool _isValidCommand(dshotCommands_e command) const;
     dshot_result_t _executeCommand(dshotCommands_e command);
-    dshot_result_t _sendCommandInternal(dshotCommands_e dshot_command, uint16_t repeat_count, uint16_t delay_us);
 
     // Core Configuration Variables
     gpio_num_t _gpio;
@@ -108,21 +105,12 @@ private:
     rmt_channel_handle_t _rmt_rx_channel = nullptr;
     rmt_encoder_handle_t _dshot_encoder = nullptr;
 
-    // RMT Configuration Structures
-    rmt_tx_channel_config_t _tx_channel_config{};
-    rmt_rx_channel_config_t _rx_channel_config{};
-    rmt_transmit_config_t _rmt_tx_config{};
-    rmt_receive_config_t _rmt_rx_config{};
+
 
     // Bidirectional / Telemetry Variables
     rmt_rx_event_callbacks_t _rx_event_callbacks{};
     std::atomic<uint16_t> _last_erpm_atomic{0};
     std::atomic<bool> _telemetry_ready_flag_atomic{false};
-
-    // Private Initialization Functions
-    dshot_result_t _initTXChannel();
-    dshot_result_t _initRXChannel();
-    dshot_result_t _initDShotEncoder();
 
     // Private Packet Management Functions
     dshot_packet_t _buildDShotPacket(const uint16_t &value) const;

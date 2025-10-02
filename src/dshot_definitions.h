@@ -114,13 +114,6 @@ enum dshotCommands_e
     DSHOT_CMD_MAX = 47
 };
 
-// DShot Protocol Constants
-static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
-static constexpr auto DSHOT_THROTTLE_MIN = 48;
-static constexpr auto DSHOT_THROTTLE_MAX = 2047;
-static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
-
 // Custom status codes
 static constexpr int DSHOT_OK = 0;
 static constexpr int DSHOT_ERROR = 1;
@@ -140,6 +133,7 @@ static constexpr auto GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer fra
 static constexpr auto POLE_PAIRS_MIN = 1;
 static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
 static constexpr auto NO_DSHOT_TELEMETRY = 0;
+static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_PULSE_MIN_NS = 800;  // 0.8us minimum pulse
 static constexpr auto DSHOT_PULSE_MAX_NS = 8000; // 8.0us maximum pulse
 static constexpr auto DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;

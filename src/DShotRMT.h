@@ -16,15 +16,21 @@
 #include "dshot_definitions.h"
 #include "dshot_config.h"
 
+// DShot Protocol Constants
+static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
+static constexpr auto DSHOT_THROTTLE_MIN = 48;
+static constexpr auto DSHOT_BITS_PER_FRAME = 16;
+static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
+
 //
 class DShotRMT
 {
 public:
     // Constructor with GPIO number
-    DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count);
+    DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     // Constructor using pin number
-    DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count);
+    DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     // Destructor
     ~DShotRMT();

@@ -1,6 +1,6 @@
 /**
  * @file web_client.ino
- * @brief DShotRMT Web Control as WiFi Client
+ * @brief Example sketch for DShotRMT library demonstrating web control via a client
  * @author Wastl Kraus
  * @date 2025-09-11
  * @license MIT
@@ -16,10 +16,9 @@
  ******************************************************************/
 
 #include <Arduino.h>
-#include <Update.h>
-#include <WiFi.h>
-
 #include <DShotRMT.h>
+#include <WiFi.h>
+#include <Update.h>
 #include "web_utilities/ota_update.h"
 #include "web_utilities/web_content.h"
 

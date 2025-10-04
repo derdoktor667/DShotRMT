@@ -1,7 +1,17 @@
+/**
+ * @file dshot_utils.h
+ * @brief Utility functions for DShotRMT library
+ * @author Wastl Kraus
+ * @date 2025-10-04
+ * @license MIT
+ */
+
 #pragma once
 
 #include <Arduino.h>
-#include "DShotRMT.h" // Include the full class definition
+
+// Forward declaration of the DShotRMT class to break circular dependency
+class DShotRMT;
 
 // Error Messages
 static constexpr char NONE[] = "";

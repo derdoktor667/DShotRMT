@@ -9,12 +9,14 @@
 #pragma once
 
 #include <atomic>
+#include <Arduino.h>
+
 #include <driver/gpio.h>
-#include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
+#include <driver/rmt_tx.h>
 
 #include "dshot_definitions.h"
-#include "dshot_config.h"
+#include "dshot_init.h"
 
 // DShot Protocol Constants
 static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
@@ -69,17 +71,22 @@ public:
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
 private:
+    // Configuration
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
     uint16_t _motor_magnet_count;
     dshot_timing_us_t _dshot_timing;
+
+    // RMT Handles & Config
     rmt_channel_handle_t _rmt_tx_channel = nullptr;
     rmt_channel_handle_t _rmt_rx_channel = nullptr;
     rmt_encoder_handle_t _dshot_encoder = nullptr;
     rmt_ticks_t _rmt_ticks;
     uint16_t _pulse_level = 1; // Default to high
     uint16_t _idle_level = 0;  // Default to low
+
+    // Timing & State
     uint64_t _last_transmission_time_us = 0;
     uint64_t _frame_timer_us = 0;
     uint16_t _last_throttle = 0;
@@ -87,7 +94,7 @@ private:
     uint16_t _encoded_frame_value = 0;
     uint64_t _last_command_timestamp = 0;
 
-    // Telemetry related
+    // Telemetry
     std::atomic<uint16_t> _last_erpm_atomic = 0;
     std::atomic<bool> _telemetry_ready_flag_atomic = false;
     rmt_rx_event_callbacks_t _rx_event_callbacks = {
@@ -110,4 +117,4 @@ private:
     static bool IRAM_ATTR _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };
 
-#include "dshot_utils.h" // Workround for util functions
+#include "dshot_utils.h" // Include for helper functions

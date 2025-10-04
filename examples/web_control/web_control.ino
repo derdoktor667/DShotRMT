@@ -1,6 +1,6 @@
 /**
  * @file web_control.ino
- * @brief Demo sketch for DShotRMT library
+ * @brief Example sketch for DShotRMT library demonstrating web control via an access point
  * @author Wastl Kraus
  * @date 2025-09-09
  * @license MIT
@@ -16,9 +16,9 @@
  ******************************************************************/
 
 #include <Arduino.h>
-#include <WiFi.h>
-
 #include <DShotRMT.h>
+#include <WiFi.h>
+#include <Update.h>
 #include "web_utilities/web_content.h"
 
 #include <ArduinoJson.h>

@@ -1,6 +1,6 @@
 /**
  * @file throttle_percent.ino
- * @brief Demo sketch for DShotRMT library using percentage throttle.
+ * @brief Example sketch for DShotRMT library demonstrating throttle control by percentage
  * @author Wastl Kraus
  * @date 2025-09-20
  * @license MIT

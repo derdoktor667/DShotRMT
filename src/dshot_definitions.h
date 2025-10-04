@@ -1,10 +1,15 @@
+/**
+ * @file dshot_definitions.h
+ * @brief Defines DShot protocol constants, data structures, and command enums for DShotRMT library
+ * @author Wastl Kraus
+ * @date 2025-10-04
+ * @license MIT
+ */
+
 #pragma once
 
-#include <Arduino.h>
-#include <driver/gpio.h>
-#include <driver/rmt_tx.h>
-#include <driver/rmt_rx.h>
-#include <atomic>
+#include <cstdint>
+#include <driver/rmt_common.h>
 
 // Defines the available DShot communication speeds.
 enum dshot_mode_t
@@ -13,8 +18,7 @@ enum dshot_mode_t
     DSHOT150,
     DSHOT300,
     DSHOT600,
-    DSHOT1200,
-    DSHOT_MODE_MAX
+    DSHOT1200
 };
 
 // Represents the 16-bit DShot data packet sent to the ESC.
@@ -152,6 +156,5 @@ const dshot_timing_us_t DSHOT_TIMING_US[] = {
     {6.67, 5.00}, // DSHOT150
     {3.33, 2.50}, // DSHOT300
     {1.67, 1.25}, // DSHOT600
-    {0.83, 0.67}, // DSHOT1200
-    {0.00, 0.00}  // DSHOT_MODE_MAX (dummy entry)
+    {0.83, 0.67} // DSHOT1200
 };

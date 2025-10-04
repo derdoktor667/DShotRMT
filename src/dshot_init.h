@@ -1,8 +1,15 @@
+/**
+ * @file dshot_init.h
+ * @brief RMT configuration and initialization function declarations for DShotRMT library
+ * @author Wastl Kraus
+ * @date 2025-10-04
+ * @license MIT
+ */
+
 #pragma once
 
-#include <Arduino.h>
-#include <driver/rmt_tx.h>
 #include <driver/rmt_rx.h>
+#include <driver/rmt_tx.h>
 
 #include "dshot_definitions.h"
 

@@ -1,4 +1,12 @@
-#include "dshot_config.h"
+/**
+ * @file dshot_init.cpp
+ * @brief RMT configuration and initialization functions for DShotRMT library
+ * @author Wastl Kraus
+ * @date 2025-10-04
+ * @license MIT
+ */
+
+#include "dshot_init.h"
 
 // Function to initialize the RMT TX channel
 dshot_result_t init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_channel, bool is_bidirectional)
@@ -38,12 +46,10 @@ dshot_result_t init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
         .mem_block_symbols = RMT_BUFFER_SYMBOLS,
     };
 
-    rmt_receive_config_t rmt_rx_config = {
-        .signal_range_min_ns = DSHOT_PULSE_MIN_NS,
-        .signal_range_max_ns = DSHOT_PULSE_MAX_NS,
-    };
-
+    if (rmt_new_rx_channel(&rx_channel_config, out_channel) != DSHOT_OK)
+    {
         return {false, DSHOT_RX_INIT_FAILED};
+    }
 
     if (rmt_rx_register_event_callbacks(*out_channel, rx_event_callbacks, user_data) != DSHOT_OK)
     {
@@ -58,6 +64,12 @@ dshot_result_t init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
     // Start the receiver to wait for incoming telemetry data
     rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
     size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+
+    rmt_receive_config_t rmt_rx_config = {
+        .signal_range_min_ns = DSHOT_PULSE_MIN_NS,
+        .signal_range_max_ns = DSHOT_PULSE_MAX_NS,
+    };
+
     if (rmt_receive(*out_channel, rx_symbols, rx_size_bytes, &rmt_rx_config) != DSHOT_OK)
     {
         return {false, DSHOT_RECEIVER_FAILED};

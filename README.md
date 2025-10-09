@@ -114,9 +114,9 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `begin()`: Initializes the DShot RMT channels and encoder.
 - `sendThrottlePercent(float percent)`: Sends a throttle value as a percentage (0.0-100.0) to the ESC.
 - `sendThrottle(uint16_t throttle)`: Sends a raw throttle value (48-2047) to the ESC. A value of 0 sends a motor stop command.
-- `sendCommand(dshotCommands_e command)`: Sends a DShot command (0-47) to the ESC. Automatically handles repetitions and delays for specific commands (e.g., `DSHOT_CMD_SAVE_SETTINGS`).
-- `sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)`: Sends a DShot command (0-47) to the ESC with a specified repeat count and delay. This is a blocking function.
-- `sendCommand(uint16_t command_value)`: Sends a DShot command (0-47) to the ESC by accepting an integer value. It validates the input and then calls `sendCommand(dshotCommands_e command)`.
+- `sendCommand(dshotCommands_e command)`: Sends a DShot command to the ESC. Automatically handles repetitions and delays for specific commands (e.g., `DSHOT_CMD_SAVE_SETTINGS`).
+- `sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)`: Sends a DShot command to the ESC with a specified repeat count and delay. This is a blocking function.
+- `sendCommand(uint16_t command_value)`: Sends a DShot command to the ESC by accepting an integer value. It validates the input and then calls `sendCommand(dshotCommands_e command)`.
 - `getTelemetry(uint16_t magnet_count = 0)`: Retrieves telemetry data from the ESC. If `magnet_count` is 0, uses the stored motor magnet count.
 - `getESCInfo()`: Sends a command to the ESC to request ESC information.
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.

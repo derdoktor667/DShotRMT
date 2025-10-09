@@ -29,7 +29,7 @@ static constexpr auto IS_BIDIRECTIONAL = false;
 // static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, DEFAULT_MOTOR_MAGNET_COUNT);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 //
 void setup()

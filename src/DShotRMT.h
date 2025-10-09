@@ -18,18 +18,19 @@
 #include "dshot_definitions.h"
 #include "dshot_init.h"
 
+// Forward declaration for the RMT receive callback
+class DShotRMT;
+void IRAM_ATTR rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data);
+
 // DShot Protocol Constants
 static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
-static constexpr auto DSHOT_THROTTLE_MIN = 48;
-static constexpr auto DSHOT_BITS_PER_FRAME = 16;
-static constexpr auto DEFAULT_MOTOR_MAGNET_COUNT = 14;
 
-//
+// DShotRMT class for generating DShot signals and receiving telemetry.
 class DShotRMT
 {
 public:
-    // Constructor with GPIO number
-    DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
+    // Constructor for DShotRMT.
+    DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     // Constructor using pin number
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
@@ -40,28 +41,28 @@ public:
     // Initialize DShotRMT
     dshot_result_t begin();
 
-    // Send throttle value
+    // Sends a raw throttle value to the ESC.
     dshot_result_t sendThrottle(uint16_t throttle);
 
-    // Send throttle value as a percentage
+    // Sends a throttle value as a percentage to the ESC.
     dshot_result_t sendThrottlePercent(float percent);
 
-    // Sends a DShot command (0-47) to the ESC by accepting an integer value.
+    // Sends a DShot command to the ESC by accepting an integer value.
     dshot_result_t sendCommand(uint16_t command_value);
 
-    // Sends a DShot command (0-47) to the ESC.
+    // Sends a DShot command to the ESC.
     dshot_result_t sendCommand(dshotCommands_e command);
 
-    // Sends a DShot command (0-47) to the ESC with a specified repeat count and delay.
+    // Sends a DShot command to the ESC with a specified repeat count and delay.
     dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
 
-    // Get telemetry data
+    // Retrieves telemetry data from the ESC.
     dshot_result_t getTelemetry();
 
-    // Reverse motor direction directly
+    // Sets the motor spin direction.
     dshot_result_t setMotorSpinDirection(bool reversed);
 
-    // Use with caution
+    // Sends a command to the ESC to save its current settings.
     dshot_result_t saveESCSettings();
 
     // Getters for DShot info
@@ -71,50 +72,53 @@ public:
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
 private:
-    // Configuration
-    gpio_num_t _gpio;
-    dshot_mode_t _mode;
-    bool _is_bidirectional;
-    uint16_t _motor_magnet_count;
-    dshot_timing_us_t _dshot_timing;
+    static bool IRAM_ATTR _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
-    // RMT Handles & Config
-    rmt_channel_handle_t _rmt_tx_channel = nullptr;
-    rmt_channel_handle_t _rmt_rx_channel = nullptr;
-    rmt_encoder_handle_t _dshot_encoder = nullptr;
-    rmt_ticks_t _rmt_ticks;
-    uint16_t _pulse_level = 1; // Default to high
-    uint16_t _idle_level = 0;  // Default to low
+    // DShot Configuration Parameters
+    gpio_num_t _gpio;                // GPIO pin used for DShot communication
+    dshot_mode_t _mode;              // DShot mode (e.g., DSHOT300, DSHOT600)
+    bool _is_bidirectional;          // True if bidirectional DShot is enabled
+    uint16_t _motor_magnet_count;    // Number of magnets in the motor for RPM calculation
+    dshot_timing_us_t _dshot_timing; // DShot timing parameters in microseconds
 
-    // Timing & State
-    uint64_t _last_transmission_time_us = 0;
-    uint64_t _frame_timer_us = 0;
-    uint16_t _last_throttle = 0;
-    dshot_packet_t _packet;
-    uint16_t _encoded_frame_value = 0;
-    uint64_t _last_command_timestamp = 0;
+    // RMT Hardware Handles and Configuration
+    rmt_channel_handle_t _rmt_tx_channel = nullptr; // RMT transmit channel handle
+    rmt_channel_handle_t _rmt_rx_channel = nullptr; // RMT receive channel handle
+    rmt_encoder_handle_t _dshot_encoder = nullptr;  // DShot RMT encoder handle
+    rmt_ticks_t _rmt_ticks;                         // Pre-calculated RMT timing ticks
+    uint16_t _pulse_level = 1;                      // Output level for a pulse (typically high)
+    uint16_t _idle_level = 0;                       // Output level for idle (typically low)
 
-    // Telemetry
-    std::atomic<uint16_t> _last_erpm_atomic = 0;
-    std::atomic<bool> _telemetry_ready_flag_atomic = false;
+    // DShot Frame Timing and State Variables
+    uint64_t _last_transmission_time_us = 0; // Timestamp of the last DShot frame transmission
+    uint64_t _frame_timer_us = 0;            // Minimum time required between DShot frames
+    uint16_t _last_throttle = 0;             // Last transmitted throttle value
+    dshot_packet_t _packet;                  // Current DShot packet being processed
+    uint16_t _encoded_frame_value = 0;       // Last encoded 16-bit DShot frame value
+    uint64_t _last_command_timestamp = 0;    // Timestamp of the last command sent
+
+    // Telemetry Related Variables
+    std::atomic<uint16_t> _last_erpm_atomic = 0;            // Atomically stored last received eRPM value
+    std::atomic<bool> _telemetry_ready_flag_atomic = false; // Atomically stored flag indicating new telemetry data
     rmt_rx_event_callbacks_t _rx_event_callbacks = {
+        // RMT receive event callbacks
         .on_recv_done = _on_rx_done,
     };
 
-    // Private helper functions
-    bool _isValidCommand(dshotCommands_e command) const;
-    dshot_result_t _executeCommand(dshotCommands_e command);
-    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;
-    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;
-    uint16_t _calculateCRC(const uint16_t &data) const;
-    void _preCalculateRMTTicks();
-    dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);
-    uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;
-    bool IRAM_ATTR _isFrameIntervalElapsed() const;
-    void _recordFrameTransmissionTime();
+    // Private Helper Functions for DShot Protocol Logic
+    bool _isValidCommand(dshotCommands_e command) const;                          // Checks if a given DShot command is valid
+    dshot_result_t _executeCommand(dshotCommands_e command);                      // Executes a single DShot command
+    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;                // Builds a DShot packet from a value (throttle or command)
+    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;           // Combines packet data into a 16-bit DShot frame value
+    uint16_t _calculateCRC(const uint16_t &data) const;                           // Calculates the 4-bit CRC for a DShot frame
+    void _preCalculateRMTTicks();                                                 // Pre-calculates RMT timing ticks for the selected DShot mode
+    dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);                 // Sends a DShot frame via RMT TX channel
+    uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const; // Decodes a received RMT symbol array into an eRPM value
+    bool IRAM_ATTR _isFrameIntervalElapsed() const;                               // Checks if enough time has passed since the last frame transmission
+    void _recordFrameTransmissionTime();                                          // Records the current time as the last frame transmission time
 
-    // Static Callback Functions
-    static bool IRAM_ATTR _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
+    // Static Callback Function for RMT RX Events
+    void _cleanupRmtResources();
 };
 
 #include "dshot_utils.h" // Include for helper functions

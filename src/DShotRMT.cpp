@@ -33,21 +33,17 @@ DShotRMT::~DShotRMT()
     // Cleanup TX channel
     if (_rmt_tx_channel)
     {
-        if (rmt_disable(_rmt_tx_channel) == DSHOT_OK)
-        {
-            rmt_del_channel(_rmt_tx_channel);
-            _rmt_tx_channel = nullptr;
-        }
+        rmt_disable(_rmt_tx_channel);
+        rmt_del_channel(_rmt_tx_channel);
+        _rmt_tx_channel = nullptr;
     }
 
     // Cleanup RX channel
     if (_rmt_rx_channel)
     {
-        if (rmt_disable(_rmt_rx_channel) == DSHOT_OK)
-        {
-            rmt_del_channel(_rmt_rx_channel);
-            _rmt_rx_channel = nullptr;
-        }
+        rmt_disable(_rmt_rx_channel);
+        rmt_del_channel(_rmt_rx_channel);
+        _rmt_rx_channel = nullptr;
     }
 
     // Cleanup encoder
@@ -65,6 +61,7 @@ dshot_result_t DShotRMT::begin()
 
     if (!result.success)
     {
+        _cleanupRmtResources(); // Clean up any allocated resources on failure
         return result;
     }
 
@@ -73,10 +70,7 @@ dshot_result_t DShotRMT::begin()
         result = init_rmt_rx_channel(_gpio, &_rmt_rx_channel, &_rx_event_callbacks, this);
         if (!result.success)
         {
-            // Cleanup previously allocated TX channel on failure
-            rmt_disable(_rmt_tx_channel);
-            rmt_del_channel(_rmt_tx_channel);
-            _rmt_tx_channel = nullptr;
+            _cleanupRmtResources(); // Clean up any allocated resources on failure
             return result;
         }
     }
@@ -85,17 +79,7 @@ dshot_result_t DShotRMT::begin()
 
     if (!result.success)
     {
-        // Cleanup previously allocated channels on failure
-        rmt_disable(_rmt_tx_channel);
-        rmt_del_channel(_rmt_tx_channel);
-        _rmt_tx_channel = nullptr;
-
-        if (_rmt_rx_channel)
-        {
-            rmt_disable(_rmt_rx_channel);
-            rmt_del_channel(_rmt_rx_channel);
-            _rmt_rx_channel = nullptr;
-        }
+        _cleanupRmtResources(); // Clean up any allocated resources on failure
         return result;
     }
 
@@ -260,10 +244,10 @@ dshot_result_t DShotRMT::saveESCSettings()
 // Simple check
 bool DShotRMT::_isValidCommand(dshotCommands_e command) const
 {
-    return (command >= dshotCommands_e::DSHOT_CMD_MOTOR_STOP && command <= dshotCommands_e::DSHOT_CMD_MAX);
+    return (command >= dshotCommands_e::DSHOT_CMD_MOTOR_STOP && command <= DSHOT_CMD_MAX);
 }
 
-//
+// Executes a single DShot command by building and sending a DShot frame.
 dshot_result_t DShotRMT::_executeCommand(dshotCommands_e command)
 {
     uint64_t start_time = esp_timer_get_time();
@@ -314,18 +298,18 @@ uint16_t DShotRMT::_calculateCRC(const uint16_t &data) const
 
 void DShotRMT::_preCalculateRMTTicks()
 {
-    // Pre-calculate all timing values in RMT ticks to save CPU cycles later
+    // Pre-calculate all timing values in RMT ticks to save CPU cycles later.
     _rmt_ticks.bit_length_ticks = static_cast<uint16_t>(_dshot_timing.bit_length_us * RMT_TICKS_PER_US);
     _rmt_ticks.t1h_ticks = static_cast<uint16_t>(_dshot_timing.t1h_lenght_us * RMT_TICKS_PER_US);
-    _rmt_ticks.t0h_ticks = _rmt_ticks.t1h_ticks >> 1; // High time for a 1 is always double of 0
+    _rmt_ticks.t0h_ticks = _rmt_ticks.t1h_ticks >> 1; // High time for a '0' bit is half of a '1' bit.
     _rmt_ticks.t1l_ticks = _rmt_ticks.bit_length_ticks - _rmt_ticks.t1h_ticks;
     _rmt_ticks.t0l_ticks = _rmt_ticks.bit_length_ticks - _rmt_ticks.t0h_ticks;
 
-    // Calculate the minimum time required between frames
-    // Pause between frames is frame time in us, some padding and about 30 us is added by hardware
+    // Calculate the minimum time required between frames.
+    // Pause between frames is frame time in us, some padding and about 30 us is added by hardware.
     _frame_timer_us = (static_cast<uint64_t>(_dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;
 
-    // For bidirectional, double up
+    // For bidirectional, double up.
     if (_is_bidirectional)
     {
         _frame_timer_us = (_frame_timer_us << 1);
@@ -365,12 +349,12 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 
 // This function needs to be fast, as it generates the RMT symbols just before sending
 
-// Placed in IRAM for high performance, as it's called from an ISR context
+// Placed in IRAM for high performance, as it's called from an ISR context.
 uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols) const
 {
     uint32_t gcr_value = 0;
 
-    // Step 1: Decode RMT symbols into a 21-bit GCR (Group Code Recording) value.
+    // Decode RMT symbols into a 21-bit GCR (Group Code Recording) value.
     // The ESC sends back a signal where the duration determines the bit value.
     for (size_t i = 0; i < GCR_BITS_PER_FRAME; ++i)
     {
@@ -378,23 +362,23 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         gcr_value = (gcr_value << 1) | bit_is_one;
     }
 
-    // Step 2: Perform GCR decoding (GCR = Value ^ (Value >> 1))
+    // Perform GCR decoding (GCR = Value ^ (Value >> 1)).
     uint32_t decoded_frame = gcr_value ^ (gcr_value >> 1);
 
-    // Step 3: Extract the 16-bit DShot frame from the decoded data
+    // Extract the 16-bit DShot frame from the decoded data.
     uint16_t data_and_crc = (decoded_frame & DSHOT_FULL_PACKET);
 
-    // Step 4: Extract data and CRC from the 16-bit frame
+    // Extract data and CRC from the 16-bit frame.
     uint16_t received_data = data_and_crc >> DSHOT_CRC_BIT_SHIFT;
     uint16_t received_crc = data_and_crc & DSHOT_CRC_MASK;
 
-    // Step 5: A valid response must have the telemetry request bit set to 1. This is a sanity check.
+    // A valid response must have the telemetry request bit set to 1. This is a sanity check.
     if (!((received_data >> DSHOT_TELEMETRY_BIT_POSITION) & 1))
     {
         return DSHOT_NULL_PACKET;
     }
 
-    // Step 6: Calculate and validate CRC
+    // Calculate and validate CRC.
     uint16_t calculated_crc = _calculateCRC(received_data);
     if (received_crc != calculated_crc)
     {
@@ -439,4 +423,27 @@ bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const 
     }
 
     return false;
+}
+
+void DShotRMT::_cleanupRmtResources()
+{
+    if (_rmt_tx_channel)
+    {
+        rmt_disable(_rmt_tx_channel);
+        rmt_del_channel(_rmt_tx_channel);
+        _rmt_tx_channel = nullptr;
+    }
+
+    if (_rmt_rx_channel)
+    {
+        rmt_disable(_rmt_rx_channel);
+        rmt_del_channel(_rmt_rx_channel);
+        _rmt_rx_channel = nullptr;
+    }
+
+    if (_dshot_encoder)
+    {
+        rmt_del_encoder(_dshot_encoder);
+        _dshot_encoder = nullptr;
+    }
 }

@@ -41,7 +41,7 @@ static constexpr char INVALID_COMMAND[] = "Invalid command!";
 static constexpr char COMMAND_SUCCESS[] = "DShot command sent successfully";
 
 // Helper to get result code string
-inline const char *_get_result_code_str(dshot_msg_code_t code)
+inline const char *get_result_code_str(dshot_msg_code_t code)
 {
     switch (code)
     {
@@ -103,7 +103,7 @@ inline const char *_get_result_code_str(dshot_msg_code_t code)
 // Helper to quick print DShot result codes
 inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 {
-    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", _get_result_code_str(result.result_code));
+    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", get_result_code_str(result.result_code));
 
     // Print telemetry data if available
     if (result.success && (result.erpm > 0 || result.motor_rpm > 0))

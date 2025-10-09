@@ -11,6 +11,19 @@
 #include <cstdint>
 #include <driver/rmt_common.h>
 
+// DShot protocol definitions
+static constexpr uint16_t DSHOT_FRAME_LENGTH = 16;           // 11 throttle bits + 1 telemetry bit + 4 CRC bits
+static constexpr uint16_t DSHOT_BITS_PER_FRAME = 16;
+static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;         // Maximum throttle value (0-2047)
+static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;           // Minimum throttle value for motor spin
+static constexpr uint16_t DSHOT_CMD_MIN = 0;                 // Minimum command value
+static constexpr uint16_t DSHOT_CMD_MAX = 47;                // Maximum command value
+static constexpr uint16_t DSHOT_TELEMETRY_BIT_MASK = 0x0800; // Bit mask for telemetry request bit (11th bit)
+static constexpr uint16_t DSHOT_CRC_MASK = 0x000F;           // Bit mask for CRC bits
+
+// Default motor magnet count for RPM calculation
+static constexpr uint16_t DEFAULT_MOTOR_MAGNET_COUNT = 14;
+
 // Defines the available DShot communication speeds.
 enum dshot_mode_t
 {
@@ -114,8 +127,7 @@ enum dshotCommands_e
     DSHOT_CMD_LED2_OFF,
     DSHOT_CMD_LED3_OFF,
     DSHOT_CMD_AUDIO_STREAM_MODE_ON_OFF = 30,
-    DSHOT_CMD_SILENT_MODE_ON_OFF = 31,
-    DSHOT_CMD_MAX = 47
+    DSHOT_CMD_SILENT_MODE_ON_OFF = 31
 };
 
 // Custom status codes
@@ -125,7 +137,6 @@ static constexpr int DSHOT_ERROR = 1;
 // Configuration Constants
 static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
-static constexpr auto DSHOT_CRC_MASK = 0b0000000000001111;
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr auto DSHOT_RMT_RESOLUTION = 8000000;                    // 8 MHz resolution
 static constexpr auto RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / 1000000; // RMT Ticks per microsecond
@@ -137,7 +148,6 @@ static constexpr auto GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer fra
 static constexpr auto POLE_PAIRS_MIN = 1;
 static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
 static constexpr auto NO_DSHOT_TELEMETRY = 0;
-static constexpr auto DSHOT_THROTTLE_MAX = 2047;
 static constexpr auto DSHOT_PULSE_MIN_NS = 800;  // 0.8us minimum pulse
 static constexpr auto DSHOT_PULSE_MAX_NS = 8000; // 8.0us maximum pulse
 static constexpr auto DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
@@ -156,5 +166,5 @@ const dshot_timing_us_t DSHOT_TIMING_US[] = {
     {6.67, 5.00}, // DSHOT150
     {3.33, 2.50}, // DSHOT300
     {1.67, 1.25}, // DSHOT600
-    {0.83, 0.67} // DSHOT1200
+    {0.83, 0.67}  // DSHOT1200
 };

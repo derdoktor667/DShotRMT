@@ -6,5 +6,8 @@
  * @license MIT
  */
 
+#pragma once
+
+#include <Arduino.h>
 #include "src/DShotRMT.h"
  

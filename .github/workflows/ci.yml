@@ -46,7 +46,7 @@ jobs:
             ~/.arduino15/packages
             ~/.arduino15/cache
             ~/Arduino/libraries
-          key: linux-arduino-esp32-v2-${{ hashFiles('**/library.properties') }}
+          key: linux-arduino-esp32-v2-v3
 
       - name: Install Dependencies
         if: steps.cache-arduino.outputs.cache-hit != 'true'
@@ -83,7 +83,7 @@ jobs:
             ~/.arduino15/packages
             ~/.arduino15/cache
             ~/Arduino/libraries
-          key: linux-arduino-esp32-v2-${{ hashFiles('**/library.properties') }}
+          key: linux-arduino-esp32-v2-v3
       
       - name: Run Arduino Lint
         uses: arduino/arduino-lint-action@v2
@@ -125,7 +125,7 @@ jobs:
             ~/.arduino15/packages
             ~/.arduino15/cache
             ~/Arduino/libraries
-          key: linux-arduino-esp32-v2-${{ hashFiles('**/library.properties') }}
+          key: linux-arduino-esp32-v2-v3
       
       - name: Compile Sketch
         run: arduino-cli compile --fqbn esp32:esp32:esp32 --library ${{ github.workspace }} "${{ matrix.sketch }}"

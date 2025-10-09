@@ -1,6 +1,6 @@
 /**
  * @file web_client.ino
- * @brief DShotRMT Web Control as WiFi Client
+ * @brief Example sketch for DShotRMT library demonstrating web control via a client
  * @author Wastl Kraus
  * @date 2025-09-11
  * @license MIT
@@ -16,12 +16,11 @@
  ******************************************************************/
 
 #include <Arduino.h>
-#include <Update.h>
-#include <WiFi.h>
-
 #include <DShotRMT.h>
-#include <ota_update.h>
-#include <web_content.h>
+#include <WiFi.h>
+#include <Update.h>
+#include "web_utilities/ota_update.h"
+#include "web_utilities/web_content.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
@@ -51,7 +50,7 @@ static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is 
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
 
 // Web Server Configuration
 AsyncWebServer server(80);
@@ -177,7 +176,7 @@ void loop()
         // Get Motor RPM if bidirectional and armed
         if (IS_BIDIRECTIONAL && isArmed)
         {
-            dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t telem_result = motor01.getTelemetry();
             printDShotResult(telem_result);
         }
 
@@ -194,7 +193,7 @@ void loop()
 
         if (IS_BIDIRECTIONAL && isArmed)
         {
-            dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t telem_result = motor01.getTelemetry();
             if (telem_result.success && telem_result.motor_rpm > 0)
             {
                 current_rpm = String(telem_result.motor_rpm);
@@ -235,11 +234,11 @@ void setupOTA()
 
     // Serve OTA update page
     server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send_P(200, "text/html", ota_html); });
+                  { request->send_P(200, "text/html", ota_html); });
 
     // Handle OTA update upload
     server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
+                  {
             bool shouldReboot = !Update.hasError();
 
             AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", 
@@ -254,7 +253,8 @@ void setupOTA()
                 ESP.restart();
             } else {
                 USB_SERIAL.println("OTA Update failed!");
-            } }, handleOTAUpload);
+            }
+        }, handleOTAUpload);
 
     USB_SERIAL.println("OTA Update ready at: /update");
 }
@@ -344,7 +344,7 @@ void printWiFiStatus()
     {
         USB_SERIAL.println();
         USB_SERIAL.println("***********************************************");
-        USB_SERIAL.println("               --- WIFI INFO ---               ");
+        USB_SERIAL.println("               --- WIFI INFO ---");
         USB_SERIAL.println("***********************************************");
         USB_SERIAL.printf("SSID: %s\n", WiFi.SSID().c_str());
         USB_SERIAL.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
@@ -393,7 +393,7 @@ void printMenu()
 {
     USB_SERIAL.println(" ");
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println("     --- DShotRMT Web Client Demo ---         ");
+    USB_SERIAL.println("     --- DShotRMT Web Client Demo ---");
     USB_SERIAL.println("***********************************************");
 
     if (wifi_connected)
@@ -494,7 +494,7 @@ void handleSerialInput(const String &input)
     {
         if (isArmed)
         {
-            dshot_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t result = motor01.getTelemetry();
             printDShotResult(result);
         }
         else

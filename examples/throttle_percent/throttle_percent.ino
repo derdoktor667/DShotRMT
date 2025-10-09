@@ -1,6 +1,6 @@
 /**
  * @file throttle_percent.ino
- * @brief Demo sketch for DShotRMT library using percentage throttle.
+ * @brief Example sketch for DShotRMT library demonstrating throttle control by percentage
  * @author Wastl Kraus
  * @date 2025-09-20
  * @license MIT
@@ -28,7 +28,7 @@ static constexpr auto IS_BIDIRECTIONAL = false;
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, DEFAULT_MOTOR_MAGNET_COUNT);
 
 // Forward declaration
 void handleSerialInput(const String &input);

@@ -1,6 +1,6 @@
 /**
  * @file web_control.ino
- * @brief Demo sketch for DShotRMT library
+ * @brief Example sketch for DShotRMT library demonstrating web control via an access point
  * @author Wastl Kraus
  * @date 2025-09-09
  * @license MIT
@@ -16,10 +16,10 @@
  ******************************************************************/
 
 #include <Arduino.h>
-#include <WiFi.h>
-
 #include <DShotRMT.h>
-#include <web_content.h>
+#include <WiFi.h>
+#include <Update.h>
+#include "web_utilities/web_content.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
@@ -50,7 +50,7 @@ static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is 
 static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
 
 // Web Server Configuration
 AsyncWebServer server(80);
@@ -145,7 +145,7 @@ void loop()
         // Get Motor RPM if bidirectional and armed
         if (IS_BIDIRECTIONAL && isArmed)
         {
-            dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t telem_result = motor01.getTelemetry();
             printDShotResult(telem_result);
         }
 
@@ -160,7 +160,7 @@ void loop()
 
     if (IS_BIDIRECTIONAL && isArmed)
     {
-        dshot_result_t telem_result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+        dshot_result_t telem_result = motor01.getTelemetry();
         if (telem_result.success && telem_result.motor_rpm > 0)
         {
             current_rpm = String(telem_result.motor_rpm);
@@ -263,7 +263,7 @@ void handleSerialInput(const String &input)
     {
         if (isArmed)
         {
-            dshot_result_t result = motor01.getTelemetry(MOTOR01_MAGNET_COUNT);
+            dshot_result_t result = motor01.getTelemetry();
             printDShotResult(result);
         }
         else

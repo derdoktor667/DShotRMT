@@ -1,10 +1,14 @@
 # DShotRMT - ESP32 RMT DShot Driver
 
 [![Arduino CI](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml/badge.svg)](https://github.com/derdoktor667/DShotRMT/actions/workflows/ci.yml)
+[![Arduino Library](https://img.shields.io/badge/Arduino-Library-blue.svg)](https://www.arduinolibraries.com/libraries/dshot-rmt)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An Arduino IDElibrary for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed, and maintainable implementation. It provides a simple way to control brushless motors in both Arduino and ESP-IDF projects.
+An Arduino IDE library for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT Encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed and maintainable implementation. It provides a simple way to control BLHeli ESCs in both Arduino and ESP-IDF projects.
 
  The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
+
+---
 
 ### DShot300 Example Output
 
@@ -15,7 +19,7 @@ Here's an example of the output from the `dshot300` example sketch:
 ## 🚀 Core Features
 
 - **Multiple DShot Modes:** Supports DSHOT150, DSHOT300, DSHOT600, and DSHOT1200.
-- **Bidirectional DShot Support:** Implemented, but note that official support is limited due to potential instability and external hardware requirements. Use with caution.
+- **Bidirectional DShot Support:** Implemented, but note that official support is limited due to potential instability and external hardware requirements. Use with caution (and pull-up).
 - **Hardware-Timed Signals:** Precise signal generation using the ESP32 RMT peripheral, ensuring stable and reliable motor control.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
 - **Error Handling:** Provides detailed feedback on operation success or failure via `dshot_result_t`.
@@ -43,11 +47,11 @@ The DShot protocol defines specific timing characteristics for each mode. The fo
 
 ## ⚡ Quick Start
 
-Here's a basic example of how to use the `DShotRMT` library to control a motor. Please use example sketches for more detailes:
+Here's a basic example of how to use the `DShotRMT` library to control a motor. Note that `DShotRMT.h` now includes all necessary dependencies, so you only need to include this single header. Please use example sketches for more detailes:
 
 ```cpp
 #include <Arduino.h>
-#include <DShotRMT.h> // Include the DShotRMT library
+#include <DShotRMT.h>
 
 // Define the GPIO pin connected to the motor ESC
 const gpio_num_t MOTOR_PIN = GPIO_NUM_27;
@@ -65,14 +69,13 @@ void setup() {
   printCpuInfo(Serial);
 
   Serial.println("Motor initialized. Ramping up to 25% throttle...");
-  
-}
+  }
 
 void loop() {
   // Ramp up to 25% throttle over 2.5 seconds
   for (int i = 0; i <= 25; i++) {
     motor.sendThrottlePercent(i);
-    delay(100);
+    delay(200);
   }
   
   Serial.println("Stopping motor.");
@@ -80,6 +83,9 @@ void loop() {
 
   // Print DShot Info
   printDShotInfo(motor, Serial);
+
+  // Take a break before next bench run
+  delay(3000);
 }
 ```
 
@@ -108,8 +114,9 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `begin()`: Initializes the DShot RMT channels and encoder.
 - `sendThrottlePercent(float percent)`: Sends a throttle value as a percentage (0.0-100.0) to the ESC.
 - `sendThrottle(uint16_t throttle)`: Sends a raw throttle value (48-2047) to the ESC. A value of 0 sends a motor stop command.
-- `sendCommand(uint16_t command)`: Sends a single DShot command (0-47) to the ESC.
-- `sendCommand(dshotCommands_e dshot_command, uint16_t repeat_count = DEFAULT_CMD_REPEAT_COUNT, uint16_t delay_us = DEFAULT_CMD_DELAY_US)`: Sends a DShot command multiple times with a delay between repetitions. This is a blocking function.
+- `sendCommand(dshotCommands_e command)`: Sends a DShot command to the ESC. Automatically handles repetitions and delays for specific commands (e.g., `DSHOT_CMD_SAVE_SETTINGS`).
+- `sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)`: Sends a DShot command to the ESC with a specified repeat count and delay. This is a blocking function.
+- `sendCommand(uint16_t command_value)`: Sends a DShot command to the ESC by accepting an integer value. It validates the input and then calls `sendCommand(dshotCommands_e command)`.
 - `getTelemetry(uint16_t magnet_count = 0)`: Retrieves telemetry data from the ESC. If `magnet_count` is 0, uses the stored motor magnet count.
 - `getESCInfo()`: Sends a command to the ESC to request ESC information.
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.
@@ -122,6 +129,14 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `isBidirectional()`: Checks if bidirectional DShot is enabled.
 - `getEncodedFrameValue()`: Gets the last encoded DShot frame value.
 - `getThrottleValue()`: Gets the last transmitted throttle value.
+
+## ⚙️ ESP-IDF Integration
+
+This library is built upon the ESP-IDF framework, specifically leveraging its RMT (Remote Control Peripheral) module for precise signal generation. For detailed information on the underlying ESP-IDF components and their usage, please refer to the official ESP-IDF documentation:
+
+*   [ESP-IDF v5.5.1 Documentation](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/)
+
+---
 
 ## 🤝 Contributing
 

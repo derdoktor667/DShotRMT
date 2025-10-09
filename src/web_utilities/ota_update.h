@@ -2,7 +2,7 @@
  * @file ota_update.h
  * @brief Contains the HTML, CSS, and JavaScript for the OTA (Over-The-Air) update web page.
  * @author Wastl Kraus
- * @date 2025-09-13
+ * @date 2025-10-04
  * @license MIT
  */
 

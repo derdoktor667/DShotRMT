@@ -25,7 +25,7 @@ static constexpr uint16_t DSHOT_CRC_MASK = 0x000F;           // Bit mask for CRC
 static constexpr uint16_t DEFAULT_MOTOR_MAGNET_COUNT = 14;
 
 // Defines the available DShot communication speeds.
-enum dshot_mode_t
+enum dshot_mode_t : uint8_t
 {
     DSHOT_OFF,
     DSHOT150,

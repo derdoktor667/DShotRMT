@@ -56,6 +56,9 @@ public:
     // Sends a DShot command to the ESC with a specified repeat count and delay.
     dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
 
+    // Sends a raw DShot command to the ESC.
+    dshot_result_t sendRawCommand(uint16_t command_value);
+
     // Retrieves telemetry data from the ESC.
     dshot_result_t getTelemetry();
 

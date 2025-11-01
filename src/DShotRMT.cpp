@@ -235,6 +235,13 @@ dshot_result_t DShotRMT::setMotorSpinDirection(bool reversed)
     return sendCommand(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
 }
 
+// Sends a raw DShot command to the ESC.
+dshot_result_t DShotRMT::sendRawCommand(uint16_t command_value)
+{
+    _packet = _buildDShotPacket(command_value);
+    return _sendDShotFrame(_packet);
+}
+
 // Use with caution
 dshot_result_t DShotRMT::saveESCSettings()
 {

@@ -23,10 +23,10 @@ static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 // BiDirectional DShot Support (default: false)
 // Note: Bidirectional DShot is currently not officially supported
 // due to instability and external hardware requirements.
-static constexpr auto IS_BIDIRECTIONAL = false;
+static constexpr auto IS_BIDIRECTIONAL = true;
 
 // Motor magnet count for RPM calculation
-// static constexpr auto MOTOR01_MAGNET_COUNT = 14;
+static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);

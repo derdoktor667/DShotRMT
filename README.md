@@ -6,6 +6,8 @@
 
 An Arduino IDE library for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT Encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed and maintainable implementation. It provides a simple way to control BLHeli ESCs in both Arduino and ESP-IDF projects.
 
+### Bidirectional DShot re-enabled for testing.
+
  The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
 
 ---

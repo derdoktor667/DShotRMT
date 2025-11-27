@@ -119,7 +119,7 @@ dshot_result_t DShotRMT::sendThrottlePercent(float percent)
 dshot_result_t DShotRMT::sendCommand(uint16_t command_value)
 {
     // Validate the integer command value before casting
-    if (command_value < DSHOT_CMD_MOTOR_STOP || command_value > DSHOT_CMD_MAX)
+    if (command_value < DSHOT_CMD_MOTOR_STOP || command_value > DSHOT_CMD_MAX_VALUE)
     {
         return {false, DSHOT_COMMAND_NOT_VALID};
     }
@@ -134,6 +134,7 @@ dshot_result_t DShotRMT::sendCommand(dshotCommands_e command)
 
     switch (command)
     {
+    case DSHOT_CMD_MOTOR_STOP:
     case DSHOT_CMD_SAVE_SETTINGS:
     case DSHOT_CMD_SPIN_DIRECTION_NORMAL:
     case DSHOT_CMD_SPIN_DIRECTION_REVERSED:
@@ -235,6 +236,13 @@ dshot_result_t DShotRMT::setMotorSpinDirection(bool reversed)
     return sendCommand(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
 }
 
+// Sends a raw DShot command to the ESC.
+dshot_result_t DShotRMT::sendRawCommand(uint16_t command_value)
+{
+    _packet = _buildDShotPacket(command_value);
+    return _sendDShotFrame(_packet);
+}
+
 // Use with caution
 dshot_result_t DShotRMT::saveESCSettings()
 {
@@ -325,6 +333,24 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
         return {true, DSHOT_NONE};
     }
 
+    if (_is_bidirectional)
+    {
+        // Start the receiver to wait for incoming telemetry data
+        rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
+        size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+
+        rmt_receive_config_t rmt_rx_config = {
+            .signal_range_min_ns = DSHOT_PULSE_MIN_NS,
+            .signal_range_max_ns = DSHOT_PULSE_MAX_NS,
+        };
+
+        if (rmt_receive(_rmt_rx_channel, rx_symbols, rx_size_bytes, &rmt_rx_config) != DSHOT_OK)
+        {
+            return {false, DSHOT_RECEIVER_FAILED};
+        }
+    }
+
+    // Now let's prepare the actual frame
     _encoded_frame_value = _buildDShotFrameValue(packet);
 
     // Byte-swap the 16-bit value for correct transmission order (ESP32 is little-endian, DShot is MSB first)
@@ -335,11 +361,29 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 
     rmt_transmit_config_t tx_config = {}; // Initialize all members to zero
     tx_config.loop_count = 0;             // No automatic loops - real-time calculation
-    tx_config.flags.eot_level = _is_bidirectional ? 1 : 0;
+
+    // TODO: Find out, why this is needed
+    if (_is_bidirectional)
+    {
+        // Disable RMT RX for sending
+        if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
+        {
+            return {false, DSHOT_RECEIVER_FAILED};
+        }
+    }
 
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, tx_size_bytes, &tx_config) != DSHOT_OK)
     {
         return {false, DSHOT_TRANSMISSION_FAILED};
+    }
+
+    // Re-enable RMT RX
+    if (_is_bidirectional)
+    {
+        if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
+        {
+            return {false, DSHOT_RECEIVER_FAILED};
+        }
     }
 
     _recordFrameTransmissionTime(); // Reset the timer for the next frame
@@ -348,7 +392,6 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
 }
 
 // This function needs to be fast, as it generates the RMT symbols just before sending
-
 // Placed in IRAM for high performance, as it's called from an ISR context.
 uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols) const
 {

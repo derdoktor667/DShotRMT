@@ -127,7 +127,8 @@ enum dshotCommands_e
     DSHOT_CMD_LED2_OFF,
     DSHOT_CMD_LED3_OFF,
     DSHOT_CMD_AUDIO_STREAM_MODE_ON_OFF = 30,
-    DSHOT_CMD_SILENT_MODE_ON_OFF = 31
+    DSHOT_CMD_SILENT_MODE_ON_OFF = 31,
+    DSHOT_CMD_MAX_VALUE = 47
 };
 
 // Custom status codes

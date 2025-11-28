@@ -7,13 +7,14 @@
  */
 
 #include "DShotRMT.h"
+#include <cstring>
 
 // Configuration Constants
 static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
 static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
 static constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
 static constexpr auto DSHOT_PADDING_US = 20; // Pause between frames
-static constexpr auto GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer frame
+
 static constexpr auto POLE_PAIRS_MIN = 1;
 static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
 static constexpr auto NO_DSHOT_TELEMETRY = 0;
@@ -91,7 +92,7 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
 {
     // A throttle value of 0 is a disarm command
     if (throttle == 0)
-    {   
+    {
         // just to be sure
         _last_throttle = 0;
         return sendCommand(DSHOT_CMD_MOTOR_STOP);
@@ -346,6 +347,51 @@ uint16_t DShotRMT::_calculateCRC(const uint16_t &data) const
     return crc;
 }
 
+uint8_t DShotRMT::_calculateTelemetryCRC(const uint8_t *data, size_t len) const
+{
+    uint8_t crc = 0;
+    for (size_t i = 0; i < len; ++i)
+    {
+        crc ^= data[i];
+        for (uint8_t j = 0; j < 8; ++j)
+        {
+            if (crc & 0x80)
+            {
+                crc = (crc << 1) ^ 0x07; // DSHOT telemetry uses CRC-8 with polynomial 0x07
+            }
+            else
+            {
+                crc <<= 1;
+            }
+        }
+    }
+    return crc;
+}
+
+void DShotRMT::_extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const
+{
+    // Ensure the telemetry_data struct is cleared before filling
+    memset(&telemetry_data, 0, sizeof(dshot_telemetry_data_t));
+
+    // Telemetry data is typically ordered as:
+    // Byte 0: Temperature (signed 8-bit)
+    // Byte 1-2: Voltage (16-bit, MSB first)
+    // Byte 3-4: Current (16-bit, MSB first)
+    // Byte 5-6: Consumption (16-bit, MSB first)
+    // Byte 7-8: RPM (16-bit, MSB first)
+    // Byte 9: CRC (8-bit) - checked separately
+
+    telemetry_data.temperature = static_cast<int8_t>(raw_telemetry_bytes[0]);
+    telemetry_data.voltage = (static_cast<uint16_t>(raw_telemetry_bytes[1]) << 8) | raw_telemetry_bytes[2];
+    telemetry_data.current = (static_cast<uint16_t>(raw_telemetry_bytes[3]) << 8) | raw_telemetry_bytes[4];
+    telemetry_data.consumption = (static_cast<uint16_t>(raw_telemetry_bytes[5]) << 8) | raw_telemetry_bytes[6];
+    telemetry_data.rpm = (static_cast<uint16_t>(raw_telemetry_bytes[7]) << 8) | raw_telemetry_bytes[8];
+
+    // Error flags/count can be derived from other parts of the telemetry data if available,
+    // or set based on CRC check result. For now, we leave telemetry_data.errors to 0
+    // or handle it implicitly through the success/failure of the CRC check.
+}
+
 void DShotRMT::_preCalculateRMTTicks()
 {
     // Pre-calculate all timing values in RMT ticks to save CPU cycles later.
@@ -378,8 +424,8 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
     if (_is_bidirectional)
     {
         // Start the receiver to wait for incoming telemetry data
-        rmt_symbol_word_t rx_symbols[GCR_BITS_PER_FRAME];
-        size_t rx_size_bytes = GCR_BITS_PER_FRAME * sizeof(rmt_symbol_word_t);
+        rmt_symbol_word_t rx_symbols[DSHOT_TELEMETRY_FULL_GCR_BITS];
+        size_t rx_size_bytes = DSHOT_TELEMETRY_FULL_GCR_BITS * sizeof(rmt_symbol_word_t);
 
         rmt_receive_config_t rmt_rx_config = {
             .signal_range_min_ns = DSHOT_PULSE_MIN_NS,
@@ -401,7 +447,7 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
     // The DShot frame is 16 bits, which is 2 bytes
     size_t tx_size_bytes = sizeof(swapped_value);
 
-    rmt_transmit_config_t tx_config = { .loop_count = 0 }; // No automatic loops - real-time calculation
+    rmt_transmit_config_t tx_config = {.loop_count = 0}; // No automatic loops - real-time calculation
 
     // In bidirectional mode, the RMT RX channel must be disabled before transmitting.
     // This is to prevent the receiver from picking up the transmitted signal, which would cause a loopback issue.
@@ -442,7 +488,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 
     // Decode RMT symbols into a 21-bit GCR (Group Code Recording) value.
     // The ESC sends back a signal where the duration determines the bit value.
-    for (size_t i = 0; i < GCR_BITS_PER_FRAME; ++i)
+    for (size_t i = 0; i < DSHOT_ERPM_FRAME_GCR_BITS; ++i)
     {
         bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
         gcr_value = (gcr_value << 1) | bit_is_one;
@@ -491,20 +537,137 @@ void DShotRMT::_recordFrameTransmissionTime()
 }
 
 // Static Callback Functions
+// Processes a full telemetry frame
+void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols)
+{
+    if (num_symbols != DSHOT_TELEMETRY_FULL_GCR_BITS)
+    {
+        return; // Incorrect number of symbols for full telemetry
+    }
+
+    uint8_t gcr_decoded_bytes[DSHOT_TELEMETRY_FRAME_LENGTH_BYTES + 1]; // 10 data bytes + 1 CRC byte
+    memset(gcr_decoded_bytes, 0, sizeof(gcr_decoded_bytes));
+
+    uint8_t data_bit_idx = 0;
+    for (size_t i = 0; i < DSHOT_TELEMETRY_FULL_GCR_BITS; i += 5)
+    {
+        uint8_t gcr_group_5bits = 0;
+        for (size_t j = 0; j < 5; ++j)
+        {
+            if (i + j < DSHOT_TELEMETRY_FULL_GCR_BITS)
+            {
+                gcr_group_5bits = (gcr_group_5bits << 1) | ((symbols[i + j].duration0 > symbols[i + j].duration1) ? 1 : 0);
+            }
+        }
+
+        uint8_t decoded_nibble; // 4 data bits
+        switch (gcr_group_5bits)
+        {
+        case 0b11110:
+            decoded_nibble = 0b0000;
+            break;
+        case 0b01001:
+            decoded_nibble = 0b0001;
+            break;
+        case 0b10100:
+            decoded_nibble = 0b0010;
+            break;
+        case 0b10101:
+            decoded_nibble = 0b0011;
+            break;
+        case 0b01010:
+            decoded_nibble = 0b0100;
+            break;
+        case 0b01011:
+            decoded_nibble = 0b0101;
+            break;
+        case 0b01110:
+            decoded_nibble = 0b0110;
+            break;
+        case 0b01111:
+            decoded_nibble = 0b0111;
+            break;
+        case 0b10010:
+            decoded_nibble = 0b1000;
+            break;
+        case 0b10011:
+            decoded_nibble = 0b1001;
+            break;
+        case 0b10110:
+            decoded_nibble = 0b1010;
+            break;
+        case 0b10111:
+            decoded_nibble = 0b1011;
+            break;
+        case 0b11010:
+            decoded_nibble = 0b1100;
+            break;
+        case 0b11011:
+            decoded_nibble = 0b1101;
+            break;
+        case 0b11100:
+            decoded_nibble = 0b1110;
+            break;
+        case 0b11101:
+            decoded_nibble = 0b1111;
+            break;
+        default:
+            return; // Invalid GCR group, discard frame
+        }
+
+        // Place the 4 decoded bits into the data_bytes array
+        for (int k = 3; k >= 0; --k)
+        {
+            if (data_bit_idx < (DSHOT_TELEMETRY_FRAME_LENGTH_BITS + DSHOT_TELEMETRY_CRC_LENGTH_BITS))
+            {
+                size_t byte_idx = data_bit_idx / 8;
+                size_t bit_pos = data_bit_idx % 8;
+                if (byte_idx < sizeof(gcr_decoded_bytes))
+                {
+                    gcr_decoded_bytes[byte_idx] |= ((decoded_nibble >> k) & 1) << (7 - bit_pos);
+                }
+                data_bit_idx++;
+            }
+        }
+    }
+
+    // Now gcr_decoded_bytes contains the 10 telemetry bytes + 1 CRC byte.
+    // Perform CRC validation.
+    uint8_t received_crc = gcr_decoded_bytes[DSHOT_TELEMETRY_FRAME_LENGTH_BYTES];
+    uint8_t calculated_crc = _calculateTelemetryCRC(gcr_decoded_bytes, DSHOT_TELEMETRY_FRAME_LENGTH_BYTES);
+
+    if (received_crc == calculated_crc)
+    {
+        dshot_telemetry_data_t telemetry_data;
+        // Extract from the first 10 bytes (excluding the CRC byte)
+        _extractTelemetryData(gcr_decoded_bytes, telemetry_data);
+
+        _last_telemetry_data_atomic.store(telemetry_data);
+        _full_telemetry_ready_flag_atomic.store(true);
+    }
+}
+
 // This function is called by the RMT driver's ISR when a frame is received
 bool IRAM_ATTR DShotRMT::_on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
     DShotRMT *instance = static_cast<DShotRMT *>(user_data);
 
-    if (edata && edata->num_symbols == GCR_BITS_PER_FRAME)
+    if (edata)
     {
-        uint16_t erpm = instance->_decodeDShotFrame(edata->received_symbols);
-
-        if (erpm != DSHOT_NULL_PACKET)
+        if (edata->num_symbols == DSHOT_TELEMETRY_FULL_GCR_BITS)
         {
-            // Atomically store the new eRPM value and set the flag
-            instance->_last_erpm_atomic.store(erpm);
-            instance->_telemetry_ready_flag_atomic.store(true);
+            instance->_processFullTelemetryFrame(edata->received_symbols, edata->num_symbols);
+        }
+        else if (edata->num_symbols == DSHOT_ERPM_FRAME_GCR_BITS)
+        {
+            uint16_t erpm = instance->_decodeDShotFrame(edata->received_symbols);
+
+            if (erpm != DSHOT_NULL_PACKET)
+            {
+                // Atomically store the new eRPM value and set the flag
+                instance->_last_erpm_atomic.store(erpm);
+                instance->_telemetry_ready_flag_atomic.store(true);
+            }
         }
     }
 

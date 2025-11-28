@@ -109,29 +109,32 @@ private:
     uint64_t _last_command_timestamp = 0;    // Timestamp of the last command sent
 
     // Telemetry Related Variables
-    std::atomic<uint16_t> _last_erpm_atomic = 0;            // Atomically stored last received eRPM value
-    std::atomic<bool> _telemetry_ready_flag_atomic = false; // Atomically stored flag indicating new telemetry data
+    std::atomic<uint16_t> _last_erpm_atomic = 0;                          // Atomically stored last received eRPM value
+    std::atomic<bool> _telemetry_ready_flag_atomic = false;               // Atomically stored flag indicating new telemetry data
+    std::atomic<dshot_telemetry_data_t> _last_telemetry_data_atomic = {}; // Atomically stored last received full telemetry data
+    std::atomic<bool> _full_telemetry_ready_flag_atomic = false;          // Atomically stored flag indicating new full telemetry data
     rmt_rx_event_callbacks_t _rx_event_callbacks = {
         // RMT receive event callbacks
         .on_recv_done = _on_rx_done,
     };
 
     // Private Helper Functions for DShot Protocol Logic
-    bool _isValidCommand(dshotCommands_e command) const;                          // Checks if a given DShot command is valid
-    dshot_result_t _executeCommand(dshotCommands_e command);                      // Executes a single DShot command
-    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;                // Builds a DShot packet from a value (throttle or command)
-    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;           // Combines packet data into a 16-bit DShot frame value
-    uint16_t _calculateCRC(const uint16_t &data) const;                           // Calculates the 4-bit CRC for a DShot frame
-    void _preCalculateRMTTicks();                                                 // Pre-calculates RMT timing ticks for the selected DShot mode
-    dshot_result_t _sendPacket(const dshot_packet_t &packet);                 // Sends a DShot frame via RMT TX channel
-    uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const; // Decodes a received RMT symbol array into an eRPM value
-    bool IRAM_ATTR _isFrameIntervalElapsed() const;                               // Checks if enough time has passed since the last frame transmission
-    void _recordFrameTransmissionTime();                                          // Records the current time as the last frame transmission time
+    bool _isValidCommand(dshotCommands_e command) const;                                                          // Checks if a given DShot command is valid
+    dshot_result_t _executeCommand(dshotCommands_e command);                                                      // Executes a single DShot command
+    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;                                                // Builds a DShot packet from a value (throttle or command)
+    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;                                           // Combines packet data into a 16-bit DShot frame value
+    uint16_t _calculateCRC(const uint16_t &data) const;                                                           // Calculates the 4-bit CRC for a DShot frame
+    uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;                                        // Calculates the 8-bit CRC for telemetry data
+    void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const; // Extracts telemetry data from raw bytes
+    void _preCalculateRMTTicks();                                                                                 // Pre-calculates RMT timing ticks for the selected DShot mode
+    dshot_result_t _sendPacket(const dshot_packet_t &packet);                                                     // Sends a DShot frame via RMT TX channel
+    uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;                                 // Decodes a received RMT symbol array into an eRPM value
+    void IRAM_ATTR _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);              // Processes a full telemetry frame
+    bool IRAM_ATTR _isFrameIntervalElapsed() const;                                                               // Checks if enough time has passed since the last frame transmission
+    void _recordFrameTransmissionTime();                                                                          // Records the current time as the last frame transmission time
 
     // Static Callback Function for RMT RX Events
     void _cleanupRmtResources();
 };
 
 #include "dshot_utils.h" // Include for helper functions
-
-

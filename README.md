@@ -4,9 +4,9 @@
 [![Arduino Library](https://img.shields.io/badge/Arduino-Library-blue.svg)](https://www.arduinolibraries.com/libraries/dshot-rmt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An Arduino IDE library for generating DShot signals on ESP32 microcontrollers using the **modern ESP-IDF 5 RMT Encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed and maintainable implementation. It provides a simple way to control BLHeli ESCs in both Arduino and ESP-IDF projects.
+An Arduino IDE library for generating DShot signals on ESP32 microcontrollers using the **latest ESP-IDF 5.5 RMT Encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed and maintainable implementation. It provides a simple way to control BLHeli ESCs in both Arduino and ESP-IDF projects.
 
-### Bidirectional DShot re-enabled for testing.
+### Enhanced Bidirectional DShot with Full Telemetry Support.
 
  The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
 
@@ -14,17 +14,17 @@ An Arduino IDE library for generating DShot signals on ESP32 microcontrollers us
 
 ### DShot300 Example Output
 
-Here's an example of the output from the `dshot300` example sketch:
+Here's an example of the output from the `dshot300` example sketch, now showing full telemetry:
 
 ![DShot300 Example Output](img/dshot300.png)
 
 ## 🚀 Core Features
 
 - **Multiple DShot Modes:** Supports DSHOT150, DSHOT300, DSHOT600, and DSHOT1200.
-- **Bidirectional DShot Support:** Implemented, but note that official support is limited due to potential instability and external hardware requirements. Use with caution (and pull-up).
+- **Robust Bidirectional DShot Support:** Now features full GCR-dekodierte telemetry data (temperature, voltage, current, consumption, and RPM) from the ESC. The library automatically differentiates between eRPM-only and full telemetry frames. This significantly enhances feedback capabilities for advanced applications.
 - **Hardware-Timed Signals:** Precise signal generation using the ESP32 RMT peripheral, ensuring stable and reliable motor control.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
-- **Error Handling:** Provides detailed feedback on operation success or failure via `dshot_result_t`.
+- **Enhanced Error Handling:** Provides detailed feedback on operation success or failure via an enhanced `dshot_result_t` struct, now including specific error codes, eRPM data, and a `dshot_telemetry_data_t` struct for full GCR-decoded telemetry.
 - **Lightweight:** The core library has no external dependencies.
 - **Arduino and ESP-IDF Compatible:** Can be used in both Arduino and ESP-IDF projects.
 
@@ -34,7 +34,7 @@ The library is architected around a single C++ class, `DShotRMT`. It abstracts t
 
 1.  **Signal Generation (TX):** The library uses an RMT 'bytes_encoder'. This encoder is configured with the specific pulse durations for DShot '0' and '1' bits based on the selected speed (e.g., DSHOT300, DSHOT600). When a user calls `sendThrottle()`, the library constructs a 16-bit DShot frame (11-bit throttle, 1-bit telemetry request, 4-bit CRC) and hands it to the RMT encoder. The RMT hardware then autonomously generates the correct electrical signal on the specified GPIO pin.
 
-2.  **Bidirectional Telemetry (RX):** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. An interrupt service routine (`_on_rx_done`) is registered. When the ESC sends back a telemetry signal, the RMT peripheral captures it and triggers the interrupt. The interrupt code decodes the GCR-encoded signal, validates its CRC, and stores the resulting eRPM value in a thread-safe `atomic` variable. The main application can then poll for this data using the `getTelemetry()` method.
+2.  **Bidirectional Telemetry (RX) - Now with Full GCR Telemetry:** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. An interrupt service routine (`_on_rx_done`) is registered. When the ESC sends back a telemetry signal, the RMT peripheral captures it. The interrupt code intelligently differentiates between eRPM-only frames (21 GCR bits) and full telemetry frames (110 GCR bits). It then decodes the GCR-encoded signal (including 5B/4B GCR decoding for full telemetry), validates its CRC, and stores the resulting eRPM value or full telemetry data (temperature, voltage, current, consumption, RPM) in thread-safe `atomic` variables. The main application can then poll for this data using the `getTelemetry()` method, which now returns a comprehensive `dshot_result_t` with all available telemetry fields.
 
 ## ⏱️ DShot Timing Information
 
@@ -66,8 +66,8 @@ Here's a basic example of how to use the `DShotRMT` library to control a motor. 
 // Define the GPIO pin connected to the motor ESC
 const gpio_num_t MOTOR_PIN = GPIO_NUM_27;
 
-// Create a DShotRMT instance for DSHOT300
-DShotRMT motor(MOTOR_PIN, DSHOT300);
+// Create a DShotRMT instance for DSHOT300 with bidirectional telemetry enabled
+DShotRMT motor(MOTOR_PIN, DSHOT300, true);
 
 void setup() {
   Serial.begin(115200);
@@ -91,7 +91,7 @@ void loop() {
   Serial.println("Stopping motor.");
   motor.sendThrottlePercent(0);
 
-  // Print DShot Info
+  // Print DShot Info, which now includes detailed telemetry
   printDShotInfo(motor, Serial);
 
   // Take a break before next bench run
@@ -104,7 +104,7 @@ void loop() {
 The `examples` folder contains more advanced examples:
 
 - **`throttle_percent`:** A focused example showing how to control motor speed using percentage values (0-100) via the serial monitor.
-- **`dshot300`:** A more advanced example demonstrating how to send raw DShot commands and receive telemetry via the serial monitor.
+- **`dshot300`:** A more advanced example demonstrating how to send raw DShot commands and **receive comprehensive telemetry** via the serial monitor.
 - **`web_control`:** A full-featured web application for controlling a motor from a web browser. It creates a WiFi access point and serves a web page with a throttle slider and arming switch.
 - **`web_client`:** A variation of the `web_control` example that connects to an existing WiFi network instead of creating its own access point.
 
@@ -128,7 +128,7 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)`: Sends a DShot command to the ESC with a specified repeat count and delay. This is a blocking function.
 - `sendCommand(uint16_t command_value)`: Sends a DShot command to the ESC by accepting an integer value. It validates the input and then calls `sendCommand(dshotCommands_e command)`.
 - `sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us)`: Sends a custom DShot command to the ESC. Advanced feature, use with caution.
-- `getTelemetry()`: Retrieves telemetry data from the ESC. If bidirectional DShot is enabled, this function will return the last received telemetry data.
+- `getTelemetry()`: Retrieves telemetry data from the ESC. If bidirectional DShot is enabled, this function now returns a comprehensive `dshot_result_t` containing both eRPM and a fully GCR-decoded `dshot_telemetry_data_t` struct (temperature, voltage, current, consumption, RPM) if available.
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.
 - `saveESCSettings()`: Sends a command to the ESC to save its current settings. Use with caution as this writes to ESC's non-volatile memory.
 - `getMode()`: Gets the current DShot mode.
@@ -138,7 +138,7 @@ The main class is `DShotRMT`. Here are the most important methods:
 
 ## ⚙️ ESP-IDF Integration
 
-This library is built upon the ESP-IDF framework, specifically leveraging its RMT (Remote Control Peripheral) module for precise signal generation. For detailed information on the underlying ESP-IDF components and their usage, please refer to the official ESP-IDF documentation:
+This library is built upon the ESP-IDF framework, specifically leveraging its RMT (Remote Control Peripheral) module for precise signal generation. The library is tested with **ESP-IDF v5.5.1** and makes extensive use of its modern RMT APIs. For detailed information on the underlying ESP-IDF components and their usage, please refer to the official ESP-IDF documentation:
 
 *   [ESP-IDF v5.5.1 Documentation](https://docs.espressif.com/projects/esp-idf/en/v5.5.1/)
 

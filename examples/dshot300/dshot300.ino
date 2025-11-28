@@ -21,7 +21,7 @@ static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
 // re-enabled for testing
-static constexpr auto IS_BIDIRECTIONAL = false;
+static constexpr auto IS_BIDIRECTIONAL = true;
 
 // Motor magnet count for RPM calculation
 // static constexpr auto MOTOR01_MAGNET_COUNT = 14;
@@ -80,13 +80,11 @@ void loop()
     {
         printDShotInfo(motor01, USB_SERIAL);
 
-        USB_SERIAL.println(" ");
-
         // Get Motor RPM if bidirectional
         if (IS_BIDIRECTIONAL)
         {
-            dshot_result_t telem_result = motor01.getTelemetry();
-            printDShotResult(telem_result);
+            // dshot_result_t telem_result = motor01.getTelemetry();
+            // printDShotResult(telem_result);
         }
 
         USB_SERIAL.println("Type 'help' to show Menu");

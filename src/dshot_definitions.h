@@ -12,16 +12,25 @@
 #include <driver/rmt_common.h>
 
 // DShot protocol definitions
-static constexpr uint16_t DSHOT_FRAME_LENGTH = 16;           // 11 throttle bits + 1 telemetry bit + 4 CRC bits
+static constexpr uint16_t DSHOT_FRAME_LENGTH = 16; // 11 throttle bits + 1 telemetry bit + 4 CRC bits
 static constexpr uint16_t DSHOT_BITS_PER_FRAME = 16;
-static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;         // Maximum throttle value (0-2047)
-static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;           // Minimum throttle value for motor spin
+static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047; // Maximum throttle value (0-2047)
+static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;   // Minimum throttle value for motor spin
 static constexpr float DSHOT_PERCENT_MIN = 0.0f;
 static constexpr float DSHOT_PERCENT_MAX = 100.0f;
 static constexpr uint16_t DSHOT_CMD_MIN = 0;                 // Minimum command value
 static constexpr uint16_t DSHOT_CMD_MAX = 47;                // Maximum command value
 static constexpr uint16_t DSHOT_TELEMETRY_BIT_MASK = 0x0800; // Bit mask for telemetry request bit (11th bit)
 static constexpr uint16_t DSHOT_CRC_MASK = 0x000F;           // Bit mask for CRC bits
+
+// GCR frame definitions
+static constexpr uint16_t DSHOT_ERPM_FRAME_GCR_BITS = 21;      // GCR bits in a DShot answer frame for eRPM
+static constexpr uint16_t DSHOT_TELEMETRY_FULL_GCR_BITS = 110; // GCR bits for a full 10-byte telemetry frame (80 data bits + 8 CRC bits = 88 bits, 88 * 5/4 = 110 GCR bits)
+
+// Telemetry frame definitions
+static constexpr uint16_t DSHOT_TELEMETRY_FRAME_LENGTH_BITS = 80; // 10 bytes * 8 bits/byte
+static constexpr uint16_t DSHOT_TELEMETRY_FRAME_LENGTH_BYTES = 10;
+static constexpr uint16_t DSHOT_TELEMETRY_CRC_LENGTH_BITS = 8; // 8-bit CRC for telemetry
 
 // Default motor magnet count for RPM calculation
 static constexpr uint16_t DEFAULT_MOTOR_MAGNET_COUNT = 14;
@@ -88,16 +97,30 @@ enum dshot_msg_code_t
     DSHOT_ENCODING_SUCCESS,
     DSHOT_TRANSMISSION_SUCCESS,
     DSHOT_TELEMETRY_SUCCESS,
+    DSHOT_TELEMETRY_DATA_AVAILABLE,
     DSHOT_COMMAND_SUCCESS
 };
+
+// Structure for decoded DShot telemetry data (from ESC)
+typedef struct dshot_telemetry_data
+{
+    uint16_t rpm;         // Motor RPM
+    uint16_t voltage;     // Voltage in mV
+    uint16_t current;     // Current in mA
+    uint16_t consumption; // Consumption in mAh
+    int8_t temperature;   // Temperature in Celsius
+    uint8_t errors;       // Error flags / count
+} dshot_telemetry_data_t;
 
 // Contains the success status, an error code, and optional telemetry data.
 typedef struct dshot_result
 {
     bool success;
-    dshot_msg_code_t result_code; // Specific error or success code.
-    uint16_t erpm;                // Electrical RPM (eRPM) if telemetry is successful.
-    uint16_t motor_rpm;           // Motor RPM if telemetry is successful and magnet count is known.
+    dshot_msg_code_t result_code;          // Specific error or success code.
+    uint16_t erpm;                         // Electrical RPM (eRPM) if telemetry is successful.
+    uint16_t motor_rpm;                    // Motor RPM if telemetry is successful and magnet count is known.
+    dshot_telemetry_data_t telemetry_data; // Full telemetry data if available
+    bool telemetry_available;              // Flag to indicate if telemetry_data is valid
 } dshot_result_t;
 
 // Standard DShot commands by "betaflight"
@@ -141,7 +164,8 @@ static constexpr int DSHOT_ERROR = 1;
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr auto DSHOT_RMT_RESOLUTION = 8000000;                    // 8 MHz resolution
 static constexpr auto RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / 1000000; // RMT Ticks per microsecond
-static constexpr auto RMT_BUFFER_SYMBOLS = 64;
+static constexpr auto RMT_TX_BUFFER_SYMBOLS = 64;
+static constexpr auto RMT_RX_BUFFER_SYMBOLS = DSHOT_TELEMETRY_FULL_GCR_BITS;
 static constexpr auto RMT_QUEUE_DEPTH = 1;
 
 // Timing parameters for each DShot mode

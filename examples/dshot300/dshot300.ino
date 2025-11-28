@@ -65,7 +65,7 @@ void loop()
 
         if (input.length() > 0)
         {
-            handleSerialInput(input, throttle, continuous_throttle);
+            handleSerialInput(input, throttle, continuous_throttle, motor01);
         }
     }
 
@@ -118,14 +118,14 @@ void printMenu()
 }
 
 //
-void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous_throttle)
+void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous_throttle, DShotRMT &session)
 {
     if (input == "0")
     {
         // Stop motor
         throttle = 0;
         continuous_throttle = true;
-        dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        dshot_result_t result = session.sendCommand(DSHOT_CMD_MOTOR_STOP);
         printDShotResult(result);
     }
     else if (input == "info")

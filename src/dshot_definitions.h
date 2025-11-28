@@ -16,6 +16,8 @@ static constexpr uint16_t DSHOT_FRAME_LENGTH = 16;           // 11 throttle bits
 static constexpr uint16_t DSHOT_BITS_PER_FRAME = 16;
 static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;         // Maximum throttle value (0-2047)
 static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;           // Minimum throttle value for motor spin
+static constexpr float DSHOT_PERCENT_MIN = 0.0f;
+static constexpr float DSHOT_PERCENT_MAX = 100.0f;
 static constexpr uint16_t DSHOT_CMD_MIN = 0;                 // Minimum command value
 static constexpr uint16_t DSHOT_CMD_MAX = 47;                // Maximum command value
 static constexpr uint16_t DSHOT_TELEMETRY_BIT_MASK = 0x0800; // Bit mask for telemetry request bit (11th bit)
@@ -136,30 +138,11 @@ static constexpr int DSHOT_OK = 0;
 static constexpr int DSHOT_ERROR = 1;
 
 // Configuration Constants
-static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
-static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr auto DSHOT_RMT_RESOLUTION = 8000000;                    // 8 MHz resolution
 static constexpr auto RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / 1000000; // RMT Ticks per microsecond
-static constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
-static constexpr auto DSHOT_PADDING_US = 20; // Pause between frames
 static constexpr auto RMT_BUFFER_SYMBOLS = 64;
 static constexpr auto RMT_QUEUE_DEPTH = 1;
-static constexpr auto GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer frame
-static constexpr auto POLE_PAIRS_MIN = 1;
-static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
-static constexpr auto NO_DSHOT_TELEMETRY = 0;
-static constexpr auto DSHOT_PULSE_MIN_NS = 800;  // 0.8us minimum pulse
-static constexpr auto DSHOT_PULSE_MAX_NS = 8000; // 8.0us maximum pulse
-static constexpr auto DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
-static constexpr auto DSHOT_TELEMETRY_BIT_POSITION = 11;
-static constexpr auto DSHOT_CRC_BIT_SHIFT = 4;
-
-// Command Constants
-static constexpr auto DEFAULT_CMD_DELAY_US = 10;
-static constexpr auto DEFAULT_CMD_REPEAT_COUNT = 1;
-static constexpr auto SETTINGS_COMMAND_REPEATS = 10;
-static constexpr auto SETTINGS_COMMAND_DELAY_US = 5;
 
 // Timing parameters for each DShot mode
 const dshot_timing_us_t DSHOT_TIMING_US[] = {

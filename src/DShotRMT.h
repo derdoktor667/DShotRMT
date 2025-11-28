@@ -56,8 +56,14 @@ public:
     // Sends a DShot command to the ESC with a specified repeat count and delay.
     dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
 
-    // Sends a raw DShot command to the ESC.
-    dshot_result_t sendRawCommand(uint16_t command_value);
+    /**
+     * @brief Sends a custom DShot command to the ESC. Advanced feature, use with caution.
+     * @param command_value The raw command value (0-47).
+     * @param repeat_count The number of times to send the command.
+     * @param delay_us The delay in microseconds between repetitions.
+     * @return dshot_result_t The result of the operation.
+     */
+    dshot_result_t sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us);
 
     // Retrieves telemetry data from the ESC.
     dshot_result_t getTelemetry();
@@ -75,6 +81,7 @@ public:
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
 private:
+    dshot_result_t _sendRawDshotFrame(uint16_t value);
     static bool IRAM_ATTR _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // DShot Configuration Parameters
@@ -115,7 +122,7 @@ private:
     uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;           // Combines packet data into a 16-bit DShot frame value
     uint16_t _calculateCRC(const uint16_t &data) const;                           // Calculates the 4-bit CRC for a DShot frame
     void _preCalculateRMTTicks();                                                 // Pre-calculates RMT timing ticks for the selected DShot mode
-    dshot_result_t _sendDShotFrame(const dshot_packet_t &packet);                 // Sends a DShot frame via RMT TX channel
+    dshot_result_t _sendPacket(const dshot_packet_t &packet);                 // Sends a DShot frame via RMT TX channel
     uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const; // Decodes a received RMT symbol array into an eRPM value
     bool IRAM_ATTR _isFrameIntervalElapsed() const;                               // Checks if enough time has passed since the last frame transmission
     void _recordFrameTransmissionTime();                                          // Records the current time as the last frame transmission time

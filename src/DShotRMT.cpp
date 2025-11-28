@@ -8,6 +8,27 @@
 
 #include "DShotRMT.h"
 
+// Configuration Constants
+static constexpr auto DSHOT_NULL_PACKET = 0b0000000000000000;
+static constexpr auto DSHOT_FULL_PACKET = 0b1111111111111111;
+static constexpr auto DSHOT_RX_TIMEOUT_MS = 2;
+static constexpr auto DSHOT_PADDING_US = 20; // Pause between frames
+static constexpr auto GCR_BITS_PER_FRAME = 21; // GCR bits in a DShot answer frame
+static constexpr auto POLE_PAIRS_MIN = 1;
+static constexpr auto MAGNETS_PER_POLE_PAIR = 2;
+static constexpr auto NO_DSHOT_TELEMETRY = 0;
+static constexpr auto DSHOT_PULSE_MIN_NS = 800;  // 0.8us minimum pulse
+static constexpr auto DSHOT_PULSE_MAX_NS = 8000; // 8.0us maximum pulse
+static constexpr auto DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
+static constexpr auto DSHOT_TELEMETRY_BIT_POSITION = 11;
+static constexpr auto DSHOT_CRC_BIT_SHIFT = 4;
+
+// Command Constants
+static constexpr auto DEFAULT_CMD_DELAY_US = 10;
+static constexpr auto DEFAULT_CMD_REPEAT_COUNT = 1;
+static constexpr auto SETTINGS_COMMAND_REPEATS = 10;
+static constexpr auto SETTINGS_COMMAND_DELAY_US = 5;
+
 // Constructor with GPIO number
 DShotRMT::DShotRMT(gpio_num_t gpio, dshot_mode_t mode, bool is_bidirectional, uint16_t magnet_count)
     : _gpio(gpio),
@@ -30,28 +51,7 @@ DShotRMT::DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional, ui
 // Destructor
 DShotRMT::~DShotRMT()
 {
-    // Cleanup TX channel
-    if (_rmt_tx_channel)
-    {
-        rmt_disable(_rmt_tx_channel);
-        rmt_del_channel(_rmt_tx_channel);
-        _rmt_tx_channel = nullptr;
-    }
-
-    // Cleanup RX channel
-    if (_rmt_rx_channel)
-    {
-        rmt_disable(_rmt_rx_channel);
-        rmt_del_channel(_rmt_rx_channel);
-        _rmt_rx_channel = nullptr;
-    }
-
-    // Cleanup encoder
-    if (_dshot_encoder)
-    {
-        rmt_del_encoder(_dshot_encoder);
-        _dshot_encoder = nullptr;
-    }
+    _cleanupRmtResources();
 }
 
 // Initialize DShotRMT
@@ -91,7 +91,9 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
 {
     // A throttle value of 0 is a disarm command
     if (throttle == 0)
-    {
+    {   
+        // just to be sure
+        _last_throttle = 0;
         return sendCommand(DSHOT_CMD_MOTOR_STOP);
     }
 
@@ -99,19 +101,19 @@ dshot_result_t DShotRMT::sendThrottle(uint16_t throttle)
     _last_throttle = constrain(throttle, DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
 
     _packet = _buildDShotPacket(_last_throttle);
-    return _sendDShotFrame(_packet);
+    return _sendPacket(_packet);
 }
 
 // Send throttle value as a percentage
 dshot_result_t DShotRMT::sendThrottlePercent(float percent)
 {
-    if (percent < 0.0f || percent > 100.0f)
+    if (percent < DSHOT_PERCENT_MIN || percent > DSHOT_PERCENT_MAX)
     {
         return {false, DSHOT_PERCENT_NOT_IN_RANGE};
     }
 
     // Map percent to DShot throttle range
-    uint16_t throttle = static_cast<uint16_t>(DSHOT_THROTTLE_MIN + ((DSHOT_THROTTLE_MAX - DSHOT_THROTTLE_MIN) / 100.0f) * percent);
+    uint16_t throttle = static_cast<uint16_t>(DSHOT_THROTTLE_MIN + ((DSHOT_THROTTLE_MAX - DSHOT_THROTTLE_MIN) / DSHOT_PERCENT_MAX) * percent);
     return sendThrottle(throttle);
 }
 
@@ -236,11 +238,45 @@ dshot_result_t DShotRMT::setMotorSpinDirection(bool reversed)
     return sendCommand(command, SETTINGS_COMMAND_REPEATS, SETTINGS_COMMAND_DELAY_US);
 }
 
-// Sends a raw DShot command to the ESC.
-dshot_result_t DShotRMT::sendRawCommand(uint16_t command_value)
+dshot_result_t DShotRMT::sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us)
 {
-    _packet = _buildDShotPacket(command_value);
-    return _sendDShotFrame(_packet);
+    // Validate the integer command value before casting
+    if (command_value < DSHOT_CMD_MOTOR_STOP || command_value > DSHOT_CMD_MAX_VALUE)
+    {
+        return {false, DSHOT_COMMAND_NOT_VALID};
+    }
+
+    dshot_result_t result = {false, DSHOT_UNKNOWN, NO_DSHOT_TELEMETRY, NO_DSHOT_TELEMETRY};
+
+    bool all_successful = true;
+
+    // Send command multiple times with delay
+    for (uint16_t i = 0; i < repeat_count; i++)
+    {
+        dshot_result_t single_result = _sendRawDshotFrame(command_value);
+
+        if (!single_result.success)
+        {
+            all_successful = false;
+            result.result_code = single_result.result_code;
+            break;
+        }
+
+        // Add delay between repetitions (except for last repetition)
+        if (i < repeat_count - 1)
+        {
+            delayMicroseconds(delay_us);
+        }
+    }
+
+    result.success = all_successful;
+
+    if (result.success)
+    {
+        result.result_code = DSHOT_COMMAND_SUCCESS;
+    }
+
+    return result;
 }
 
 // Use with caution
@@ -255,13 +291,19 @@ bool DShotRMT::_isValidCommand(dshotCommands_e command) const
     return (command >= dshotCommands_e::DSHOT_CMD_MOTOR_STOP && command <= DSHOT_CMD_MAX);
 }
 
+dshot_result_t DShotRMT::_sendRawDshotFrame(uint16_t value)
+{
+    _packet = _buildDShotPacket(value);
+    return _sendPacket(_packet);
+}
+
 // Executes a single DShot command by building and sending a DShot frame.
 dshot_result_t DShotRMT::_executeCommand(dshotCommands_e command)
 {
     uint64_t start_time = esp_timer_get_time();
 
     _packet = _buildDShotPacket(static_cast<uint16_t>(command));
-    dshot_result_t result = _sendDShotFrame(_packet);
+    dshot_result_t result = _sendPacket(_packet);
 
     uint64_t end_time = esp_timer_get_time();
     _last_command_timestamp = end_time;
@@ -325,7 +367,7 @@ void DShotRMT::_preCalculateRMTTicks()
 }
 
 // Private Frame Processing Functions
-dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
+dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
 {
     // Ensure enough time has passed since the last transmission
     if (!_isFrameIntervalElapsed())
@@ -362,7 +404,9 @@ dshot_result_t DShotRMT::_sendDShotFrame(const dshot_packet_t &packet)
     rmt_transmit_config_t tx_config = {}; // Initialize all members to zero
     tx_config.loop_count = 0;             // No automatic loops - real-time calculation
 
-    // TODO: Find out, why this is needed
+    // In bidirectional mode, the RMT RX channel must be disabled before transmitting.
+    // This is to prevent the receiver from picking up the transmitted signal, which would cause a loopback issue.
+    // The ESP32's RMT peripheral TX and RX channels on the same pin are not fully independent.
     if (_is_bidirectional)
     {
         // Disable RMT RX for sending

@@ -28,6 +28,14 @@ Here's an example of the output from the `dshot300` example sketch:
 - **Lightweight:** The core library has no external dependencies.
 - **Arduino and ESP-IDF Compatible:** Can be used in both Arduino and ESP-IDF projects.
 
+## How it Works
+
+The library is architected around a single C++ class, `DShotRMT`. It abstracts the ESP32's RMT (Remote Control) peripheral, which is a hardware timer peripheral capable of generating and receiving precisely timed signals.
+
+1.  **Signal Generation (TX):** The library uses an RMT 'bytes_encoder'. This encoder is configured with the specific pulse durations for DShot '0' and '1' bits based on the selected speed (e.g., DSHOT300, DSHOT600). When a user calls `sendThrottle()`, the library constructs a 16-bit DShot frame (11-bit throttle, 1-bit telemetry request, 4-bit CRC) and hands it to the RMT encoder. The RMT hardware then autonomously generates the correct electrical signal on the specified GPIO pin.
+
+2.  **Bidirectional Telemetry (RX):** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. An interrupt service routine (`_on_rx_done`) is registered. When the ESC sends back a telemetry signal, the RMT peripheral captures it and triggers the interrupt. The interrupt code decodes the GCR-encoded signal, validates its CRC, and stores the resulting eRPM value in a thread-safe `atomic` variable. The main application can then poll for this data using the `getTelemetry()` method.
+
 ## ⏱️ DShot Timing Information
 
 The DShot protocol defines specific timing characteristics for each mode. The following table outlines the bit length, T1H (high time for a '1' bit), T0H (high time for a '0' bit), and frame length for the supported DShot modes:
@@ -119,18 +127,14 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `sendCommand(dshotCommands_e command)`: Sends a DShot command to the ESC. Automatically handles repetitions and delays for specific commands (e.g., `DSHOT_CMD_SAVE_SETTINGS`).
 - `sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)`: Sends a DShot command to the ESC with a specified repeat count and delay. This is a blocking function.
 - `sendCommand(uint16_t command_value)`: Sends a DShot command to the ESC by accepting an integer value. It validates the input and then calls `sendCommand(dshotCommands_e command)`.
-- `getTelemetry(uint16_t magnet_count = 0)`: Retrieves telemetry data from the ESC. If `magnet_count` is 0, uses the stored motor magnet count.
-- `getESCInfo()`: Sends a command to the ESC to request ESC information.
+- `sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us)`: Sends a custom DShot command to the ESC. Advanced feature, use with caution.
+- `getTelemetry()`: Retrieves telemetry data from the ESC. If bidirectional DShot is enabled, this function will return the last received telemetry data.
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.
 - `saveESCSettings()`: Sends a command to the ESC to save its current settings. Use with caution as this writes to ESC's non-volatile memory.
-- `printDShotResult(dshot_result_t &result, Stream &output = Serial)`: Prints the result of a DShot operation to the specified output stream.
-- `printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial)`: Prints detailed DShot signal information for a given DShotRMT instance.
-- `printCpuInfo(Stream &output = Serial)`: Prints detailed CPU information.
-- `setMotorMagnetCount(uint16_t magnet_count)`: Sets the motor magnet count for RPM calculation.
 - `getMode()`: Gets the current DShot mode.
 - `isBidirectional()`: Checks if bidirectional DShot is enabled.
-- `getEncodedFrameValue()`: Gets the last encoded DShot frame value.
 - `getThrottleValue()`: Gets the last transmitted throttle value.
+- `getEncodedFrameValue()`: Gets the last encoded DShot frame value.
 
 ## ⚙️ ESP-IDF Integration
 

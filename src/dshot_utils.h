@@ -10,9 +10,7 @@
 
 #include <Arduino.h>
 #include "dshot_definitions.h"
-
-// Forward declaration of the DShotRMT class to break circular dependency
-class DShotRMT;
+#include "DShotRMT.h"
 
 // Error Messages
 static constexpr char NONE[] = "";
@@ -137,6 +135,7 @@ inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 inline void printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial)
 {
     output.println("\n === DShot Signal Info === ");
+    output.printf("Library Version: %d.%d.%d\n", DSHOTRMT_MAJOR_VERSION, DSHOTRMT_MINOR_VERSION, DSHOTRMT_PATCH_VERSION);
     output.printf("Current Mode: %s\n", get_dshot_mode_str(dshot_rmt.getMode()));
     output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
     output.printf("Current Packet: ");

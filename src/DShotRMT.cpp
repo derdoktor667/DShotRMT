@@ -401,8 +401,7 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
     // The DShot frame is 16 bits, which is 2 bytes
     size_t tx_size_bytes = sizeof(swapped_value);
 
-    rmt_transmit_config_t tx_config = {}; // Initialize all members to zero
-    tx_config.loop_count = 0;             // No automatic loops - real-time calculation
+    rmt_transmit_config_t tx_config = { .loop_count = 0 }; // No automatic loops - real-time calculation
 
     // In bidirectional mode, the RMT RX channel must be disabled before transmitting.
     // This is to prevent the receiver from picking up the transmitted signal, which would cause a loopback issue.

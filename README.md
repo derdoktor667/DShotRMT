@@ -30,7 +30,7 @@ Here's an example of the output from the `dshot300` example sketch:
 
 ## How it Works
 
-The library is architected around a single C++ class, `DShotRMT`. It abstracts the ESP32's RMT (Remote Control) peripheral, which is a hardware timer peripheral capable of generating and receiving precisely timed signals.
+The library is architected around a single C++ class, `DShotRMT`. It abstracts the ESP32's RMT (Remote Control) peripheral, which is a hardware timer peripheral capable of generating and receiving precisely timed signals. For a more detailed explanation of the DShot protocol, refer to this excellent article: [DShot and Bidirectional DShot](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/).
 
 1.  **Signal Generation (TX):** The library uses an RMT 'bytes_encoder'. This encoder is configured with the specific pulse durations for DShot '0' and '1' bits based on the selected speed (e.g., DSHOT300, DSHOT600). When a user calls `sendThrottle()`, the library constructs a 16-bit DShot frame (11-bit throttle, 1-bit telemetry request, 4-bit CRC) and hands it to the RMT encoder. The RMT hardware then autonomously generates the correct electrical signal on the specified GPIO pin.
 

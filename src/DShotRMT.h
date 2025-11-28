@@ -18,9 +18,10 @@
 #include "dshot_definitions.h"
 #include "dshot_init.h"
 
-// Forward declaration for the RMT receive callback
-class DShotRMT;
-void IRAM_ATTR rmt_rx_done_callback(rmt_channel_handle_t rx_chan, const rmt_rx_done_event_data_t *edata, void *user_data);
+// DShotRMT Library Version
+static constexpr uint8_t DSHOTRMT_MAJOR_VERSION = 0;
+static constexpr uint8_t DSHOTRMT_MINOR_VERSION = 9;
+static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 2;
 
 // DShot Protocol Constants
 static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
@@ -132,3 +133,5 @@ private:
 };
 
 #include "dshot_utils.h" // Include for helper functions
+
+

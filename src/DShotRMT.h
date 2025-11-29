@@ -21,7 +21,7 @@
 // DShotRMT Library Version
 static constexpr uint8_t DSHOTRMT_MAJOR_VERSION = 0;
 static constexpr uint8_t DSHOTRMT_MINOR_VERSION = 9;
-static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 2;
+static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 5;
 
 // DShot Protocol Constants
 static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
@@ -30,10 +30,10 @@ static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 class DShotRMT
 {
 public:
-    // Constructor for DShotRMT.
+    // Constructs a new DShotRMT object using a GPIO pin.
     DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
-    // Constructor using pin number
+    // Constructs a new DShotRMT object using an Arduino-style integer pin number.
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
     // Destructor
@@ -103,10 +103,10 @@ private:
     // DShot Frame Timing and State Variables
     uint64_t _last_transmission_time_us = 0; // Timestamp of the last DShot frame transmission
     uint64_t _frame_timer_us = 0;            // Minimum time required between DShot frames
+    float _percent_to_throttle_ratio = 0.0f; // Pre-calculated ratio for throttle percentage conversion
     uint16_t _last_throttle = 0;             // Last transmitted throttle value
     dshot_packet_t _packet;                  // Current DShot packet being processed
     uint16_t _encoded_frame_value = 0;       // Last encoded 16-bit DShot frame value
-    uint64_t _last_command_timestamp = 0;    // Timestamp of the last command sent
 
     // Telemetry Related Variables
     std::atomic<uint16_t> _last_erpm_atomic = 0;                          // Atomically stored last received eRPM value
@@ -120,7 +120,6 @@ private:
 
     // Private Helper Functions for DShot Protocol Logic
     bool _isValidCommand(dshotCommands_e command) const;                                                          // Checks if a given DShot command is valid
-    dshot_result_t _executeCommand(dshotCommands_e command);                                                      // Executes a single DShot command
     dshot_packet_t _buildDShotPacket(const uint16_t &value) const;                                                // Builds a DShot packet from a value (throttle or command)
     uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;                                           // Combines packet data into a 16-bit DShot frame value
     uint16_t _calculateCRC(const uint16_t &data) const;                                                           // Calculates the 4-bit CRC for a DShot frame
@@ -132,6 +131,8 @@ private:
     void IRAM_ATTR _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);              // Processes a full telemetry frame
     bool IRAM_ATTR _isFrameIntervalElapsed() const;                                                               // Checks if enough time has passed since the last frame transmission
     void _recordFrameTransmissionTime();                                                                          // Records the current time as the last frame transmission time
+
+    dshot_result_t _sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us);
 
     // Static Callback Function for RMT RX Events
     void _cleanupRmtResources();

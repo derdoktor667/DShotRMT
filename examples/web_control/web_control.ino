@@ -19,42 +19,27 @@
 #include <DShotRMT.h>
 #include <WiFi.h>
 #include <Update.h>
-#include "web_utilities/web_content.h"
+#include "../web_utilities/web_content.h"
+#include "../web_utilities/web_constants.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-// Wifi Configuration
-static constexpr auto *ssid = "DShotRMT Control";
-static constexpr auto *password = "12345678";
+// Wifi AP Configuration
+static constexpr auto *WIFI_SSID_AP = "DShotRMT Control";
+static constexpr auto *WIFI_PASSWORD_AP = "12345678";
 
 IPAddress local_IP(10, 10, 10, 1);
 IPAddress gateway(0, 0, 0, 0);
 IPAddress subnet(255, 255, 255, 0);
 
-// USB serial port settings
-static constexpr auto &USB_SERIAL = Serial;
-static constexpr auto USB_SERIAL_BAUD = 115200;
-
-// Motor configuration - Pin number or GPIO_PIN
-static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
-
-// Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
-
-// BiDirectional DShot Support (default: false)
-static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
-
-// Motor magnet count for RPM calculation
-static constexpr auto MOTOR01_MAGNET_COUNT = 14;
-
 // Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
 
 // Web Server Configuration
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+AsyncWebServer server(WEBSERVER_PORT);
+AsyncWebSocket ws(WEBSOCKET_PATH);
 
 // Global variables
 static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
@@ -81,7 +66,7 @@ void setup()
 
     // Start Wifi Access Point
     USB_SERIAL.println("\nStarting Access Point...");
-    WiFi.softAP(ssid, password);
+    WiFi.softAP(WIFI_SSID_AP, WIFI_PASSWORD_AP);
 
     IPAddress IP = WiFi.softAPIP();
 
@@ -136,7 +121,7 @@ void loop()
     }
 
     // Print motor stats every 3 seconds in continuous mode
-    if ((esp_timer_get_time() - last_serial_update >= 3000000))
+    if ((esp_timer_get_time() - last_serial_update >= MOTOR_STATS_UPDATE_INTERVAL_US))
     {
         printDShotInfo(motor01, USB_SERIAL);
 
@@ -171,9 +156,9 @@ void loop()
     {
         // Generate JSON for Webserver
         JsonDocument doc;
-        doc["throttle"] = isArmed ? throttle : 0;
-        doc["armed"] = isArmed;
-        doc["rpm"] = current_rpm;
+        doc[JsonKey::THROTTLE] = isArmed ? throttle : 0;
+        doc[JsonKey::ARMED] = isArmed;
+        doc[JsonKey::RPM] = current_rpm;
 
         String json_output;
         json_output.reserve(256);
@@ -221,19 +206,19 @@ void printMenu()
     USB_SERIAL.println("***********************************************");
     USB_SERIAL.println("        Web Config:  http://10.10.10.1         ");
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println(" arm              - Arm motor");
-    USB_SERIAL.println(" disarm           - Disarm motor (safety)");
-    USB_SERIAL.println(" <value>          - Set throttle (48 – 2047)");
-    USB_SERIAL.println(" 0                - Stop motor");
+    USB_SERIAL.printf(" %s\t\t- Arm motor\n", SerialCmd::ARM);
+    USB_SERIAL.printf(" %s\t\t- Disarm motor (safety)\n", SerialCmd::DISARM);
+    USB_SERIAL.println(" <value>\t\t- Set throttle (48 – 2047)");
+    USB_SERIAL.printf(" %s\t\t\t- Stop motor\n", SerialCmd::STOP);
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println(" cmd <number>     - Send DShot command (0 - 47)");
-    USB_SERIAL.println(" info             - Show motor info");
+    USB_SERIAL.printf(" %s <number>\t- Send DShot command (0 - 47)\n", SerialCmd::CMD_PREFIX);
+    USB_SERIAL.printf(" %s\t\t- Show motor info\n", SerialCmd::INFO);
     if (IS_BIDIRECTIONAL)
     {
-        USB_SERIAL.println(" rpm              - Get telemetry data");
+        USB_SERIAL.printf(" %s\t\t- Get telemetry data\n", SerialCmd::RPM);
     }
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println(" h / help         - Show this Menu");
+    USB_SERIAL.printf(" %s / %s\t- Show this Menu\n", SerialCmd::HELP, SerialCmd::HELP_ALT);
     USB_SERIAL.println("***********************************************");
     USB_SERIAL.printf(" Current Status: %s\n", isArmed ? "ARMED" : "DISARMED");
     USB_SERIAL.println("***********************************************");
@@ -242,24 +227,24 @@ void printMenu()
 // Handle serial inputs and updates global variables
 void handleSerialInput(const String &input)
 {
-    if (input == "arm")
+    if (input == SerialCmd::ARM)
     {
         setArmingStatus(true);
         return;
     }
-    if (input == "0" || input == "disarm")
+    if (input == SerialCmd::STOP || input == SerialCmd::DISARM)
     {
         setArmingStatus(false);
         return;
     }
-    if (input == "info")
+    if (input == SerialCmd::INFO)
     {
         printDShotInfo(motor01, USB_SERIAL);
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         return;
     }
-    if (input == "rpm" && IS_BIDIRECTIONAL)
+    if (input == SerialCmd::RPM && IS_BIDIRECTIONAL)
     {
         if (isArmed)
         {
@@ -273,7 +258,7 @@ void handleSerialInput(const String &input)
         }
         return;
     }
-    if (input.startsWith("cmd "))
+    if (input.startsWith(SerialCmd::CMD_PREFIX))
     {
         if (!isArmed)
         {
@@ -283,7 +268,7 @@ void handleSerialInput(const String &input)
         }
 
         continuous_throttle = false;
-        int cmd_num = input.substring(4).toInt();
+        int cmd_num = input.substring(strlen(SerialCmd::CMD_PREFIX)).toInt();
 
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
@@ -297,12 +282,12 @@ void handleSerialInput(const String &input)
         }
         return;
     }
-    if (input == "h" || input == "help")
+    if (input == SerialCmd::HELP || input == SerialCmd::HELP_ALT)
     {
         printMenu();
         return;
     }
-    if (input == "status")
+    if (input == SerialCmd::STATUS)
     {
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
@@ -368,15 +353,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     bool armedFromWeb = false;
 
     // Handle arming status
-    if (doc.containsKey("armed"))
+    if (doc.containsKey(JsonKey::ARMED))
     {
-        bool armed = doc["armed"];
+        bool armed = doc[JsonKey::ARMED];
         setArmingStatus(armed);
         armedFromWeb = true;
     }
 
     // Handle throttle value (only if armed)
-    if (doc.containsKey("throttle"))
+    if (doc.containsKey(JsonKey::THROTTLE))
     {
         if (!isArmed)
         {
@@ -388,7 +373,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             return;
         }
 
-        uint16_t web_throttle = doc["throttle"];
+        uint16_t web_throttle = doc[JsonKey::THROTTLE];
 
         if (web_throttle == 0)
         {
@@ -424,8 +409,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
         // Send current arming status to new client
         {
             JsonDocument doc;
-            doc["armed"] = isArmed;
-            doc["throttle"] = isArmed ? throttle : 0;
+            doc[JsonKey::ARMED] = isArmed;
+            doc[JsonKey::THROTTLE] = isArmed ? throttle : 0;
             String json_output;
             serializeJson(doc, json_output);
             client->text(json_output);

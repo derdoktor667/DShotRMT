@@ -167,8 +167,8 @@ inline void printDShotInfo(DShotRMT &dshot_rmt, Stream &output = Serial)
                 output.println("  --- Full Telemetry Details ---");
                 output.printf("  Temp: %d C | Volt: %.2f V | Curr: %.2f A | Cons: %u mAh\n",
                               telemetry_result.telemetry_data.temperature,
-                              (float)telemetry_result.telemetry_data.voltage / 1000.0f, // Convert mV to V
-                              (float)telemetry_result.telemetry_data.current / 1000.0f, // Convert mA to A
+                              (float)telemetry_result.telemetry_data.voltage / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mV to V
+                              (float)telemetry_result.telemetry_data.current / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mA to A
                               telemetry_result.telemetry_data.consumption);
                 output.printf("  Telemetry RPM: %u\n", telemetry_result.telemetry_data.rpm);
             }

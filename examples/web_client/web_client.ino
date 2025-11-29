@@ -19,8 +19,9 @@
 #include <DShotRMT.h>
 #include <WiFi.h>
 #include <Update.h>
-#include "web_utilities/ota_update.h"
-#include "web_utilities/web_content.h"
+#include "../web_utilities/ota_update.h"
+#include "../web_utilities/web_content.h"
+#include "../web_utilities/web_constants.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
@@ -30,31 +31,12 @@
 static constexpr auto *WIFI_SSID = "YOUR_SSID";         // Enter your WiFi SSID
 static constexpr auto *WIFI_PASSWORD = "YOUR_PASSWORD"; // Enter your WiFi password
 
-// Connection timeout in milliseconds
-static constexpr auto WIFI_CONNECT_TIMEOUT = 20000;
-
-// USB serial port settings
-static constexpr auto &USB_SERIAL = Serial;
-static constexpr auto USB_SERIAL_BAUD = 115200;
-
-// Motor configuration - Pin number or GPIO_PIN
-static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
-
-// Supported: DSHOT150, DSHOT300, DSHOT600, (DSHOT1200)
-static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
-
-// BiDirectional DShot Support (default: false)
-static constexpr auto IS_BIDIRECTIONAL = false; // Note: Bidirectional DShot is currently not officially supported due to instability and external hardware requirements.
-
-// Motor magnet count for RPM calculation
-static constexpr auto MOTOR01_MAGNET_COUNT = 14;
-
 // Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, MOTOR01_MAGNET_COUNT);
 
 // Web Server Configuration
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+AsyncWebServer server(WEBSERVER_PORT);
+AsyncWebSocket ws(WEBSOCKET_PATH);
 
 // Global variables
 static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
@@ -130,7 +112,7 @@ void loop()
     static uint64_t last_wifi_check = 0;
 
     // Check WiFi connection every 30 seconds
-    if (esp_timer_get_time() - last_wifi_check >= 30000000)
+    if (esp_timer_get_time() - last_wifi_check >= WIFI_RECONNECT_CHECK_INTERVAL_US)
     {
         if (WiFi.status() != WL_CONNECTED && wifi_connected)
         {
@@ -169,7 +151,7 @@ void loop()
     }
 
     // Print motor stats every 3 seconds in continuous mode
-    if ((esp_timer_get_time() - last_serial_update >= 3000000))
+    if ((esp_timer_get_time() - last_serial_update >= MOTOR_STATS_UPDATE_INTERVAL_US))
     {
         printDShotInfo(motor01, USB_SERIAL);
 
@@ -204,9 +186,9 @@ void loop()
         {
             // Generate JSON for Webserver
             JsonDocument doc;
-            doc["throttle"] = isArmed ? throttle : 0;
-            doc["armed"] = isArmed;
-            doc["rpm"] = current_rpm;
+            doc[JsonKey::THROTTLE] = isArmed ? throttle : 0;
+            doc[JsonKey::ARMED] = isArmed;
+            doc[JsonKey::RPM] = current_rpm;
 
             String json_output;
             json_output.reserve(256);
@@ -234,19 +216,16 @@ void setupOTA()
 
     // Serve OTA update page
     server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request)
-                  { request->send_P(200, "text/html", ota_html); });
+              { request->send_P(200, "text/html", ota_html); });
 
     // Handle OTA update upload
-    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
-                  {
+    server.on(
+        "/update", HTTP_POST, [](AsyncWebServerRequest *request)
+        {
             bool shouldReboot = !Update.hasError();
-
-            AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", 
-                shouldReboot ? "OK" : "FAIL");
-
+            AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
             response->addHeader("Connection", "close");
             request->send(response);
-            
             if (shouldReboot) {
                 USB_SERIAL.println("OTA Update successful! Rebooting...");
                 delay(1000);
@@ -254,7 +233,8 @@ void setupOTA()
             } else {
                 USB_SERIAL.println("OTA Update failed!");
             }
-        }, handleOTAUpload);
+        },
+        handleOTAUpload);
 
     USB_SERIAL.println("OTA Update ready at: /update");
 }
@@ -266,8 +246,9 @@ void handleOTAUpload(AsyncWebServerRequest *request, String filename, size_t ind
 
     if (!index)
     {
-                    // Safety: Ensure motor is stopped during update
-                    motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);        setArmingStatus(false);
+        // Safety: Ensure motor is stopped during update
+        motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        setArmingStatus(false);
 
         USB_SERIAL.printf("OTA Update Start: %s\n", filename.c_str());
 
@@ -287,7 +268,7 @@ void handleOTAUpload(AsyncWebServerRequest *request, String filename, size_t ind
         }
 
         // Print progress every 2 seconds to avoid spam
-        if (millis() - ota_progress_millis > 2000)
+        if (millis() - ota_progress_millis > OTA_PROGRESS_UPDATE_INTERVAL_MS)
         {
             size_t progress = index + len;
             USB_SERIAL.printf("OTA Progress: %zu bytes\n", progress);
@@ -318,7 +299,7 @@ bool connectToWiFi()
 
     uint32_t start_time = millis();
 
-    while (WiFi.status() != WL_CONNECTED && (millis() - start_time) < WIFI_CONNECT_TIMEOUT)
+    while (WiFi.status() != WL_CONNECTED && (millis() - start_time) < WIFI_CONNECT_TIMEOUT_MS)
     {
         delay(500);
         USB_SERIAL.print(".");
@@ -408,22 +389,22 @@ void printMenu()
     }
 
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println(" arm              - Arm motor");
-    USB_SERIAL.println(" disarm           - Disarm motor (safety)");
-    USB_SERIAL.println(" <value>          - Set throttle (48 – 2047)");
-    USB_SERIAL.println(" 0                - Stop motor");
+    USB_SERIAL.printf(" %s\t\t- Arm motor\n", SerialCmd::ARM);
+    USB_SERIAL.printf(" %s\t\t- Disarm motor (safety)\n", SerialCmd::DISARM);
+    USB_SERIAL.println(" <value>\t\t- Set throttle (48 – 2047)");
+    USB_SERIAL.printf(" %s\t\t\t- Stop motor\n", SerialCmd::STOP);
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println(" cmd <number>     - Send DShot command (0 - 47)");
-    USB_SERIAL.println(" info             - Show motor info");
-    USB_SERIAL.println(" wifi             - Show WiFi status");
-    USB_SERIAL.println(" reconnect        - Reconnect to WiFi");
-    USB_SERIAL.println(" ota              - Show OTA info");
+    USB_SERIAL.printf(" %s <number>\t- Send DShot command (0 - 47)\n", SerialCmd::CMD_PREFIX);
+    USB_SERIAL.printf(" %s\t\t- Show motor info\n", SerialCmd::INFO);
+    USB_SERIAL.printf(" %s\t\t- Show WiFi status\n", SerialCmd::WIFI_STATUS);
+    USB_SERIAL.printf(" %s\t- Reconnect to WiFi\n", SerialCmd::RECONNECT);
+    USB_SERIAL.printf(" %s\t\t- Show OTA info\n", SerialCmd::OTA_INFO);
     if (IS_BIDIRECTIONAL)
     {
-        USB_SERIAL.println(" rpm              - Get telemetry data");
+        USB_SERIAL.printf(" %s\t\t- Get telemetry data\n", SerialCmd::RPM);
     }
     USB_SERIAL.println("***********************************************");
-    USB_SERIAL.println(" h / help         - Show this Menu");
+    USB_SERIAL.printf(" %s / %s\t- Show this Menu\n", SerialCmd::HELP, SerialCmd::HELP_ALT);
     USB_SERIAL.println("***********************************************");
     USB_SERIAL.printf(" Current Status: %s\n", isArmed ? "ARMED" : "DISARMED");
     USB_SERIAL.printf(" WiFi Status: %s\n", wifi_connected ? "CONNECTED" : "DISCONNECTED");
@@ -433,19 +414,19 @@ void printMenu()
 // Handle serial inputs and updates global variables
 void handleSerialInput(const String &input)
 {
-    if (input == "arm")
+    if (input == SerialCmd::ARM)
     {
         setArmingStatus(true);
         return;
     }
 
-    if (input == "0" || input == "disarm")
+    if (input == SerialCmd::STOP || input == SerialCmd::DISARM)
     {
         setArmingStatus(false);
         return;
     }
 
-    if (input == "info")
+    if (input == SerialCmd::INFO)
     {
         printDShotInfo(motor01, USB_SERIAL);
         USB_SERIAL.println(" ");
@@ -453,13 +434,13 @@ void handleSerialInput(const String &input)
         return;
     }
 
-    if (input == "wifi")
+    if (input == SerialCmd::WIFI_STATUS)
     {
         printWiFiStatus();
         return;
     }
 
-    if (input == "ota")
+    if (input == SerialCmd::OTA_INFO)
     {
         if (wifi_connected)
         {
@@ -477,7 +458,7 @@ void handleSerialInput(const String &input)
         return;
     }
 
-    if (input == "reconnect")
+    if (input == SerialCmd::RECONNECT)
     {
         USB_SERIAL.println("Reconnecting to WiFi...");
         WiFi.disconnect();
@@ -490,7 +471,7 @@ void handleSerialInput(const String &input)
         return;
     }
 
-    if (input == "rpm" && IS_BIDIRECTIONAL)
+    if (input == SerialCmd::RPM && IS_BIDIRECTIONAL)
     {
         if (isArmed)
         {
@@ -505,7 +486,7 @@ void handleSerialInput(const String &input)
         return;
     }
 
-    if (input.startsWith("cmd "))
+    if (input.startsWith(SerialCmd::CMD_PREFIX))
     {
         if (!isArmed)
         {
@@ -515,7 +496,7 @@ void handleSerialInput(const String &input)
         }
 
         continuous_throttle = false;
-        int cmd_num = input.substring(4).toInt();
+        int cmd_num = input.substring(strlen(SerialCmd::CMD_PREFIX)).toInt();
 
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
@@ -530,13 +511,13 @@ void handleSerialInput(const String &input)
         return;
     }
 
-    if (input == "h" || input == "help")
+    if (input == SerialCmd::HELP || input == SerialCmd::HELP_ALT)
     {
         printMenu();
         return;
     }
 
-    if (input == "status")
+    if (input == SerialCmd::STATUS)
     {
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
@@ -608,15 +589,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     bool armedFromWeb = false;
 
     // Handle arming status
-    if (doc.containsKey("armed"))
+    if (doc.containsKey(JsonKey::ARMED))
     {
-        bool armed = doc["armed"];
+        bool armed = doc[JsonKey::ARMED];
         setArmingStatus(armed);
         armedFromWeb = true;
     }
 
     // Handle throttle value (only if armed)
-    if (doc.containsKey("throttle"))
+    if (doc.containsKey(JsonKey::THROTTLE))
     {
         if (!isArmed)
         {
@@ -628,7 +609,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
             return;
         }
 
-        uint16_t web_throttle = doc["throttle"];
+        uint16_t web_throttle = doc[JsonKey::THROTTLE];
 
         if (web_throttle == 0)
         {
@@ -664,8 +645,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
         // Send current arming status to new client
         {
             JsonDocument doc;
-            doc["armed"] = isArmed;
-            doc["throttle"] = isArmed ? throttle : 0;
+            doc[JsonKey::ARMED] = isArmed;
+            doc[JsonKey::THROTTLE] = isArmed ? throttle : 0;
             String json_output;
             serializeJson(doc, json_output);
             client->text(json_output);

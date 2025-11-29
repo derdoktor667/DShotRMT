@@ -6,7 +6,11 @@
 
 An Arduino IDE library for generating DShot signals on ESP32 microcontrollers using the **latest ESP-IDF 5.5 RMT Encoder API** (`rmt_tx.h` / `rmt_rx.h`). This library specifically leverages the official `rmt_bytes_encoder` API for an efficient, hardware-timed and maintainable implementation. It provides a simple way to control BLHeli ESCs in both Arduino and ESP-IDF projects.
 
-### Enhanced Bidirectional DShot with Full Telemetry Support.
+### ✨ Experimental Bidirectional DShot Support Activated! ✨
+
+> [!CAUTION]
+> **This feature is currently EXPERIMENTAL and under active development.**
+> If you enable bidirectional DShot, you **MUST** connect an external pull-up resistor (e.g., 2k Ohm to 3.3V) to the DShot GPIO pin. This resistor is absolutely crucial for the ESC to properly send telemetry data back to the ESP32. Without it, bidirectional telemetry will **NOT** function correctly. Use at your own risk.
 
  The legacy version using the old `rmt.h` API is available in the `oldAPI` branch.
 
@@ -34,7 +38,7 @@ The library is architected around a single C++ class, `DShotRMT`. It abstracts t
 
 1.  **Signal Generation (TX):** The library uses an RMT 'bytes_encoder'. This encoder is configured with the specific pulse durations for DShot '0' and '1' bits based on the selected speed (e.g., DSHOT300, DSHOT600). When a user calls `sendThrottle()`, the library constructs a 16-bit DShot frame (11-bit throttle, 1-bit telemetry request, 4-bit CRC) and hands it to the RMT encoder. The RMT hardware then autonomously generates the correct electrical signal on the specified GPIO pin.
 
-2.  **Bidirectional Telemetry (RX) - Now with Full GCR Telemetry:** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. An interrupt service routine (`_on_rx_done`) is registered. When the ESC sends back a telemetry signal, the RMT peripheral captures it. The interrupt code intelligently differentiates between eRPM-only frames (21 GCR bits) and full telemetry frames (110 GCR bits). It then decodes the GCR-encoded signal (including 5B/4B GCR decoding for full telemetry), validates its CRC, and stores the resulting eRPM value or full telemetry data (temperature, voltage, current, consumption, RPM) in thread-safe `atomic` variables. The main application can then poll for this data using the `getTelemetry()` method, which now returns a comprehensive `dshot_result_t` with all available telemetry fields.
+2.  **Bidirectional Telemetry (RX) - Now with Full GCR Telemetry:** **Note: For bidirectional DShot, an external pull-up resistor (e.g., 2k Ohm to 3.3V) is required on the DShot GPIO pin for proper telemetry reception.** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. An interrupt service routine (`_on_rx_done`) is registered. When the ESC sends back a telemetry signal, the RMT peripheral captures it. The interrupt code intelligently differentiates between eRPM-only frames (21 GCR bits) and full telemetry frames (110 GCR bits). It then decodes the GCR-encoded signal (including 5B/4B GCR decoding for full telemetry), validates its CRC, and stores the resulting eRPM value or full telemetry data (temperature, voltage, current, consumption, RPM) in thread-safe `atomic` variables. The main application can then poll for this data using the `getTelemetry()` method, which now returns a comprehensive `dshot_result_t` with all available telemetry fields.
 
 ## ⏱️ DShot Timing Information
 

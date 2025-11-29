@@ -9,9 +9,8 @@
 #pragma once
 
 #include <Arduino.h>
-
-// Forward declaration of the DShotRMT class to break circular dependency
-class DShotRMT;
+#include "dshot_definitions.h"
+#include "DShotRMT.h"
 
 // Error Messages
 static constexpr char NONE[] = "";
@@ -28,9 +27,9 @@ static constexpr char ENCODING_SUCCESS[] = "Packet encoded successfully";
 static constexpr char TRANSMISSION_SUCCESS[] = "Transmission successfully";
 static constexpr char TRANSMISSION_FAILED[] = "Transmission failed!";
 static constexpr char RECEIVER_FAILED[] = "RMT receiver failed!";
-static constexpr char THROTTLE_NOT_IN_RANGE[] = "Throttle not in range! (48 - 2047)";
-static constexpr char PERCENT_NOT_IN_RANGE[] = "Percent not in range! (0.0 - 100.0)";
-static constexpr char COMMAND_NOT_VALID[] = "Command not valid! (0 - 47)";
+static constexpr char THROTTLE_NOT_IN_RANGE[] = "Throttle not in range!";
+static constexpr char PERCENT_NOT_IN_RANGE[] = "Percent not in range!";
+static constexpr char COMMAND_NOT_VALID[] = "Command not valid!";
 static constexpr char BIDIR_NOT_ENABLED[] = "Bidirectional DShot not enabled!";
 static constexpr char TELEMETRY_SUCCESS[] = "Valid Telemetric Frame received!";
 static constexpr char TELEMETRY_FAILED[] = "No valid Telemetric Frame received!";
@@ -100,6 +99,24 @@ inline const char *get_result_code_str(dshot_msg_code_t code)
     }
 }
 
+// Helper to get DShot mode string
+inline const char *get_dshot_mode_str(dshot_mode_t mode)
+{
+    switch (mode)
+    {
+    case DSHOT150:
+        return "DSHOT150";
+    case DSHOT300:
+        return "DSHOT300";
+    case DSHOT600:
+        return "DSHOT600";
+    case DSHOT1200:
+        return "DSHOT1200";
+    default:
+        return "DSHOT_OFF";
+    }
+}
+
 // Helper to quick print DShot result codes
 inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 {
@@ -115,37 +132,61 @@ inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
 }
 
 // Helper to print DShot signal info
-inline void printDShotInfo(const DShotRMT &dshot_rmt, Stream &output = Serial)
+inline void printDShotInfo(DShotRMT &dshot_rmt, Stream &output = Serial)
 {
-    output.println("\n === DShot Signal Info === ");
-
-    uint16_t dshot_mode_val = 0;
-    switch (dshot_rmt.getMode())
-    {
-    case DSHOT150:
-        dshot_mode_val = 150;
-        break;
-    case DSHOT300:
-        dshot_mode_val = 300;
-        break;
-    case DSHOT600:
-        dshot_mode_val = 600;
-        break;
-    case DSHOT1200:
-        dshot_mode_val = 1200;
-        break;
-    }
-
-    output.printf("Current Mode: DSHOT%d\n", dshot_mode_val);
+    output.println("\n=== DShot Info ===");
+    output.printf("Library Version: %d.%d.%d\n", DSHOTRMT_MAJOR_VERSION, DSHOTRMT_MINOR_VERSION, DSHOTRMT_PATCH_VERSION);
+    output.printf("Mode: %s\n", get_dshot_mode_str(dshot_rmt.getMode()));
     output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
-    output.printf("Current Packet: ");
+    output.printf("Last Throttle: %u\n", dshot_rmt.getThrottleValue());
 
+    output.print("Packet (binary): ");
     for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
     {
         output.print((dshot_rmt.getEncodedFrameValue() >> i) & 1);
     }
+    output.println();
 
-    output.printf("\nCurrent Value: %u\n", dshot_rmt.getThrottleValue());
+    // --- Telemetry Data ---
+    if (dshot_rmt.isBidirectional())
+    {
+        dshot_result_t telemetry_result = dshot_rmt.getTelemetry();
+
+        output.print("Telemetry: ");
+        if (telemetry_result.success)
+        {
+            output.printf("OK (%s)\n", get_result_code_str(telemetry_result.result_code));
+
+            if (telemetry_result.erpm > 0 || telemetry_result.motor_rpm > 0)
+            {
+                output.printf("  eRPM: %u, Motor RPM: %u\n", telemetry_result.erpm, telemetry_result.motor_rpm);
+            }
+
+            if (telemetry_result.telemetry_available)
+            {
+                output.println("  --- Full Telemetry Details ---");
+                output.printf("  Temp: %d C | Volt: %.2f V | Curr: %.2f A | Cons: %u mAh\n",
+                              telemetry_result.telemetry_data.temperature,
+                              (float)telemetry_result.telemetry_data.voltage / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mV to V
+                              (float)telemetry_result.telemetry_data.current / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mA to A
+                              telemetry_result.telemetry_data.consumption);
+                output.printf("  Telemetry RPM: %u\n", telemetry_result.telemetry_data.rpm);
+            }
+            else
+            {
+                output.println("  (Full telemetry not yet available or CRC failed for full frame)");
+            }
+        }
+        else
+        {
+            output.printf("FAILED (%s)\n", get_result_code_str(telemetry_result.result_code));
+        }
+    }
+    else
+    {
+        output.println("Telemetry: Disabled (Bidirectional mode OFF)");
+    }
+    output.println("===========================\n"); // End separator
 }
 
 // Helper to print CPU info

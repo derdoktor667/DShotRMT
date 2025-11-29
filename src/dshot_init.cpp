@@ -15,11 +15,11 @@ dshot_result_t init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
         .gpio_num = gpio,
         .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
         .resolution_hz = DSHOT_RMT_RESOLUTION,
-        .mem_block_symbols = RMT_BUFFER_SYMBOLS,
+        .mem_block_symbols = RMT_TX_BUFFER_SYMBOLS,
         .trans_queue_depth = RMT_QUEUE_DEPTH,
         .flags = {
             .invert_out = is_bidirectional ? 1 : 0,
-            .init_level = is_bidirectional ? 0 : 1}};
+            .init_level = 0}};
 
     rmt_transmit_config_t rmt_tx_config = {}; // Initialize all members to zero
     rmt_tx_config.loop_count = 0;             // No automatic loops - real-time calculation
@@ -44,7 +44,7 @@ dshot_result_t init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
         .gpio_num = gpio,
         .clk_src = DSHOT_CLOCK_SRC_DEFAULT,
         .resolution_hz = DSHOT_RMT_RESOLUTION,
-        .mem_block_symbols = RMT_BUFFER_SYMBOLS,
+        .mem_block_symbols = RMT_RX_BUFFER_SYMBOLS,
     };
 
     if (rmt_new_rx_channel(&rx_channel_config, out_channel) != DSHOT_OK)

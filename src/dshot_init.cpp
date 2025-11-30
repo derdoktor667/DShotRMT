@@ -18,11 +18,10 @@ dshot_result_t init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
         .mem_block_symbols = RMT_TX_BUFFER_SYMBOLS,
         .trans_queue_depth = RMT_QUEUE_DEPTH,
         .flags = {
-            .invert_out = is_bidirectional ? 1 : 0,
-            .init_level = 0}};
-
-    rmt_transmit_config_t rmt_tx_config = {}; // Initialize all members to zero
-    rmt_tx_config.loop_count = 0;             // No automatic loops - real-time calculation
+            .invert_out = is_bidirectional ? DSHOT_PULSE_LEVEL_HIGH : DSHOT_PULSE_LEVEL_LOW,
+            .init_level = DSHOT_PULSE_LEVEL_LOW
+        }
+    };
 
     if (rmt_new_tx_channel(&tx_channel_config, out_channel) != DSHOT_OK)
     {
@@ -66,25 +65,25 @@ dshot_result_t init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_ch
 }
 
 // Function to initialize the DShot RMT encoder
-dshot_result_t init_dshot_encoder(rmt_encoder_handle_t *out_encoder, const rmt_ticks_t &rmt_ticks, uint16_t pulse_level, uint16_t idle_level)
+dshot_result_t init_dshot_encoder(rmt_encoder_handle_t *out_encoder, const rmt_ticks_t &rmt_ticks)
 {
     rmt_bytes_encoder_config_t encoder_config = {
         .bit0 = {
             .duration0 = rmt_ticks.t0h_ticks,
-            .level0 = pulse_level,
+            .level0 = DSHOT_PULSE_LEVEL_HIGH,
             .duration1 = rmt_ticks.t0l_ticks,
-            .level1 = idle_level,
+            .level1 = DSHOT_PULSE_LEVEL_LOW,
         },
         .bit1 = {
             .duration0 = rmt_ticks.t1h_ticks,
-            .level0 = pulse_level,
+            .level0 = DSHOT_PULSE_LEVEL_HIGH,
             .duration1 = rmt_ticks.t1l_ticks,
-            .level1 = idle_level,
+            .level1 = DSHOT_PULSE_LEVEL_LOW,
         },
-
         .flags = {
             .msb_first = 1 // DShot is MSB first
-        }};
+        }
+    };
 
     if (rmt_new_bytes_encoder(&encoder_config, out_encoder) != DSHOT_OK)
     {

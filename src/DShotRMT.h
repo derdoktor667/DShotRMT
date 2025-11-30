@@ -80,19 +80,17 @@ private:
     static bool IRAM_ATTR _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // DShot Configuration Parameters
-    gpio_num_t _gpio;                // GPIO pin used for DShot communication
-    dshot_mode_t _mode;              // DShot mode (e.g., DSHOT300, DSHOT600)
-    bool _is_bidirectional;          // True if bidirectional DShot is enabled
-    uint16_t _motor_magnet_count;    // Number of magnets in the motor for RPM calculation
-    dshot_timing_us_t _dshot_timing; // DShot timing parameters in microseconds
+    gpio_num_t _gpio;             // GPIO pin used for DShot communication
+    dshot_mode_t _mode;           // DShot mode (e.g., DSHOT300, DSHOT600)
+    bool _is_bidirectional;       // True if bidirectional DShot is enabled
+    uint16_t _motor_magnet_count; // Number of magnets in the motor for RPM calculation
 
     // RMT Hardware Handles and Configuration
     rmt_channel_handle_t _rmt_tx_channel = nullptr; // RMT transmit channel handle
     rmt_channel_handle_t _rmt_rx_channel = nullptr; // RMT receive channel handle
     rmt_encoder_handle_t _dshot_encoder = nullptr;  // DShot RMT encoder handle
-    rmt_ticks_t _rmt_ticks;                         // Pre-calculated RMT timing ticks
-    uint16_t _pulse_level = 1;                      // Output level for a pulse (typically high)
-    uint16_t _idle_level = 0;                       // Output level for idle (typically low)
+    uint32_t _pulse_min_ns = 0;                     // RMT receiver minimum pulse width in nanoseconds
+    uint32_t _pulse_max_ns = 0;                     // RMT receiver maximum pulse width in nanoseconds
 
     // DShot Frame Timing and State Variables
     uint64_t _last_transmission_time_us = 0; // Timestamp of the last DShot frame transmission
@@ -119,16 +117,13 @@ private:
     uint16_t _calculateCRC(const uint16_t &data) const;                                                           // Calculates the 4-bit CRC for a DShot frame
     uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;                                        // Calculates the 8-bit CRC for telemetry data
     void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const; // Extracts telemetry data from raw bytes
-    void _preCalculateRMTTicks();                                                                                 // Pre-calculates RMT timing ticks for the selected DShot mode
+    void _preCalculateTimings();                                                                                  // Pre-calculates RMT timing ticks for the selected DShot mode
     dshot_result_t _sendPacket(const dshot_packet_t &packet);                                                     // Sends a DShot frame via RMT TX channel
     uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;                                 // Decodes a received RMT symbol array into an eRPM value
     void IRAM_ATTR _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);              // Processes a full telemetry frame
     bool IRAM_ATTR _isFrameIntervalElapsed() const;                                                               // Checks if enough time has passed since the last frame transmission
     void _recordFrameTransmissionTime();                                                                          // Records the current time as the last frame transmission time
-
     dshot_result_t _sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us);
-
-    // Static Callback Function for RMT RX Events
     void _cleanupRmtResources();
 };
 

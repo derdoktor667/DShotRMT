@@ -22,12 +22,12 @@ static constexpr uint16_t DSHOT_CRC_BIT_SHIFT = 4;
 static constexpr uint16_t DSHOT_CRC_MASK = 0x000F;
 
 // --- Throttle & Command Values ---
-static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047;     // Maximum throttle value (0-2047)
-static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;       // Minimum throttle value for motor spin
+static constexpr uint16_t DSHOT_THROTTLE_MAX = 2047; // Maximum throttle value (0-2047)
+static constexpr uint16_t DSHOT_THROTTLE_MIN = 48;   // Minimum throttle value for motor spin
 static constexpr float DSHOT_PERCENT_MIN = 0.0f;
 static constexpr float DSHOT_PERCENT_MAX = 100.0f;
-static constexpr uint16_t DSHOT_CMD_MIN = 0;             // Minimum command value
-static constexpr uint16_t DSHOT_CMD_MAX = 47;            // Maximum command value
+static constexpr uint16_t DSHOT_CMD_MIN = 0;  // Minimum command value
+static constexpr uint16_t DSHOT_CMD_MAX = 47; // Maximum command value
 static constexpr uint16_t DSHOT_NULL_PACKET = 0;
 static constexpr uint16_t DSHOT_FULL_PACKET = 0xFFFF;
 static constexpr uint16_t DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
@@ -38,7 +38,6 @@ static constexpr uint16_t DEFAULT_CMD_DELAY_US = 10;
 static constexpr uint16_t DEFAULT_CMD_REPEAT_COUNT = 1;
 static constexpr uint16_t SETTINGS_COMMAND_REPEATS = 10;
 static constexpr uint16_t SETTINGS_COMMAND_DELAY_US = 5;
-
 
 // =================================================================================
 // DShot Telemetry Constants
@@ -51,13 +50,12 @@ static constexpr uint16_t DSHOT_TELEMETRY_FULL_GCR_BITS = 110; // GCR bits for a
 // --- Telemetry Payload Structure ---
 static constexpr uint16_t DSHOT_TELEMETRY_FRAME_LENGTH_BITS = 80; // 10 bytes * 8 bits/byte
 static constexpr uint16_t DSHOT_TELEMETRY_FRAME_LENGTH_BYTES = 10;
-static constexpr uint16_t DSHOT_TELEMETRY_CRC_LENGTH_BITS = 8;    // 8-bit CRC for telemetry
+static constexpr uint16_t DSHOT_TELEMETRY_CRC_LENGTH_BITS = 8; // 8-bit CRC for telemetry
 
 // --- Motor Properties for RPM Calculation ---
 static constexpr uint16_t DEFAULT_MOTOR_MAGNET_COUNT = 14;
 static constexpr uint16_t POLE_PAIRS_MIN = 1;
 static constexpr uint16_t MAGNETS_PER_POLE_PAIR = 2;
-
 
 // =================================================================================
 // DShot Timing Constants (Protocol Level)
@@ -79,7 +77,6 @@ const dshot_timing_us_t DSHOT_TIMING_US[] = {
     {1.67, 1.25}, // DSHOT600
     {0.83, 0.67}  // DSHOT1200
 };
-
 
 // =================================================================================
 // ESP32 RMT Hardware Implementation Constants
@@ -106,7 +103,6 @@ typedef struct rmt_ticks
     uint16_t t0h_ticks;        // High time duration for a '0' bit in RMT ticks.
     uint16_t t0l_ticks;        // Low time duration for a '0' bit in RMT ticks.
 } rmt_ticks_t;
-
 
 // =================================================================================
 // Library Data Structures & Enums

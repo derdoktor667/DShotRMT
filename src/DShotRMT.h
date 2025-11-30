@@ -57,13 +57,7 @@ public:
     // Sends a DShot command to the ESC with a specified repeat count and delay.
     dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
 
-    /**
-     * @brief Sends a custom DShot command to the ESC. Advanced feature, use with caution.
-     * @param command_value The raw command value (0-47).
-     * @param repeat_count The number of times to send the command.
-     * @param delay_us The delay in microseconds between repetitions.
-     * @return dshot_result_t The result of the operation.
-     */
+    // Sends a custom DShot command to the ESC. Advanced feature, use with caution.
     dshot_result_t sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us);
 
     // Retrieves telemetry data from the ESC.

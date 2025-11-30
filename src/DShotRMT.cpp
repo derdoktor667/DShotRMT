@@ -156,17 +156,18 @@ dshot_result_t DShotRMT::getTelemetry()
     // Prioritize checking for full telemetry data, as it is richer.
     if (_full_telemetry_ready_flag_atomic)
     {
-        _full_telemetry_ready_flag_atomic = false; // Reset the flag
+        _full_telemetry_ready_flag_atomic = false;           // Reset the flag
         result.telemetry_data = _last_telemetry_data_atomic; // Read the atomic variable
         result.telemetry_available = true;
 
         // Also populate eRPM fields from the full telemetry data for consistency.
         result.erpm = result.telemetry_data.rpm;
-        if (_motor_magnet_count >= MAGNETS_PER_POLE_PAIR) {
+        if (_motor_magnet_count >= MAGNETS_PER_POLE_PAIR)
+        {
             uint8_t pole_pairs = _motor_magnet_count / MAGNETS_PER_POLE_PAIR;
             result.motor_rpm = result.telemetry_data.rpm / pole_pairs;
         }
-        
+
         result.success = true;
         result.result_code = DSHOT_TELEMETRY_DATA_AVAILABLE;
         return result;
@@ -497,23 +498,56 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
         uint8_t decoded_nibble; // 4 data bits.
         switch (gcr_group_5bits)
         {
-        case 0b11110: decoded_nibble = 0b0000; break;
-        case 0b01001: decoded_nibble = 0b0001; break;
-        case 0b10100: decoded_nibble = 0b0010; break;
-        case 0b10101: decoded_nibble = 0b0011; break;
-        case 0b01010: decoded_nibble = 0b0100; break;
-        case 0b01011: decoded_nibble = 0b0101; break;
-        case 0b01110: decoded_nibble = 0b0110; break;
-        case 0b01111: decoded_nibble = 0b0111; break;
-        case 0b10010: decoded_nibble = 0b1000; break;
-        case 0b10011: decoded_nibble = 0b1001; break;
-        case 0b10110: decoded_nibble = 0b1010; break;
-        case 0b10111: decoded_nibble = 0b1011; break;
-        case 0b11010: decoded_nibble = 0b1100; break;
-        case 0b11011: decoded_nibble = 0b1101; break;
-        case 0b11100: decoded_nibble = 0b1110; break;
-        case 0b11101: decoded_nibble = 0b1111; break;
-        default: return; // Invalid GCR group, discard frame.
+        case 0b11110:
+            decoded_nibble = 0b0000;
+            break;
+        case 0b01001:
+            decoded_nibble = 0b0001;
+            break;
+        case 0b10100:
+            decoded_nibble = 0b0010;
+            break;
+        case 0b10101:
+            decoded_nibble = 0b0011;
+            break;
+        case 0b01010:
+            decoded_nibble = 0b0100;
+            break;
+        case 0b01011:
+            decoded_nibble = 0b0101;
+            break;
+        case 0b01110:
+            decoded_nibble = 0b0110;
+            break;
+        case 0b01111:
+            decoded_nibble = 0b0111;
+            break;
+        case 0b10010:
+            decoded_nibble = 0b1000;
+            break;
+        case 0b10011:
+            decoded_nibble = 0b1001;
+            break;
+        case 0b10110:
+            decoded_nibble = 0b1010;
+            break;
+        case 0b10111:
+            decoded_nibble = 0b1011;
+            break;
+        case 0b11010:
+            decoded_nibble = 0b1100;
+            break;
+        case 0b11011:
+            decoded_nibble = 0b1101;
+            break;
+        case 0b11100:
+            decoded_nibble = 0b1110;
+            break;
+        case 0b11101:
+            decoded_nibble = 0b1111;
+            break;
+        default:
+            return; // Invalid GCR group, discard frame.
         }
 
         // Place the 4 decoded bits into the data_bytes array.

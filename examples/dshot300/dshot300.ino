@@ -51,7 +51,7 @@ void loop()
     // Safety first
     static uint16_t throttle = DSHOT_CMD_MOTOR_STOP;
 
-    // Initialize the esc with "0"
+    //
     static bool continuous_throttle = true;
 
     // Time Measurement
@@ -80,13 +80,7 @@ void loop()
     {
         printDShotInfo(motor01, USB_SERIAL);
 
-        // Get Motor RPM if bidirectional
-        if (IS_BIDIRECTIONAL)
-        {
-            // dshot_result_t telem_result = motor01.getTelemetry();
-            // printDShotResult(telem_result);
-        }
-
+        //
         USB_SERIAL.println("Type 'help' to show Menu");
 
         // Time Stamp
@@ -106,10 +100,6 @@ void printMenu()
     USB_SERIAL.println("*******************************************");
     USB_SERIAL.println(" cmd <number> - Send DShot command (0 - 47)");
     USB_SERIAL.println(" info         - Show motor info");
-    if (IS_BIDIRECTIONAL)
-    {
-        USB_SERIAL.println(" rpm          - Get telemetry data");
-    }
     USB_SERIAL.println("*******************************************");
     USB_SERIAL.println(" h / help     - Show this Menu");
     USB_SERIAL.println("*******************************************");
@@ -129,11 +119,6 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
     else if (input == "info")
     {
         printDShotInfo(motor01, USB_SERIAL);
-    }
-    else if (input == "rpm" && IS_BIDIRECTIONAL)
-    {
-        dshot_result_t result = motor01.getTelemetry();
-        printDShotResult(result);
     }
     else if (input.startsWith("cmd "))
     {

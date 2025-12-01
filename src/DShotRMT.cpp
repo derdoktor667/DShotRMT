@@ -303,7 +303,7 @@ void DShotRMT::_preCalculateTimings()
     _frame_timer_us = (static_cast<uint64_t>(dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;
     if (_is_bidirectional)
     {
-        _frame_timer_us = (_frame_timer_us << 1);
+        _frame_timer_us = (_frame_timer_us << 2);   // about four times frame length
 
         // Calculate dynamic pulse width ranges for the RMT receiver
         const double t1h_ns = dshot_timing.t1h_lenght_us * 1000.0;

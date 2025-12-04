@@ -157,7 +157,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         else
         {
             USB_SERIAL.println(" ");
-            USB_SERIAL.printf("Invalid input: '%s'\n", input);
+            USB_SERIAL.printf("Invalid input: '%s'\n", input.c_str());
             USB_SERIAL.printf("Valid throttle range: %d - %d\n", DSHOT_THROTTLE_MIN, DSHOT_THROTTLE_MAX);
         }
     }

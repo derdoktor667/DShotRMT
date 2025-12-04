@@ -12,10 +12,6 @@
 #include <array>
 #include <driver/rmt_common.h>
 
-// =================================================================================
-// DShot Protocol Constants
-// =================================================================================
-
 // --- Frame Structure ---
 static constexpr uint16_t DSHOT_BITS_PER_FRAME = 16;
 static constexpr uint16_t DSHOT_FRAME_SIZE_BYTES = 2;
@@ -45,10 +41,6 @@ static constexpr uint16_t DEFAULT_CMD_REPEAT_COUNT = 1;
 static constexpr uint16_t SETTINGS_COMMAND_REPEATS = 10;
 static constexpr uint16_t SETTINGS_COMMAND_DELAY_US = 5;
 
-// =================================================================================
-// DShot Telemetry Constants
-// =================================================================================
-
 // --- GCR Frame Structure ---
 static constexpr uint16_t DSHOT_ERPM_FRAME_GCR_BITS = 21;      // GCR bits in a DShot answer frame for eRPM
 static constexpr uint16_t DSHOT_TELEMETRY_FULL_GCR_BITS = 110; // GCR bits for a full 10-byte telemetry frame (80 data bits + 8 CRC bits = 88 bits, 88 * 5/4 = 110 GCR bits)
@@ -67,13 +59,18 @@ static constexpr uint16_t DEFAULT_MOTOR_MAGNET_COUNT = 14;
 static constexpr uint16_t POLE_PAIRS_MIN = 1;
 static constexpr uint16_t MAGNETS_PER_POLE_PAIR = 2;
 
-// =================================================================================
-// DShot GCR Decoding Constants
-// =================================================================================
-
 // --- GCR Decoding ---
 static constexpr uint8_t GCR_INVALID_NIBBLE = 0xFF; // Represents an invalid GCR code
 static constexpr size_t GCR_CODE_LOOKUP_TABLE_SIZE = 32;
+
+// --- DShot Telemetry Decoding ---
+static constexpr uint32_t DSHOT_GCR_FRAME_MASK = 0xFFFFF; // 20-bit mask for the GCR frame
+static constexpr uint8_t DSHOT_GCR_NIBBLE_MASK = 0x1F;    // 5-bit mask for a GCR nibble
+static constexpr uint8_t DSHOT_GCR_CRC_VALID = 0xF;       // Expected CRC result for a valid eRPM frame
+static constexpr uint16_t DSHOT_EDT_BUSY_VALUE = 0x0FFF;  // Value indicating the ESC is busy
+static constexpr uint16_t DSHOT_EDT_EXPONENT_MASK = 0x7;  // Mask for the 3-bit exponent in an EDT frame
+static constexpr uint16_t DSHOT_EDT_MANTISSA_MASK = 0x1FF; // Mask for the 9-bit mantissa in an EDT frame
+
 
 // Lookup table for 5-bit GCR code to 4-bit nibble conversion.
 // The index is the 5-bit GCR code, the value is the decoded 4-bit nibble.
@@ -112,9 +109,6 @@ static constexpr std::array<uint8_t, GCR_CODE_LOOKUP_TABLE_SIZE> GCR_DECODE_LOOK
     0b1111,
 };
 
-// =================================================================================
-// DShot Timing Constants (Protocol Level)
-// =================================================================================
 static constexpr uint16_t DSHOT_PADDING_US = 20; // Pause between frames
 
 // Defines the bit length and high time for a '1' bit in microseconds for each DShot mode.
@@ -132,10 +126,6 @@ static constexpr dshot_timing_us_t DSHOT_TIMING_US[] = {
     {1.67, 1.25}, // DSHOT600
     {0.83, 0.67}  // DSHOT1200
 };
-
-// =================================================================================
-// ESP32 RMT Hardware Implementation Constants
-// =================================================================================
 
 // --- RMT Clock & Buffer Configuration ---
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
@@ -160,10 +150,6 @@ struct rmt_ticks_t
     uint16_t t0h_ticks;        // High time duration for a '0' bit in RMT ticks.
     uint16_t t0l_ticks;        // Low time duration for a '0' bit in RMT ticks.
 };
-
-// =================================================================================
-// Library Data Structures & Enums
-// =================================================================================
 
 // --- DShot Modes ---
 enum dshot_mode_t : uint8_t
@@ -236,6 +222,18 @@ struct dshot_result_t
     uint16_t motor_rpm;                    // Motor RPM if telemetry is successful and magnet count is known.
     dshot_telemetry_data_t telemetry_data; // Full telemetry data if available
     bool telemetry_available;              // Flag to indicate if telemetry_data is valid
+
+    // Factory for a successful result
+    static dshot_result_t create_success(dshot_msg_code_t code, uint16_t erpm = 0, uint16_t motor_rpm = 0, dshot_telemetry_data_t telemetry = {}, bool telemetry_available = false)
+    {
+        return {true, code, erpm, motor_rpm, telemetry, telemetry_available};
+    }
+
+    // Factory for an error result
+    static dshot_result_t create_error(dshot_msg_code_t code)
+    {
+        return {false, code, 0, 0, {}, false};
+    }
 };
 
 // --- DShot Commands ---

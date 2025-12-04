@@ -21,7 +21,7 @@
 // DShotRMT Library Version
 static constexpr uint8_t DSHOTRMT_MAJOR_VERSION = 0;
 static constexpr uint8_t DSHOTRMT_MINOR_VERSION = 9;
-static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 5;
+static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 6;
 
 // DShot Protocol Constants
 static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
@@ -77,7 +77,7 @@ public:
 
 private:
     dshot_result_t _sendRawDshotFrame(uint16_t value);
-    static bool IRAM_ATTR _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
+    static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 
     // DShot Configuration Parameters
     gpio_num_t _gpio;             // GPIO pin used for DShot communication
@@ -119,9 +119,9 @@ private:
     void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const; // Extracts telemetry data from raw bytes
     void _preCalculateTimings();                                                                                  // Pre-calculates RMT timing ticks for the selected DShot mode
     dshot_result_t _sendPacket(const dshot_packet_t &packet);                                                     // Sends a DShot frame via RMT TX channel
-    uint16_t IRAM_ATTR _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;                                 // Decodes a received RMT symbol array into an eRPM value
-    void IRAM_ATTR _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);              // Processes a full telemetry frame
-    bool IRAM_ATTR _isFrameIntervalElapsed() const;                                                               // Checks if enough time has passed since the last frame transmission
+    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;                                           // Decodes a received RMT symbol array into an eRPM value
+    void _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);                        // Processes a full telemetry frame
+    bool _isFrameIntervalElapsed() const;                                                                         // Checks if enough time has passed since the last frame transmission
     void _recordFrameTransmissionTime();                                                                          // Records the current time as the last frame transmission time
     dshot_result_t _sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us);
     void _cleanupRmtResources();

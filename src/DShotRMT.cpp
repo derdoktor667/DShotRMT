@@ -72,7 +72,7 @@ dshot_result_t DShotRMT::begin()
         return result;
     }
 
-    return {true, DSHOT_INIT_SUCCESS};
+    return dshot_result_t::create_success(DSHOT_INIT_SUCCESS);
 }
 
 // Send throttle value
@@ -94,7 +94,7 @@ dshot_result_t DShotRMT::sendThrottlePercent(float percent)
 {
     if (percent < DSHOT_PERCENT_MIN || percent > DSHOT_PERCENT_MAX)
     {
-        return {false, DSHOT_PERCENT_NOT_IN_RANGE};
+        return dshot_result_t::create_error(DSHOT_PERCENT_NOT_IN_RANGE);
     }
     uint16_t throttle = static_cast<uint16_t>(DSHOT_THROTTLE_MIN + _percent_to_throttle_ratio * percent);
     return sendThrottle(throttle);
@@ -105,7 +105,7 @@ dshot_result_t DShotRMT::sendCommand(uint16_t command_value)
 {
     if (command_value > DSHOT_CMD_MAX_VALUE)
     {
-        return {false, DSHOT_COMMAND_NOT_VALID};
+        return dshot_result_t::create_error(DSHOT_COMMAND_NOT_VALID);
     }
     return sendCommand(static_cast<dshotCommands_e>(command_value));
 }
@@ -136,7 +136,7 @@ dshot_result_t DShotRMT::sendCommand(dshotCommands_e command, uint16_t repeat_co
 {
     if (!_isValidCommand(command))
     {
-        return {false, DSHOT_INVALID_COMMAND};
+        return dshot_result_t::create_error(DSHOT_INVALID_COMMAND);
     }
     return _sendRepeatedCommand(static_cast<uint16_t>(command), repeat_count, delay_us);
 }
@@ -144,28 +144,23 @@ dshot_result_t DShotRMT::sendCommand(dshotCommands_e command, uint16_t repeat_co
 // Get telemetry data
 dshot_result_t DShotRMT::getTelemetry()
 {
-    dshot_result_t result = {false, DSHOT_TELEMETRY_FAILED};
-
     if (!_is_bidirectional)
     {
-        result.result_code = DSHOT_BIDIR_NOT_ENABLED;
-        return result;
+        return dshot_result_t::create_error(DSHOT_BIDIR_NOT_ENABLED);
     }
 
     if (_full_telemetry_ready_flag_atomic)
     {
         _full_telemetry_ready_flag_atomic = false;
-        result.telemetry_data = _last_telemetry_data_atomic;
-        result.telemetry_available = true;
-        result.erpm = result.telemetry_data.rpm;
+        dshot_telemetry_data_t telemetry_data = _last_telemetry_data_atomic;
+        uint16_t erpm = telemetry_data.rpm;
+        uint16_t motor_rpm = 0;
         if (_motor_magnet_count >= MAGNETS_PER_POLE_PAIR)
         {
             uint8_t pole_pairs = _motor_magnet_count / MAGNETS_PER_POLE_PAIR;
-            result.motor_rpm = result.telemetry_data.rpm / pole_pairs;
+            motor_rpm = erpm / pole_pairs;
         }
-        result.success = true;
-        result.result_code = DSHOT_TELEMETRY_DATA_AVAILABLE;
-        return result;
+        return dshot_result_t::create_success(DSHOT_TELEMETRY_DATA_AVAILABLE, erpm, motor_rpm, telemetry_data, true);
     }
 
     if (_telemetry_ready_flag_atomic)
@@ -175,13 +170,12 @@ dshot_result_t DShotRMT::getTelemetry()
         if (erpm != DSHOT_NULL_PACKET && _motor_magnet_count >= MAGNETS_PER_POLE_PAIR)
         {
             uint8_t pole_pairs = _motor_magnet_count / MAGNETS_PER_POLE_PAIR;
-            result.erpm = erpm;
-            result.motor_rpm = (erpm / pole_pairs);
-            result.success = true;
-            result.result_code = DSHOT_TELEMETRY_SUCCESS;
+            uint16_t motor_rpm = erpm / pole_pairs;
+            return dshot_result_t::create_success(DSHOT_TELEMETRY_SUCCESS, erpm, motor_rpm);
         }
     }
-    return result;
+
+    return dshot_result_t::create_error(DSHOT_TELEMETRY_FAILED);
 }
 
 // Reverse motor direction directly
@@ -195,7 +189,7 @@ dshot_result_t DShotRMT::sendCustomCommand(uint16_t command_value, uint16_t repe
 {
     if (command_value > DSHOT_CMD_MAX)
     {
-        return {false, DSHOT_COMMAND_NOT_VALID};
+        return dshot_result_t::create_error(DSHOT_COMMAND_NOT_VALID);
     }
     return _sendRepeatedCommand(command_value, repeat_count, delay_us);
 }
@@ -209,7 +203,7 @@ dshot_result_t DShotRMT::saveESCSettings()
 // Private helper to send a command value multiple times.
 dshot_result_t DShotRMT::_sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us)
 {
-    dshot_result_t last_result = {true, DSHOT_COMMAND_SUCCESS};
+    dshot_result_t last_result = dshot_result_t::create_success(DSHOT_COMMAND_SUCCESS);
     for (uint16_t i = 0; i < repeat_count; i++)
     {
         last_result = _sendRawDshotFrame(value);
@@ -303,7 +297,7 @@ void DShotRMT::_preCalculateTimings()
     _frame_timer_us = (static_cast<uint64_t>(dshot_timing.bit_length_us * DSHOT_BITS_PER_FRAME) << 1) + DSHOT_PADDING_US;
     if (_is_bidirectional)
     {
-        _frame_timer_us = (_frame_timer_us << 2);   // about four times frame length
+        _frame_timer_us = (_frame_timer_us << 2); // about four times frame length
 
         // Calculate dynamic pulse width ranges for the RMT receiver
         const double t1h_ns = dshot_timing.t1h_lenght_us * 1000.0;
@@ -324,115 +318,86 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
 {
     if (!_isFrameIntervalElapsed())
     {
-        return {true, DSHOT_NONE};
+        return dshot_result_t::create_success(DSHOT_NONE);
     }
 
     if (_is_bidirectional)
     {
         rmt_symbol_word_t rx_symbols[DSHOT_TELEMETRY_FULL_GCR_BITS];
-        rmt_receive_config_t rmt_rx_config = {
-            .signal_range_min_ns = _pulse_min_ns,
-            .signal_range_max_ns = _pulse_max_ns,
-        };
+        rmt_receive_config_t rmt_rx_config = {};
+        rmt_rx_config.signal_range_min_ns = _pulse_min_ns;
+        rmt_rx_config.signal_range_max_ns = _pulse_max_ns;
+
         if (rmt_receive(_rmt_rx_channel, rx_symbols, sizeof(rx_symbols), &rmt_rx_config) != DSHOT_OK)
         {
-            return {false, DSHOT_RECEIVER_FAILED};
+            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
         }
     }
 
     _encoded_frame_value = _buildDShotFrameValue(packet);
     uint16_t swapped_value = __builtin_bswap16(_encoded_frame_value);
-    rmt_transmit_config_t tx_config = {.loop_count = 0};
+    rmt_transmit_config_t tx_config = {};
 
     if (_is_bidirectional)
     {
         if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
-            return {false, DSHOT_RECEIVER_FAILED};
+            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
     }
 
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, DSHOT_FRAME_SIZE_BYTES, &tx_config) != DSHOT_OK)
     {
-        return {false, DSHOT_TRANSMISSION_FAILED};
+        return dshot_result_t::create_error(DSHOT_TRANSMISSION_FAILED);
     }
 
     if (_is_bidirectional)
     {
         if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
-            return {false, DSHOT_RECEIVER_FAILED};
+            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
     }
 
     _recordFrameTransmissionTime();
-    return {true, DSHOT_TRANSMISSION_SUCCESS};
+    return dshot_result_t::create_success(DSHOT_TRANSMISSION_SUCCESS);
 }
 
 uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols) const
 {
     // This function decodes a 21-bit GCR frame from the ESC to get eRPM.
-    // The implementation is a C++ port of the logic in Betaflight's dshot_bitbang_decode.c
-
-    // Step 1: Convert RMT symbols to a 21-bit integer value.
-    // The ESC sends pulses where the duration of the low state determines the bit.
-    // This is often called "inverted return-to-zero" (IRZ).
-    // A longer low pulse is a 1, a shorter low pulse is a 0.
-    // The RMT peripheral is configured to interpret these pulses.
-    // Here, we assume the RMT symbols are already decoded to bits based on pulse width.
-    // A '1' is represented by symbol.duration0 > symbol.duration1.
     uint32_t raw_frame = 0;
     for (size_t i = 0; i < DSHOT_ERPM_FRAME_GCR_BITS; ++i)
     {
-        bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
-        raw_frame = (raw_frame << 1) | bit_is_one;
+        raw_frame = (raw_frame << 1) | (symbols[i].duration0 > symbols[i].duration1);
     }
 
-    // Step 2: RLL Decode (Run-Length Limited)
-    // The 21-bit value is RLL encoded. The first bit is a start bit.
-    // The decoding is a simple XOR shift. This results in a 20-bit GCR value.
-    // We discard the start bit by masking.
-    uint32_t gcr_value = (raw_frame ^ (raw_frame >> 1)) & 0xFFFFF;
-
-    // Step 3: GCR Decode (Group Code Recording)
-    // The 20-bit value is decoded into a 16-bit value using a lookup table.
-    // Each 5-bit GCR nibble maps to a 4-bit data nibble.
-    static const uint8_t gcr_decode_lut[32] = {
-        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 9, 10, 11, 0xFF, 13, 14, 15,
-        0xFF, 0xFF, 2, 3, 0xFF, 5, 6, 7, 0xFF, 0, 8, 1, 0xFF, 4, 12, 0xFF};
+    uint32_t gcr_value = (raw_frame ^ (raw_frame >> 1)) & DSHOT_GCR_FRAME_MASK;
 
     uint16_t decoded_frame = 0;
     for (int i = 0; i < 4; ++i)
     {
-        uint8_t gcr_nibble = (gcr_value >> (i * 5)) & 0x1F;
-        uint8_t original_nibble = gcr_decode_lut[gcr_nibble];
-        if (original_nibble == 0xFF)
+        uint8_t gcr_nibble = (gcr_value >> (i * 5)) & DSHOT_GCR_NIBBLE_MASK;
+        uint8_t original_nibble = GCR_DECODE_LOOKUP_TABLE[gcr_nibble];
+        if (original_nibble == GCR_INVALID_NIBBLE)
         {
             return DSHOT_NULL_PACKET; // Invalid GCR code
         }
         decoded_frame |= (original_nibble << (i * 4));
     }
 
-    // Step 4: CRC Check
-    // For a valid frame, XORing all 4 nibbles of the decoded 16-bit frame results in 0xF.
     uint16_t csum = decoded_frame;
     csum = csum ^ (csum >> 8); // XOR bytes
     csum = csum ^ (csum >> 4); // XOR nibbles
-    if ((csum & 0xF) != 0xF)
+    if ((csum & DSHOT_CRC_MASK) != DSHOT_GCR_CRC_VALID)
     {
         return DSHOT_NULL_PACKET;
     }
 
-    // Step 5: Extract 12-bit Extended DShot Telemetry (EDT) value
-    uint16_t edt_value = decoded_frame >> 4;
-
-    // A value of 0xFFF indicates the ESC is busy/not ready.
-    if (edt_value == 0x0FFF)
+    uint16_t edt_value = decoded_frame >> DSHOT_CRC_BIT_SHIFT;
+    if (edt_value == DSHOT_EDT_BUSY_VALUE)
     {
         return DSHOT_NULL_PACKET;
     }
 
-    // Step 6: Decode the 'eeem mmmm mmmm' format to a period value
-    // e = exponent (3 bits), m = mantissa (9 bits)
-    // The period is calculated as: mantissa << exponent
-    uint16_t exponent = (edt_value >> 9) & 0x7;
-    uint16_t mantissa = edt_value & 0x1FF;
+    uint16_t exponent = (edt_value >> 9) & DSHOT_EDT_EXPONENT_MASK;
+    uint16_t mantissa = edt_value & DSHOT_EDT_MANTISSA_MASK;
     uint32_t period_us = mantissa << exponent;
 
     if (period_us == 0)
@@ -440,11 +405,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         return DSHOT_NULL_PACKET;
     }
 
-    // Step 7: Convert the period (in microseconds) to eRPM
-    // eRPM = (60 * 1,000,000) / period_us
-    uint16_t erpm = (60 * 1000000) / period_us;
-
-    return erpm;
+    return (60 * 1000000) / period_us;
 }
 
 // Timing Control Functions

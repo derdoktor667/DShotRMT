@@ -41,7 +41,10 @@ The library is architected around a single C++ class, `DShotRMT`, which abstract
 
 1.  **Signal Generation (TX):** The library uses an RMT 'bytes_encoder'. This encoder is configured with the specific pulse durations for DShot '0' and '1' bits based on the selected speed (e.g., DSHOT300, DSHOT600). When a user calls `sendThrottle()`, the library constructs a 16-bit DShot frame (11-bit throttle, 1-bit telemetry request, 4-bit CRC) and hands it to the RMT encoder. The RMT hardware then autonomously generates the correct electrical signal on the specified GPIO pin.
 
-2.  **Bidirectional Telemetry (RX):** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. **An external pull-up resistor (e.g., 2k Ohm to 3.3V) is required for this to work.** When the ESC sends back a telemetry signal, the RMT peripheral captures it. An interrupt service routine intelligently differentiates between eRPM-only frames (21 GCR bits) and full telemetry frames (110 GCR bits). It then decodes the GCR-encoded signal, validates its CRC, and stores the resulting telemetry data in thread-safe `atomic` variables. The main application can then poll for this data using the `getTelemetry()` method.
+2.  **Bidirectional Telemetry (RX):** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. **An external pull-up resistor (e.g., 2k Ohm to 3.3V) is required for this to work.** When the ESC sends back a telemetry signal, the RMT peripheral captures it. An interrupt service routine (ISR) intelligently differentiates between different frame lengths.
+    -   For **eRPM telemetry**, the ISR decodes the 21-bit GCR frame using the common DShot logic. It correctly interprets the `eeem mmmm mmmm` extended format to calculate the motor's period and derive a highly accurate RPM value.
+    -   For **full telemetry**, it decodes the 110-bit GCR frame to extract temperature, voltage, and current.
+    The resulting data is stored in thread-safe `atomic` variables, which can be polled via the `getTelemetry()` method.
 
 ## ⏱️ DShot Timing Information
 
@@ -94,7 +97,6 @@ void loop() {
   
   Serial.println("Stopping motor.");
   motor.sendThrottlePercent(0);
-  delay(1000);
 
   // Take a break before the next run
   delay(3000);

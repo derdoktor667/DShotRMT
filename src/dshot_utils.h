@@ -92,11 +92,13 @@ inline const char *get_result_code_str(dshot_msg_code_t code)
         return TRANSMISSION_SUCCESS;
     case DSHOT_TELEMETRY_SUCCESS:
         return TELEMETRY_SUCCESS;
+    case DSHOT_TELEMETRY_DATA_AVAILABLE:
+        return TELEMETRY_SUCCESS; // Use the same message for available data
     case DSHOT_COMMAND_SUCCESS:
         return COMMAND_SUCCESS;
-    default:
-        return UNKNOWN_ERROR;
     }
+    // This fallback will now trigger a compiler warning if a case is missing
+    return UNKNOWN_ERROR;
 }
 
 // Helper to get DShot mode string

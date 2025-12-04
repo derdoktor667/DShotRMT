@@ -367,22 +367,84 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
 
 uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols) const
 {
-    uint32_t gcr_value = 0;
+    // This function decodes a 21-bit GCR frame from the ESC to get eRPM.
+    // The implementation is a C++ port of the logic in Betaflight's dshot_bitbang_decode.c
+
+    // Step 1: Convert RMT symbols to a 21-bit integer value.
+    // The ESC sends pulses where the duration of the low state determines the bit.
+    // This is often called "inverted return-to-zero" (IRZ).
+    // A longer low pulse is a 1, a shorter low pulse is a 0.
+    // The RMT peripheral is configured to interpret these pulses.
+    // Here, we assume the RMT symbols are already decoded to bits based on pulse width.
+    // A '1' is represented by symbol.duration0 > symbol.duration1.
+    uint32_t raw_frame = 0;
     for (size_t i = 0; i < DSHOT_ERPM_FRAME_GCR_BITS; ++i)
     {
         bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
-        gcr_value = (gcr_value << 1) | bit_is_one;
+        raw_frame = (raw_frame << 1) | bit_is_one;
     }
-    uint32_t decoded_frame = gcr_value ^ (gcr_value >> 1);
-    uint16_t data_and_crc = (decoded_frame & DSHOT_FULL_PACKET);
-    uint16_t received_data = data_and_crc >> DSHOT_CRC_BIT_SHIFT;
-    uint16_t received_crc = data_and_crc & DSHOT_CRC_MASK;
-    uint16_t calculated_crc = _calculateCRC(received_data);
-    if (received_crc != calculated_crc)
+
+    // Step 2: RLL Decode (Run-Length Limited)
+    // The 21-bit value is RLL encoded. The first bit is a start bit.
+    // The decoding is a simple XOR shift. This results in a 20-bit GCR value.
+    // We discard the start bit by masking.
+    uint32_t gcr_value = (raw_frame ^ (raw_frame >> 1)) & 0xFFFFF;
+
+    // Step 3: GCR Decode (Group Code Recording)
+    // The 20-bit value is decoded into a 16-bit value using a lookup table.
+    // Each 5-bit GCR nibble maps to a 4-bit data nibble.
+    static const uint8_t gcr_decode_lut[32] = {
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 9, 10, 11, 0xFF, 13, 14, 15,
+        0xFF, 0xFF, 2, 3, 0xFF, 5, 6, 7, 0xFF, 0, 8, 1, 0xFF, 4, 12, 0xFF};
+
+    uint16_t decoded_frame = 0;
+    for (int i = 0; i < 4; ++i)
+    {
+        uint8_t gcr_nibble = (gcr_value >> (i * 5)) & 0x1F;
+        uint8_t original_nibble = gcr_decode_lut[gcr_nibble];
+        if (original_nibble == 0xFF)
+        {
+            return DSHOT_NULL_PACKET; // Invalid GCR code
+        }
+        decoded_frame |= (original_nibble << (i * 4));
+    }
+
+    // Step 4: CRC Check
+    // For a valid frame, XORing all 4 nibbles of the decoded 16-bit frame results in 0xF.
+    uint16_t csum = decoded_frame;
+    csum = csum ^ (csum >> 8); // XOR bytes
+    csum = csum ^ (csum >> 4); // XOR nibbles
+    if ((csum & 0xF) != 0xF)
     {
         return DSHOT_NULL_PACKET;
     }
-    return received_data & DSHOT_THROTTLE_MAX;
+
+    // Step 5: Extract 12-bit Extended DShot Telemetry (EDT) value
+    uint16_t edt_value = decoded_frame >> 4;
+
+    // A value of 0xFFF indicates the ESC is busy/not ready.
+    if (edt_value == 0x0FFF)
+    {
+        return DSHOT_NULL_PACKET;
+    }
+
+    // Step 6: Decode the 'eeem mmmm mmmm' format to a period value
+    // e = exponent (3 bits), m = mantissa (9 bits)
+    // The period is calculated as: mantissa << exponent
+    uint16_t exponent = (edt_value >> 9) & 0x7;
+    uint16_t mantissa = edt_value & 0x1FF;
+    uint32_t period_us = mantissa << exponent;
+
+    if (period_us == 0)
+    {
+        return DSHOT_NULL_PACKET;
+    }
+
+    // Step 7: Convert the period (in microseconds) to eRPM
+    // eRPM = (60 * 1,000,000) / period_us
+    uint16_t erpm = (60 * 1000000) / period_us;
+
+    return erpm;
 }
 
 // Timing Control Functions

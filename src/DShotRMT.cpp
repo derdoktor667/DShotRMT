@@ -7,6 +7,7 @@
  */
 
 #include "DShotRMT.h"
+#include "dshot_init.h"
 #include <cstring>
 #include <algorithm>
 #include <initializer_list>
@@ -48,7 +49,7 @@ dshot_result_t DShotRMT::begin()
     rmt_ticks.t1l_ticks = rmt_ticks.bit_length_ticks - rmt_ticks.t1h_ticks;
     rmt_ticks.t0l_ticks = rmt_ticks.bit_length_ticks - rmt_ticks.t0h_ticks;
 
-    dshot_result_t result = init_rmt_tx_channel(_gpio, &_rmt_tx_channel, _is_bidirectional);
+    dshot_result_t result = _init_rmt_tx_channel(_gpio, &_rmt_tx_channel, _is_bidirectional);
     if (!result.success)
     {
         _cleanupRmtResources();
@@ -57,7 +58,7 @@ dshot_result_t DShotRMT::begin()
 
     if (_is_bidirectional)
     {
-        result = init_rmt_rx_channel(_gpio, &_rmt_rx_channel, &_rx_event_callbacks, this);
+        result = _init_rmt_rx_channel(_gpio, &_rmt_rx_channel, &_rx_event_callbacks, this);
         if (!result.success)
         {
             _cleanupRmtResources();
@@ -65,7 +66,7 @@ dshot_result_t DShotRMT::begin()
         }
     }
 
-    result = init_dshot_encoder(&_dshot_encoder, rmt_ticks);
+    result = _init_dshot_encoder(&_dshot_encoder, rmt_ticks);
     if (!result.success)
     {
         _cleanupRmtResources();
@@ -300,10 +301,10 @@ void DShotRMT::_preCalculateTimings()
         _frame_timer_us = (_frame_timer_us << 2); // about four times frame length
 
         // Calculate dynamic pulse width ranges for the RMT receiver
-        const double t1h_ns = dshot_timing.t1h_lenght_us * 1000.0;
-        const double t1l_ns = (dshot_timing.bit_length_us - dshot_timing.t1h_lenght_us) * 1000.0;
+        const double t1h_ns = dshot_timing.t1h_lenght_us * NANOSECONDS_PER_MICROSECOND;
+        const double t1l_ns = (dshot_timing.bit_length_us - dshot_timing.t1h_lenght_us) * NANOSECONDS_PER_MICROSECOND;
         const double t0h_ns = t1h_ns / 2.0;
-        const double t0l_ns = (dshot_timing.bit_length_us * 1000.0) - t0h_ns;
+        const double t0l_ns = (dshot_timing.bit_length_us * NANOSECONDS_PER_MICROSECOND) - t0h_ns;
 
         const double shortest_pulse = std::min({t1h_ns, t1l_ns, t0h_ns, t0l_ns});
         const double longest_pulse = std::max({t1h_ns, t1l_ns, t0h_ns, t0l_ns});
@@ -405,7 +406,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         return DSHOT_NULL_PACKET;
     }
 
-    return (60 * 1000000) / period_us;
+    return DSHOT_MICROSECONDS_PER_MINUTE / period_us;
 }
 
 // Timing Control Functions

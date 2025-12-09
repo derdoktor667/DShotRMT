@@ -16,7 +16,6 @@
 #include <driver/rmt_tx.h>
 
 #include "dshot_definitions.h"
-#include "dshot_init.h"
 
 // DShotRMT Library Version
 static constexpr uint8_t DSHOTRMT_MAJOR_VERSION = 0;
@@ -76,55 +75,57 @@ public:
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
 private:
+    // --- Private Methods ---
     dshot_result_t _sendRawDshotFrame(uint16_t value);
-    static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
+    dshot_result_t _sendPacket(const dshot_packet_t &packet);
+    dshot_result_t _sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us);
+    void _preCalculateTimings();
+    void _cleanupRmtResources();
+    bool _isValidCommand(dshotCommands_e command) const;
+    bool _isFrameIntervalElapsed() const;
+    void _recordFrameTransmissionTime();
+    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;
+    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;
+    uint16_t _calculateCRC(const uint16_t &data) const;
+    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;
+    void _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);
+    uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;
+    void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const;
 
-    // DShot Configuration Parameters
-    gpio_num_t _gpio;             // GPIO pin used for DShot communication
-    dshot_mode_t _mode;           // DShot mode (e.g., DSHOT300, DSHOT600)
-    bool _is_bidirectional;       // True if bidirectional DShot is enabled
-    uint16_t _motor_magnet_count; // Number of magnets in the motor for RPM calculation
+    // --- DShot Configuration Parameters ---
+    gpio_num_t _gpio;
+    dshot_mode_t _mode;
+    bool _is_bidirectional;
+    uint16_t _motor_magnet_count;
 
-    // RMT Hardware Handles and Configuration
-    rmt_channel_handle_t _rmt_tx_channel = nullptr; // RMT transmit channel handle
-    rmt_channel_handle_t _rmt_rx_channel = nullptr; // RMT receive channel handle
-    rmt_encoder_handle_t _dshot_encoder = nullptr;  // DShot RMT encoder handle
-    uint32_t _pulse_min_ns = 0;                     // RMT receiver minimum pulse width in nanoseconds
-    uint32_t _pulse_max_ns = 0;                     // RMT receiver maximum pulse width in nanoseconds
+    // --- RMT Hardware Handles and Configuration ---
+    rmt_channel_handle_t _rmt_tx_channel = nullptr;
+    rmt_channel_handle_t _rmt_rx_channel = nullptr;
+    rmt_encoder_handle_t _dshot_encoder = nullptr;
+    uint32_t _pulse_min_ns = 0;
+    uint32_t _pulse_max_ns = 0;
 
-    // DShot Frame Timing and State Variables
-    uint64_t _last_transmission_time_us = 0; // Timestamp of the last DShot frame transmission
-    uint64_t _frame_timer_us = 0;            // Minimum time required between DShot frames
-    float _percent_to_throttle_ratio = 0.0f; // Pre-calculated ratio for throttle percentage conversion
-    uint16_t _last_throttle = 0;             // Last transmitted throttle value
-    dshot_packet_t _packet;                  // Current DShot packet being processed
-    uint16_t _encoded_frame_value = 0;       // Last encoded 16-bit DShot frame value
+    // --- DShot Frame Timing and State Variables ---
+    uint64_t _last_transmission_time_us = 0;
+    uint64_t _frame_timer_us = 0;
+    float _percent_to_throttle_ratio = 0.0f;
+    uint16_t _last_throttle = 0;
+    dshot_packet_t _packet;
+    uint16_t _encoded_frame_value = 0;
 
-    // Telemetry Related Variables
-    std::atomic<uint16_t> _last_erpm_atomic = 0;                          // Atomically stored last received eRPM value
-    std::atomic<bool> _telemetry_ready_flag_atomic = false;               // Atomically stored flag indicating new telemetry data
-    std::atomic<dshot_telemetry_data_t> _last_telemetry_data_atomic = {}; // Atomically stored last received full telemetry data
-    std::atomic<bool> _full_telemetry_ready_flag_atomic = false;          // Atomically stored flag indicating new full telemetry data
+    // --- Telemetry Related Variables ---
+    std::atomic<uint16_t> _last_erpm_atomic = 0;
+    std::atomic<bool> _telemetry_ready_flag_atomic = false;
+    std::atomic<dshot_telemetry_data_t> _last_telemetry_data_atomic = {};
+    std::atomic<bool> _full_telemetry_ready_flag_atomic = false;
+
+    // --- RMT Callback Handler ---
     rmt_rx_event_callbacks_t _rx_event_callbacks = {
-        // RMT receive event callbacks
         .on_recv_done = _on_rx_done,
     };
 
-    // Private Helper Functions for DShot Protocol Logic
-    bool _isValidCommand(dshotCommands_e command) const;                                                          // Checks if a given DShot command is valid
-    dshot_packet_t _buildDShotPacket(const uint16_t &value) const;                                                // Builds a DShot packet from a value (throttle or command)
-    uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;                                           // Combines packet data into a 16-bit DShot frame value
-    uint16_t _calculateCRC(const uint16_t &data) const;                                                           // Calculates the 4-bit CRC for a DShot frame
-    uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;                                        // Calculates the 8-bit CRC for telemetry data
-    void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const; // Extracts telemetry data from raw bytes
-    void _preCalculateTimings();                                                                                  // Pre-calculates RMT timing ticks for the selected DShot mode
-    dshot_result_t _sendPacket(const dshot_packet_t &packet);                                                     // Sends a DShot frame via RMT TX channel
-    uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;                                           // Decodes a received RMT symbol array into an eRPM value
-    void _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);                        // Processes a full telemetry frame
-    bool _isFrameIntervalElapsed() const;                                                                         // Checks if enough time has passed since the last frame transmission
-    void _recordFrameTransmissionTime();                                                                          // Records the current time as the last frame transmission time
-    dshot_result_t _sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us);
-    void _cleanupRmtResources();
+    // --- Static Callback ---
+    static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };
 
 #include "dshot_utils.h" // Include for helper functions

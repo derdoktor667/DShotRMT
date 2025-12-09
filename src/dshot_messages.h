@@ -1,16 +1,14 @@
 /**
- * @file dshot_utils.h
- * @brief Utility functions for DShotRMT library
+ * @file dshot_messages.h
+ * @brief Defines human-readable messages for DShotRMT library result codes and modes.
  * @author Wastl Kraus
- * @date 2025-10-04
+ * @date 2025-12-09
  * @license MIT
  */
 
 #pragma once
 
-#include <Arduino.h>
-#include "dshot_definitions.h"
-#include "DShotRMT.h"
+#include "dshot_definitions.h" // For dshot_msg_code_t and dshot_mode_t
 
 // Error Messages
 static constexpr char NONE[] = "";
@@ -117,87 +115,4 @@ inline const char *get_dshot_mode_str(dshot_mode_t mode)
     default:
         return "DSHOT_OFF";
     }
-}
-
-// Helper to quick print DShot result codes
-inline void printDShotResult(dshot_result_t &result, Stream &output = Serial)
-{
-    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", get_result_code_str(result.result_code));
-
-    // Print telemetry data if available
-    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
-    {
-        output.printf(" | eRPM: %u, Motor RPM: %u", result.erpm, result.motor_rpm);
-    }
-
-    output.println();
-}
-
-// Helper to print DShot signal info
-inline void printDShotInfo(DShotRMT &dshot_rmt, Stream &output = Serial)
-{
-    output.println("\n=== DShot Info ===");
-    output.printf("Library Version: %d.%d.%d\n", DSHOTRMT_MAJOR_VERSION, DSHOTRMT_MINOR_VERSION, DSHOTRMT_PATCH_VERSION);
-    output.printf("Mode: %s\n", get_dshot_mode_str(dshot_rmt.getMode()));
-    output.printf("Bidirectional: %s\n", dshot_rmt.isBidirectional() ? "YES" : "NO");
-    output.printf("Last Throttle: %u\n", dshot_rmt.getThrottleValue());
-
-    output.print("Packet (binary): ");
-    for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
-    {
-        output.print((dshot_rmt.getEncodedFrameValue() >> i) & 1);
-    }
-    output.println();
-
-    // --- Telemetry Data ---
-    if (dshot_rmt.isBidirectional())
-    {
-        dshot_result_t telemetry_result = dshot_rmt.getTelemetry();
-
-        output.print("Telemetry: ");
-        if (telemetry_result.success)
-        {
-            output.printf("OK (%s)\n", get_result_code_str(telemetry_result.result_code));
-
-            if (telemetry_result.erpm > 0 || telemetry_result.motor_rpm > 0)
-            {
-                output.printf("  eRPM: %u, Motor RPM: %u\n", telemetry_result.erpm, telemetry_result.motor_rpm);
-            }
-
-            if (telemetry_result.telemetry_available)
-            {
-                output.println("  --- Full Telemetry Details ---");
-                output.printf("  Temp: %d C | Volt: %.2f V | Curr: %.2f A | Cons: %u mAh\n",
-                              telemetry_result.telemetry_data.temperature,
-                              (float)telemetry_result.telemetry_data.voltage / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mV to V
-                              (float)telemetry_result.telemetry_data.current / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mA to A
-                              telemetry_result.telemetry_data.consumption);
-                output.printf("  Telemetry RPM: %u\n", telemetry_result.telemetry_data.rpm);
-            }
-            else
-            {
-                output.println("  (Full telemetry not yet available or CRC failed for full frame)");
-            }
-        }
-        else
-        {
-            output.printf("FAILED (%s)\n", get_result_code_str(telemetry_result.result_code));
-        }
-    }
-    else
-    {
-        output.println("Telemetry: Disabled (Bidirectional mode OFF)");
-    }
-    output.println("===========================\n"); // End separator
-}
-
-// Helper to print CPU info
-inline void printCpuInfo(Stream &output = Serial)
-{
-    output.println("\n ===  CPU Info  === ");
-    output.printf("Chip Model: %s\n", ESP.getChipModel());
-    output.printf("Chip Revision: %d\n", ESP.getChipRevision());
-    output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
-    output.printf("XTAL Freq = %lu MHz\n", getXtalFrequencyMhz());
-    output.printf("APB Freq = %lu Hz\n", getApbFrequency());
 }

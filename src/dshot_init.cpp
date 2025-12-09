@@ -22,8 +22,10 @@ dshot_result_t _init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_c
     tx_channel_config.flags.with_dma = DSHOT_PULSE_LEVEL_LOW;
     tx_channel_config.flags.io_loop_back = is_bidirectional ? DSHOT_PULSE_LEVEL_HIGH : DSHOT_PULSE_LEVEL_LOW;
 
-    // Deactivate internal pull-up. 
-    // tx_channel_config.flags.io_od_mode = is_bidirectional ? DSHOT_PULSE_LEVEL_HIGH : DSHOT_PULSE_LEVEL_LOW;
+    // Open-drain for bidirectional DShot Modes
+    tx_channel_config.flags.io_od_mode = is_bidirectional ? DSHOT_PULSE_LEVEL_HIGH : DSHOT_PULSE_LEVEL_LOW;
+
+    // External Pull-Up usage
     tx_channel_config.flags.init_level = DSHOT_PULSE_LEVEL_LOW;
 
     if (rmt_new_tx_channel(&tx_channel_config, out_channel) != DSHOT_OK)

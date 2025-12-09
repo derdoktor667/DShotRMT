@@ -155,12 +155,7 @@ dshot_result_t DShotRMT::getTelemetry()
         _full_telemetry_ready_flag_atomic = false;
         dshot_telemetry_data_t telemetry_data = _last_telemetry_data_atomic;
         uint16_t erpm = telemetry_data.rpm;
-        uint16_t motor_rpm = 0;
-        if (_motor_magnet_count >= MAGNETS_PER_POLE_PAIR)
-        {
-            uint8_t pole_pairs = _motor_magnet_count / MAGNETS_PER_POLE_PAIR;
-            motor_rpm = erpm / pole_pairs;
-        }
+        uint16_t motor_rpm = _calculateMotorRpm(erpm);
         return dshot_result_t::create_success(DSHOT_TELEMETRY_DATA_AVAILABLE, erpm, motor_rpm, telemetry_data, true);
     }
 
@@ -168,10 +163,9 @@ dshot_result_t DShotRMT::getTelemetry()
     {
         _telemetry_ready_flag_atomic = false;
         uint16_t erpm = _last_erpm_atomic;
-        if (erpm != DSHOT_NULL_PACKET && _motor_magnet_count >= MAGNETS_PER_POLE_PAIR)
+        if (erpm != DSHOT_NULL_PACKET)
         {
-            uint8_t pole_pairs = _motor_magnet_count / MAGNETS_PER_POLE_PAIR;
-            uint16_t motor_rpm = erpm / pole_pairs;
+            uint16_t motor_rpm = _calculateMotorRpm(erpm);
             return dshot_result_t::create_success(DSHOT_TELEMETRY_SUCCESS, erpm, motor_rpm);
         }
     }
@@ -290,6 +284,49 @@ void DShotRMT::_extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_t
     telemetry_data.rpm = (static_cast<uint16_t>(raw_telemetry_bytes[7]) << 8) | raw_telemetry_bytes[8];
 }
 
+uint16_t DShotRMT::_calculateMotorRpm(uint16_t erpm) const
+{
+    if (_motor_magnet_count >= MAGNETS_PER_POLE_PAIR)
+    {
+        uint8_t pole_pairs = _motor_magnet_count / MAGNETS_PER_POLE_PAIR;
+        return erpm / pole_pairs;
+    }
+    return 0;
+}
+
+uint8_t DShotRMT::_decodeGcr5bTo4b(uint8_t gcr_5bit_value) const
+{
+    if (gcr_5bit_value < GCR_CODE_LOOKUP_TABLE_SIZE)
+    {
+        return GCR_DECODE_LOOKUP_TABLE[gcr_5bit_value];
+    }
+    return GCR_INVALID_NIBBLE;
+}
+
+dshot_result_t DShotRMT::_disableRmtRxChannel()
+{
+    if (_is_bidirectional)
+    {
+        if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
+        {
+            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
+        }
+    }
+    return dshot_result_t::create_success(DSHOT_NONE);
+}
+
+dshot_result_t DShotRMT::_enableRmtRxChannel()
+{
+    if (_is_bidirectional)
+    {
+        if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
+        {
+            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
+        }
+    }
+    return dshot_result_t::create_success(DSHOT_NONE);
+}
+
 void DShotRMT::_preCalculateTimings()
 {
     const dshot_timing_us_t dshot_timing = DSHOT_TIMING_US[_mode];
@@ -339,10 +376,10 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
     uint16_t swapped_value = __builtin_bswap16(_encoded_frame_value);
     rmt_transmit_config_t tx_config = {};
 
-    if (_is_bidirectional)
+    dshot_result_t disable_result = _disableRmtRxChannel();
+    if (!disable_result.success)
     {
-        if (rmt_disable(_rmt_rx_channel) != DSHOT_OK)
-            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
+        return disable_result;
     }
 
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, DSHOT_FRAME_SIZE_BYTES, &tx_config) != DSHOT_OK)
@@ -350,10 +387,10 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
         return dshot_result_t::create_error(DSHOT_TRANSMISSION_FAILED);
     }
 
-    if (_is_bidirectional)
+    dshot_result_t enable_result = _enableRmtRxChannel();
+    if (!enable_result.success)
     {
-        if (rmt_enable(_rmt_rx_channel) != DSHOT_OK)
-            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
+        return enable_result;
     }
 
     _recordFrameTransmissionTime();
@@ -375,7 +412,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
     for (int i = 0; i < 4; ++i)
     {
         uint8_t gcr_nibble = (gcr_value >> (i * 5)) & DSHOT_GCR_NIBBLE_MASK;
-        uint8_t original_nibble = GCR_DECODE_LOOKUP_TABLE[gcr_nibble];
+        uint8_t original_nibble = _decodeGcr5bTo4b(gcr_nibble);
         if (original_nibble == GCR_INVALID_NIBBLE)
         {
             return DSHOT_NULL_PACKET; // Invalid GCR code
@@ -441,7 +478,7 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
             }
         }
 
-        uint8_t decoded_nibble = GCR_DECODE_LOOKUP_TABLE[gcr_group_5bits];
+        uint8_t decoded_nibble = _decodeGcr5bTo4b(gcr_group_5bits);
         if (decoded_nibble == GCR_INVALID_NIBBLE)
             return; // Invalid GCR group
 
@@ -510,4 +547,87 @@ void DShotRMT::_cleanupRmtResources()
         rmt_del_encoder(_dshot_encoder);
         _dshot_encoder = nullptr;
     }
+}
+
+// Helper to quick print DShot result codes
+void DShotRMT::printDShotResult(dshot_result_t &result, Stream &output) const
+{
+    output.printf("Status: %s - %s", result.success ? "SUCCESS" : "FAILED", get_result_code_str(result.result_code));
+
+    // Print telemetry data if available
+    if (result.success && (result.erpm > 0 || result.motor_rpm > 0))
+    {
+        output.printf(" | eRPM: %u, Motor RPM: %u", result.erpm, result.motor_rpm);
+    }
+
+    output.println();
+}
+
+// Helper to print DShot signal info
+void DShotRMT::printDShotInfo(Stream &output)
+{
+    output.println("\n=== DShot Info ===");
+    output.printf("Library Version: %d.%d.%d\n", DSHOTRMT_MAJOR_VERSION, DSHOTRMT_MINOR_VERSION, DSHOTRMT_PATCH_VERSION);
+    output.printf("Mode: %s\n", get_dshot_mode_str(getMode()));
+    output.printf("Bidirectional: %s\n", isBidirectional() ? "YES" : "NO");
+    output.printf("Last Throttle: %u\n", getThrottleValue());
+
+    output.print("Packet (binary): ");
+    for (int i = DSHOT_BITS_PER_FRAME - 1; i >= 0; --i)
+    {
+        output.print((getEncodedFrameValue() >> i) & 1);
+    }
+    output.println();
+
+    // --- Telemetry Data ---
+    if (isBidirectional())
+    {
+        dshot_result_t telemetry_result = getTelemetry();
+
+        output.print("Telemetry: ");
+        if (telemetry_result.success)
+        {
+            output.printf("OK (%s)\n", get_result_code_str(telemetry_result.result_code));
+
+            if (telemetry_result.erpm > 0 || telemetry_result.motor_rpm > 0)
+            {
+                output.printf("  eRPM: %u, Motor RPM: %u\n", telemetry_result.erpm, telemetry_result.motor_rpm);
+            }
+
+            if (telemetry_result.telemetry_available)
+            {
+                output.println("  --- Full Telemetry Details ---");
+                output.printf("  Temp: %d C | Volt: %.2f V | Curr: %.2f A | Cons: %u mAh\n",
+                              telemetry_result.telemetry_data.temperature,
+                              (float)telemetry_result.telemetry_data.voltage / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mV to V
+                              (float)telemetry_result.telemetry_data.current / CONVERSION_FACTOR_MILLI_TO_UNITS, // Convert mA to A
+                              telemetry_result.telemetry_data.consumption);
+                output.printf("  Telemetry RPM: %u\n", telemetry_result.telemetry_data.rpm);
+            }
+            else
+            {
+                output.println("  (Full telemetry not yet available or CRC failed for full frame)");
+            }
+        }
+        else
+        {
+            output.printf("FAILED (%s)\n", get_result_code_str(telemetry_result.result_code));
+        }
+    }
+    else
+    {
+        output.println("Telemetry: Disabled (Bidirectional mode OFF)");
+    }
+    output.println("===========================\n"); // End separator
+}
+
+// Helper to print CPU info
+void DShotRMT::printCpuInfo(Stream &output)
+{
+    output.println("\n ===  CPU Info  === ");
+    output.printf("Chip Model: %s\n", ESP.getChipModel());
+    output.printf("Chip Revision: %d\n", ESP.getChipRevision());
+    output.printf("CPU Freq = %lu MHz\n", ESP.getCpuFreqMHz());
+    output.printf("XTAL Freq = %lu Hz\n", getXtalFrequencyMhz());
+    output.printf("APB Freq = %lu Hz\n", getApbFrequency());
 }

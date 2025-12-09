@@ -31,6 +31,7 @@ Here's an example of the output from the `dshot300` example sketch, now showing 
 - **Robust Bidirectional DShot Support:** Features full GCR-decoded telemetry data (temperature, voltage, current, consumption, and RPM) from the ESC. The library automatically differentiates between eRPM-only and full telemetry frames.
 - **Dynamic Receiver Configuration:** The RMT receiver's pulse width filter is dynamically calculated based on the selected DShot speed, significantly improving telemetry reception reliability across all modes.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
+- **Clean Sketch Interface:** Sketches only need to include `DShotRMT.h`. Utility functions for printing results (`printDShotResult`), DShot information (`printDShotInfo`), and CPU details (`printCpuInfo`) are now accessible as member functions of the `DShotRMT` class.
 - **Enhanced Error Handling:** Provides detailed feedback on operation success or failure via a comprehensive `dshot_result_t` struct.
 - **Lightweight:** The core library has no external dependencies.
 - **Arduino and ESP-IDF Compatible:** Can be used in both Arduino and ESP-IDF projects.
@@ -85,6 +86,9 @@ void setup() {
   // Initialize the DShot motor
   motor.begin();
 
+  // Print CPU Info
+  DShotRMT::printCpuInfo(Serial);
+
   Serial.println("Motor initialized. Ramping up to 25% throttle...");
 }
 
@@ -97,6 +101,9 @@ void loop() {
   
   Serial.println("Stopping motor.");
   motor.sendThrottlePercent(0);
+
+  // Print DShot Info (includes telemetry if available)
+  motor.printDShotInfo(Serial);
 
   // Take a break before the next run
   delay(3000);
@@ -132,6 +139,9 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `getTelemetry()`: Retrieves telemetry data from the ESC. Returns a comprehensive `dshot_result_t` struct containing eRPM and/or full telemetry data if available.
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.
 - `saveESCSettings()`: Sends a command to the ESC to save its current settings. Use with caution as this writes to the ESC's non-volatile memory.
+- `printDShotResult(dshot_result_t &result, Stream &output = Serial) const`: Prints the result of a DShot operation to the specified output stream.
+- `printDShotInfo(Stream &output = Serial)`: Prints detailed DShot information for the instance (mode, throttle, telemetry) to the specified output stream.
+- `static printCpuInfo(Stream &output = Serial)`: Prints detailed CPU information (model, revision, frequencies) to the specified output stream. This is a static function and can be called directly via the class name (e.g., `DShotRMT::printCpuInfo(Serial)`).
 
 ## 🤝 Contributing
 

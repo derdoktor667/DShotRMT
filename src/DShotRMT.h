@@ -16,6 +16,7 @@
 #include <driver/rmt_tx.h>
 
 #include "dshot_definitions.h"
+#include "dshot_messages.h"
 
 // DShotRMT Library Version
 static constexpr uint8_t DSHOTRMT_MAJOR_VERSION = 0;
@@ -74,6 +75,11 @@ public:
     uint16_t getThrottleValue() const { return _last_throttle; }
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
+    // Utility functions to print DShot info and results
+    void printDShotResult(dshot_result_t &result, Stream &output = Serial) const;
+    void printDShotInfo(Stream &output = Serial);
+    static void printCpuInfo(Stream &output = Serial);
+
 private:
     // --- Private Methods ---
     dshot_result_t _sendRawDshotFrame(uint16_t value);
@@ -91,6 +97,10 @@ private:
     void _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);
     uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;
     void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const;
+    uint16_t _calculateMotorRpm(uint16_t erpm) const;
+    uint8_t _decodeGcr5bTo4b(uint8_t gcr_5bit_value) const;
+    dshot_result_t _disableRmtRxChannel();
+    dshot_result_t _enableRmtRxChannel();
 
     // --- DShot Configuration Parameters ---
     gpio_num_t _gpio;
@@ -128,4 +138,3 @@ private:
     static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };
 
-#include "dshot_utils.h" // Include for helper functions

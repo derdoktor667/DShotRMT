@@ -6,6 +6,7 @@
  * @license MIT
  */
 
+#include <Arduino.h> // Required for Serial and other Arduino functions
 #include <DShotRMT.h>
 
 // USB serial port settings
@@ -23,9 +24,6 @@ static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 // re-enabled for testing
 static constexpr auto IS_BIDIRECTIONAL = true;
 
-// Motor magnet count for RPM calculation
-// static constexpr auto MOTOR01_MAGNET_COUNT = 14;
-
 // Creates the motor instance
 DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
@@ -39,7 +37,7 @@ void setup()
     motor01.begin();
 
     // Print CPU Info
-    printCpuInfo(USB_SERIAL);
+    motor01.printCpuInfo(USB_SERIAL);
 
     //
     printMenu();
@@ -78,7 +76,7 @@ void loop()
     // Print motor stats every 3 seconds in continuous mode
     if (continuous_throttle && (esp_timer_get_time() - last_stats_print >= 3000000))
     {
-        printDShotInfo(motor01, USB_SERIAL);
+        motor01.printDShotInfo(USB_SERIAL);
 
         //
         USB_SERIAL.println("Type 'help' to show Menu");
@@ -106,19 +104,19 @@ void printMenu()
 }
 
 //
-void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous_throttle, DShotRMT &session)
+void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous_throttle, DShotRMT &local_instance)
 {
     if (input == "0")
     {
         // Stop motor
         throttle = 0;
         continuous_throttle = true;
-        dshot_result_t result = session.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        printDShotResult(result);
+        dshot_result_t result = local_instance.sendCommand(DSHOT_CMD_MOTOR_STOP);
+        local_instance.printDShotResult(result);
     }
     else if (input == "info")
     {
-        printDShotInfo(motor01, USB_SERIAL);
+        local_instance.printDShotInfo(USB_SERIAL);
     }
     else if (input.startsWith("cmd "))
     {
@@ -130,7 +128,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
-            printDShotResult(result);
+            local_instance.printDShotResult(result);
         }
         else
         {
@@ -152,7 +150,7 @@ void handleSerialInput(const String &input, uint16_t &throttle, bool &continuous
             continuous_throttle = true;
 
             dshot_result_t result = motor01.sendThrottle(throttle);
-            printDShotResult(result);
+            local_instance.printDShotResult(result);
         }
         else
         {

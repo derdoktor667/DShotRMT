@@ -68,13 +68,12 @@ static constexpr uint32_t DSHOT_MICROSECONDS_PER_MINUTE = 60000000;
 static constexpr double NANOSECONDS_PER_MICROSECOND = 1000.0;
 
 // --- DShot Telemetry Decoding ---
-static constexpr uint32_t DSHOT_GCR_FRAME_MASK = 0xFFFFF; // 20-bit mask for the GCR frame
-static constexpr uint8_t DSHOT_GCR_NIBBLE_MASK = 0x1F;    // 5-bit mask for a GCR nibble
-static constexpr uint8_t DSHOT_GCR_CRC_VALID = 0xF;       // Expected CRC result for a valid eRPM frame
-static constexpr uint16_t DSHOT_EDT_BUSY_VALUE = 0x0FFF;  // Value indicating the ESC is busy
-static constexpr uint16_t DSHOT_EDT_EXPONENT_MASK = 0x7;  // Mask for the 3-bit exponent in an EDT frame
+static constexpr uint32_t DSHOT_GCR_FRAME_MASK = 0xFFFFF;  // 20-bit mask for the GCR frame
+static constexpr uint8_t DSHOT_GCR_NIBBLE_MASK = 0x1F;     // 5-bit mask for a GCR nibble
+static constexpr uint8_t DSHOT_GCR_CRC_VALID = 0xF;        // Expected CRC result for a valid eRPM frame
+static constexpr uint16_t DSHOT_EDT_BUSY_VALUE = 0x0FFF;   // Value indicating the ESC is busy
+static constexpr uint16_t DSHOT_EDT_EXPONENT_MASK = 0x7;   // Mask for the 3-bit exponent in an EDT frame
 static constexpr uint16_t DSHOT_EDT_MANTISSA_MASK = 0x1FF; // Mask for the 9-bit mantissa in an EDT frame
-
 
 // Lookup table for 5-bit GCR code to 4-bit nibble conversion.
 // The index is the 5-bit GCR code, the value is the decoded 4-bit nibble.

@@ -104,7 +104,7 @@ dshot_result_t DShotRMT::sendThrottlePercent(float percent)
 // Sends a DShot command (0-47) to the ESC by accepting an integer value.
 dshot_result_t DShotRMT::sendCommand(uint16_t command_value)
 {
-    if (command_value > DSHOT_CMD_MAX_VALUE)
+    if (command_value > DSHOT_CMD_MAX)
     {
         return dshot_result_t::create_error(DSHOT_COMMAND_NOT_VALID);
     }
@@ -401,14 +401,19 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
     // This function decodes a 21-bit GCR frame from the ESC to get eRPM.
     uint32_t raw_frame = 0;
+    // Reconstruct the Non-Return-to-Zero (NRZ) stream from the RMT symbols.
+    // A longer duration0 indicates a '1', a longer duration1 indicates a '0'.
     for (size_t i = 0; i < DSHOT_ERPM_FRAME_GCR_BITS; ++i)
     {
         raw_frame = (raw_frame << 1) | (symbols[i].duration0 > symbols[i].duration1);
     }
 
+    // Reverse the GCR (Gray Code Reverse) encoding: gcr = nrz ^ (nrz >> 1)
     uint32_t gcr_value = (raw_frame ^ (raw_frame >> 1)) & DSHOT_GCR_FRAME_MASK;
 
     uint16_t decoded_frame = 0;
+    // Decode the 20-bit GCR value back into the original 16-bit frame.
+    // This is done by processing four 5-bit chunks and converting them to 4-bit nibbles.
     for (int i = 0; i < 4; ++i)
     {
         uint8_t gcr_nibble = (gcr_value >> (i * 5)) & DSHOT_GCR_NIBBLE_MASK;
@@ -420,6 +425,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         decoded_frame |= (original_nibble << (i * 4));
     }
 
+    // Validate the checksum by XORing the nibbles. The result for a valid frame is 0xF.
     uint16_t csum = decoded_frame;
     csum = csum ^ (csum >> 8); // XOR bytes
     csum = csum ^ (csum >> 4); // XOR nibbles
@@ -428,12 +434,14 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         return DSHOT_NULL_PACKET;
     }
 
+    // The 12 bits of data contain the eRPM period information.
     uint16_t edt_value = decoded_frame >> DSHOT_CRC_BIT_SHIFT;
     if (edt_value == DSHOT_EDT_BUSY_VALUE)
     {
         return DSHOT_NULL_PACKET;
     }
 
+    // Extract the exponent and mantissa to calculate the period.
     uint16_t exponent = (edt_value >> 9) & DSHOT_EDT_EXPONENT_MASK;
     uint16_t mantissa = edt_value & DSHOT_EDT_MANTISSA_MASK;
     uint32_t period_us = mantissa << exponent;
@@ -443,6 +451,7 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         return DSHOT_NULL_PACKET;
     }
 
+    // Convert period in microseconds to eRPM.
     return DSHOT_MICROSECONDS_PER_MINUTE / period_us;
 }
 
@@ -467,6 +476,8 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
     memset(gcr_decoded_bytes, 0, sizeof(gcr_decoded_bytes));
     uint8_t data_bit_idx = 0;
 
+    // Decode the 110-bit GCR stream back into 88 bits (11 bytes) of data.
+    // The process involves taking 5-bit GCR groups and decoding them into 4-bit nibbles.
     for (size_t i = 0; i < DSHOT_TELEMETRY_FULL_GCR_BITS; i += 5)
     {
         uint8_t gcr_group_5bits = 0;
@@ -474,6 +485,7 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
         {
             if (i + j < DSHOT_TELEMETRY_FULL_GCR_BITS)
             {
+                // Reconstruct the NRZ stream: longer duration0 is a '1'.
                 gcr_group_5bits = (gcr_group_5bits << 1) | ((symbols[i + j].duration0 > symbols[i + j].duration1) ? 1 : 0);
             }
         }
@@ -482,6 +494,7 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
         if (decoded_nibble == GCR_INVALID_NIBBLE)
             return; // Invalid GCR group
 
+        // Reconstruct the original data bytes from the decoded nibbles.
         for (int k = 3; k >= 0; --k)
         {
             if (data_bit_idx < (DSHOT_TELEMETRY_FRAME_LENGTH_BITS + DSHOT_TELEMETRY_CRC_LENGTH_BITS))
@@ -494,9 +507,11 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
         }
     }
 
+    // The last decoded byte is the CRC. Compare it against a calculated CRC.
     uint8_t received_crc = gcr_decoded_bytes[DSHOT_TELEMETRY_FRAME_LENGTH_BYTES];
     uint8_t calculated_crc = _calculateTelemetryCRC(gcr_decoded_bytes, DSHOT_TELEMETRY_FRAME_LENGTH_BYTES);
 
+    // If the CRC matches, the data is valid. Extract and store it.
     if (received_crc == calculated_crc)
     {
         dshot_telemetry_data_t telemetry_data;

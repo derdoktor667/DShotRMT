@@ -33,7 +33,6 @@ static constexpr uint16_t DSHOT_CMD_MAX = 47; // Maximum command value
 static constexpr uint16_t DSHOT_NULL_PACKET = 0;
 static constexpr uint16_t DSHOT_FULL_PACKET = 0xFFFF;
 static constexpr uint16_t DSHOT_TELEMETRY_INVALID = DSHOT_THROTTLE_MAX;
-static constexpr uint16_t NO_DSHOT_TELEMETRY = 0;
 
 // --- Command Behavior ---
 static constexpr uint16_t DEFAULT_CMD_DELAY_US = 10;
@@ -250,8 +249,6 @@ enum dshotCommands_e
     DSHOT_CMD_BEACON4,
     DSHOT_CMD_BEACON5,
     DSHOT_CMD_ESC_INFO,
-    DSHOT_CMD_SPIN_DIRECTION_1,
-    DSHOT_CMD_SPIN_DIRECTION_2,
     DSHOT_CMD_3D_MODE_OFF,
     DSHOT_CMD_3D_MODE_ON,
     DSHOT_CMD_SETTINGS_REQUEST,
@@ -269,8 +266,7 @@ enum dshotCommands_e
     DSHOT_CMD_LED2_OFF,
     DSHOT_CMD_LED3_OFF,
     DSHOT_CMD_AUDIO_STREAM_MODE_ON_OFF = 30,
-    DSHOT_CMD_SILENT_MODE_ON_OFF = 31,
-    DSHOT_CMD_MAX_VALUE = 47
+    DSHOT_CMD_SILENT_MODE_ON_OFF = 31
 };
 
 // --- General Status & Helper Constants ---

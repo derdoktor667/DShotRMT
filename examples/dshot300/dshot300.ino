@@ -6,7 +6,7 @@
  * @license MIT
  */
 
-#include <Arduino.h> // Required for Serial and other Arduino functions
+#include <Arduino.h>
 #include <DShotRMT.h>
 
 // USB serial port settings

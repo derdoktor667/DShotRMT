@@ -65,6 +65,7 @@ static constexpr size_t GCR_CODE_LOOKUP_TABLE_SIZE = 32;
 // --- Timing & Conversion ---
 static constexpr uint32_t DSHOT_MICROSECONDS_PER_MINUTE = 60000000;
 static constexpr double NANOSECONDS_PER_MICROSECOND = 1000.0;
+static constexpr auto DSHOT_WAIT_FOREVER = -1;
 
 // --- DShot Telemetry Decoding ---
 static constexpr uint32_t DSHOT_GCR_FRAME_MASK = 0xFFFFF;  // 20-bit mask for the GCR frame

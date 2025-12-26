@@ -359,38 +359,50 @@ dshot_result_t DShotRMT::_sendPacket(const dshot_packet_t &packet)
         return dshot_result_t::create_success(DSHOT_NONE);
     }
 
-    if (_is_bidirectional)
-    {
-        rmt_symbol_word_t rx_symbols[DSHOT_TELEMETRY_FULL_GCR_BITS];
-        rmt_receive_config_t rmt_rx_config = {};
-        rmt_rx_config.signal_range_min_ns = _pulse_min_ns;
-        rmt_rx_config.signal_range_max_ns = _pulse_max_ns;
-
-        if (rmt_receive(_rmt_rx_channel, rx_symbols, sizeof(rx_symbols), &rmt_rx_config) != DSHOT_OK)
-        {
-            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
-        }
-    }
-
     _encoded_frame_value = _buildDShotFrameValue(packet);
     uint16_t swapped_value = __builtin_bswap16(_encoded_frame_value);
     rmt_transmit_config_t tx_config = {};
 
+    // 1. Disable RX before transmitting to ensure we don't catch any noise
     dshot_result_t disable_result = _disableRmtRxChannel();
     if (!disable_result.success)
     {
         return disable_result;
     }
 
+    // 2. Start asynchronous transmission
     if (rmt_transmit(_rmt_tx_channel, _dshot_encoder, &swapped_value, DSHOT_FRAME_SIZE_BYTES, &tx_config) != DSHOT_OK)
     {
         return dshot_result_t::create_error(DSHOT_TRANSMISSION_FAILED);
     }
 
+    // 3. Wait for transmission to finish (CRITICAL for bidirectional DShot)
+    // DShot frames are very short (e.g., ~27us for DSHOT600), so blocking is acceptable here
+    // to ensure precise turnaround timing for the telemetry window.
+    if (rmt_tx_wait_all_done(_rmt_tx_channel, DSHOT_WAIT_FOREVER) != DSHOT_OK)
+    {
+        return dshot_result_t::create_error(DSHOT_TRANSMISSION_FAILED);
+    }
+
+    // 4. Re-enable RX channel and start receiving telemetry if requested
     dshot_result_t enable_result = _enableRmtRxChannel();
     if (!enable_result.success)
     {
         return enable_result;
+    }
+
+    if (_is_bidirectional)
+    {
+        static rmt_symbol_word_t rx_symbols[RMT_RX_BUFFER_SYMBOLS];
+        rmt_receive_config_t rmt_rx_config = {};
+        rmt_rx_config.signal_range_min_ns = _pulse_min_ns;
+        rmt_rx_config.signal_range_max_ns = _pulse_max_ns;
+
+        // Start receiving telemetry immediately after TX is done
+        if (rmt_receive(_rmt_rx_channel, rx_symbols, sizeof(rx_symbols), &rmt_rx_config) != DSHOT_OK)
+        {
+            return dshot_result_t::create_error(DSHOT_RECEIVER_FAILED);
+        }
     }
 
     _recordFrameTransmissionTime();

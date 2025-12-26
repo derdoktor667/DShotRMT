@@ -30,92 +30,77 @@ static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 class DShotRMT
 {
 public:
-    // Constructs a new DShotRMT object using a GPIO pin.
     DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
-
-    // Constructs a new DShotRMT object using an Arduino-style integer pin number.
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
-
-    // Destructor
     ~DShotRMT();
 
-    // Initialize DShotRMT
     dshot_result_t begin();
 
-    // Sends a raw throttle value to the ESC.
     dshot_result_t sendThrottle(uint16_t throttle);
-
-    // Sends a throttle value as a percentage to the ESC.
     dshot_result_t sendThrottlePercent(float percent);
 
-    // Sends a DShot command to the ESC by accepting an integer value.
     dshot_result_t sendCommand(uint16_t command_value);
-
-    // Sends a DShot command to the ESC.
     dshot_result_t sendCommand(dshotCommands_e command);
-
-    // Sends a DShot command to the ESC with a specified repeat count and delay.
     dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
-
-    // Sends a custom DShot command to the ESC. Advanced feature, use with caution.
     dshot_result_t sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us);
 
-    // Retrieves telemetry data from the ESC.
     dshot_result_t getTelemetry();
-
-    // Sets the motor spin direction.
     dshot_result_t setMotorSpinDirection(bool reversed);
-
-    // Sends a command to the ESC to save its current settings.
     dshot_result_t saveESCSettings();
 
-    // Getters for DShot info
+    // Getters
     dshot_mode_t getMode() const { return _mode; }
     bool isBidirectional() const { return _is_bidirectional; }
     uint16_t getThrottleValue() const { return _last_throttle; }
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
-    // Utility functions to print DShot info and results
+    // Utility functions
     void printDShotResult(dshot_result_t &result, Stream &output = Serial) const;
     void printDShotInfo(Stream &output = Serial);
     static void printCpuInfo(Stream &output = Serial);
 
 private:
-    // --- Private Methods ---
     dshot_result_t _sendRawDshotFrame(uint16_t value);
     dshot_result_t _sendPacket(const dshot_packet_t &packet);
     dshot_result_t _sendRepeatedCommand(uint16_t value, uint16_t repeat_count, uint16_t delay_us);
+
     void _preCalculateTimings();
     void _cleanupRmtResources();
     bool _isValidCommand(dshotCommands_e command) const;
     bool _isFrameIntervalElapsed() const;
     void _recordFrameTransmissionTime();
+
     dshot_packet_t _buildDShotPacket(const uint16_t &value) const;
     uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;
     uint16_t _calculateCRC(const uint16_t &data) const;
+
     uint16_t _decodeDShotFrame(const rmt_symbol_word_t *symbols) const;
     void _processFullTelemetryFrame(const rmt_symbol_word_t *symbols, size_t num_symbols);
     uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;
     void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const;
     uint16_t _calculateMotorRpm(uint16_t erpm) const;
     uint8_t _decodeGcr5bTo4b(uint8_t gcr_5bit_value) const;
+    size_t _recoverBits(const rmt_symbol_word_t *symbols, size_t num_symbols, uint8_t *out_bits, size_t max_bits) const;
+
     dshot_result_t _disableRmtRxChannel();
     dshot_result_t _enableRmtRxChannel();
 
-    // --- DShot Configuration Parameters ---
+    // Configuration
     gpio_num_t _gpio;
     dshot_mode_t _mode;
     bool _is_bidirectional;
     uint16_t _motor_magnet_count;
 
-    // --- RMT Hardware Handles and Configuration ---
+    // RMT Hardware Handles
     rmt_channel_handle_t _rmt_tx_channel = nullptr;
     rmt_channel_handle_t _rmt_rx_channel = nullptr;
     rmt_encoder_handle_t _dshot_encoder = nullptr;
+
     uint32_t _pulse_min_ns = 0;
     uint32_t _pulse_max_ns = 0;
+    uint32_t _bit_length_ticks = 0;
 
-    // --- DShot Frame Timing and State Variables ---
+    // Timing and State
     uint64_t _last_transmission_time_us = 0;
     uint64_t _frame_timer_us = 0;
     float _percent_to_throttle_ratio = 0.0f;
@@ -123,18 +108,16 @@ private:
     dshot_packet_t _packet;
     uint16_t _encoded_frame_value = 0;
 
-    // --- Telemetry Related Variables ---
+    // Telemetry State
     std::atomic<uint16_t> _last_erpm_atomic = 0;
     std::atomic<bool> _telemetry_ready_flag_atomic = false;
     std::atomic<dshot_telemetry_data_t> _last_telemetry_data_atomic = {};
     std::atomic<bool> _full_telemetry_ready_flag_atomic = false;
 
-    // --- RMT Callback Handler ---
+    // RMT Callback
     rmt_rx_event_callbacks_t _rx_event_callbacks = {
         .on_recv_done = _on_rx_done,
     };
 
-    // --- Static Callback ---
     static bool _on_rx_done(rmt_channel_handle_t rmt_rx_channel, const rmt_rx_done_event_data_t *edata, void *user_data);
 };
-

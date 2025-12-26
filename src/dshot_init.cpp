@@ -8,7 +8,6 @@
 
 #include "dshot_init.h"
 
-// Function to initialize the RMT TX channel
 dshot_result_t _init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_channel, bool is_bidirectional)
 {
     rmt_tx_channel_config_t tx_channel_config = {};
@@ -18,14 +17,10 @@ dshot_result_t _init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_c
     tx_channel_config.mem_block_symbols = RMT_TX_BUFFER_SYMBOLS;
     tx_channel_config.trans_queue_depth = RMT_QUEUE_DEPTH;
     tx_channel_config.intr_priority = 0;
-    tx_channel_config.flags.invert_out = is_bidirectional;
+    tx_channel_config.flags.invert_out = false;
     tx_channel_config.flags.with_dma = false;
     tx_channel_config.flags.io_loop_back = is_bidirectional;
-
-    // Open-drain for bidirectional DShot Modes
     tx_channel_config.flags.io_od_mode = is_bidirectional;
-
-    // External Pull-Up usage
     tx_channel_config.flags.init_level = DSHOT_PULSE_LEVEL_LOW;
 
     if (rmt_new_tx_channel(&tx_channel_config, out_channel) != DSHOT_OK)
@@ -41,7 +36,6 @@ dshot_result_t _init_rmt_tx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_c
     return dshot_result_t::create_success(DSHOT_TX_INIT_SUCCESS);
 }
 
-// Function to initialize the RMT RX channel
 dshot_result_t _init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_channel, rmt_rx_event_callbacks_t *rx_event_callbacks, void *user_data)
 {
     rmt_rx_channel_config_t rx_channel_config = {};
@@ -69,7 +63,6 @@ dshot_result_t _init_rmt_rx_channel(gpio_num_t gpio, rmt_channel_handle_t *out_c
     return dshot_result_t::create_success(DSHOT_RX_INIT_SUCCESS);
 }
 
-// Function to initialize the DShot RMT encoder
 dshot_result_t _init_dshot_encoder(rmt_encoder_handle_t *out_encoder, const rmt_ticks_t &rmt_ticks)
 {
     rmt_bytes_encoder_config_t encoder_config = {};

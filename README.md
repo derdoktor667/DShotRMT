@@ -28,7 +28,7 @@ Here's an example of the output from the `dshot300` example sketch, now showing 
 
 - **Pure RMT Implementation:** Exclusively uses the ESP32 RMT peripheral for hardware-timed signals, ensuring stable, precise, and low-latency motor control with minimal CPU load.
 - **Multiple DShot Modes:** Supports DSHOT150, DSHOT300, DSHOT600, and DSHOT1200.
-- **Robust Bidirectional DShot Support:** Features full GCR-decoded telemetry data (temperature, voltage, current, consumption, and RPM) from the ESC. The library automatically differentiates between eRPM-only and full telemetry frames.
+- **Robust Bidirectional DShot Support:** Features full GCR-decoded telemetry data (temperature, voltage, current, consumption, and RPM) from the ESC. The RMT receiver automatically infers the DShot speed of incoming telemetry signals and dynamically adjusts its pulse width filter parameters, significantly improving reception reliability and robustness across various ESCs and DShot modes. It also supports configurable handling of inverted telemetry signals via a constructor parameter.
 - **Dynamic Receiver Configuration:** The RMT receiver's pulse width filter is dynamically calculated based on the selected DShot speed, significantly improving telemetry reception reliability across all modes.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
 - **Clean Sketch Interface:** Sketches only need to include `DShotRMT.h`. Utility functions for printing results (`printDShotResult`), DShot information (`printDShotInfo`), and CPU details (`printCpuInfo`) are now accessible as member functions of the `DShotRMT` class.
@@ -43,10 +43,9 @@ The library is architected around a single C++ class, `DShotRMT`, which abstract
 1.  **Signal Generation (TX):** The library uses an RMT 'bytes_encoder'. This encoder is configured with the specific pulse durations for DShot '0' and '1' bits based on the selected speed (e.g., DSHOT300, DSHOT600). When a user calls `sendThrottle()`, the library constructs a 16-bit DShot frame (11-bit throttle, 1-bit telemetry request, 4-bit CRC) and hands it to the RMT encoder. The RMT hardware then autonomously generates the correct electrical signal on the specified GPIO pin.
 
 2.  **Bidirectional Telemetry (RX):** For bidirectional communication, the library configures a second RMT channel in receive mode on the same GPIO. **An external pull-up resistor (e.g., 2k Ohm to 3.3V) is required for this to work.** When the ESC sends back a telemetry signal, the RMT peripheral captures it. An interrupt service routine (ISR) intelligently differentiates between different frame lengths.
-    -   For **eRPM telemetry**, the ISR decodes the 21-bit GCR frame using the common DShot logic. It correctly interprets the `eeem mmmm mmmm` extended format to calculate the motor's period and derive a highly accurate RPM value.
-    -   For **full telemetry**, it decodes the 110-bit GCR frame to extract temperature, voltage, and current.
-    The resulting data is stored in thread-safe `atomic` variables, which can be polled via the `getTelemetry()` method.
-
+        For **eRPM telemetry**, the ISR recovers the NRZ bitstream using clock recovery techniques and then decodes the 21-bit GCR frame using the common DShot logic. It correctly interprets the `eeem mmmm mmmm` extended format to calculate the motor's period and derive a highly accurate RPM value.
+        -   For **full telemetry**, it recovers the NRZ bitstream, decodes the 110-bit GCR frame, and extracts temperature, voltage, and current.
+        The resulting data is stored in thread-safe `atomic` variables, which can be polled via the `getTelemetry()` method.
 ## ⏱️ DShot Timing Information
 
 The DShot protocol defines specific timing characteristics for each mode. The following table outlines the bit length, T1H (high time for a '1' bit), T0H (high time for a '0' bit), and frame length for the supported DShot modes:
@@ -57,6 +56,20 @@ The DShot protocol defines specific timing characteristics for each mode. The fo
 | DSHOT300   | 3.33            | 2.50            | 1.25            | 53.28             |
 | DSHOT600   | 1.67            | 1.25            | 0.625           | 26.72             |
 | DSHOT1200  | 0.83            | 0.67            | 0.335           | 13.28             |
+
+## 🛠️ Building and Uploading
+
+To compile an example sketch with `arduino-cli`, navigate to the project root and use:
+
+```bash
+arduino-cli compile --fqbn esp32:esp32:esp32 --library . path/to/example.ino
+```
+
+To upload a compiled sketch to your ESP32 (replace `/dev/ttyUSB0` with your serial port):
+
+```bash
+arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:esp32 path/to/example.ino
+```
 
 ## 📦 Installation
 

@@ -89,7 +89,7 @@ const dshot_timing_us_t DSHOT_TIMING_US[] = {
 static constexpr auto DSHOT_CLOCK_SRC_DEFAULT = RMT_CLK_SRC_DEFAULT;
 static constexpr auto DSHOT_RMT_RESOLUTION = 8000000;                    // 8 MHz resolution
 static constexpr auto RMT_TICKS_PER_US = DSHOT_RMT_RESOLUTION / 1000000; // RMT Ticks per microsecond
-static constexpr auto RMT_TX_BUFFER_SYMBOLS = 64;
+static constexpr auto RMT_TX_BUFFER_SYMBOLS = 48;
 static constexpr auto RMT_RX_BUFFER_SYMBOLS = DSHOT_TELEMETRY_FULL_GCR_BITS;
 static constexpr auto RMT_QUEUE_DEPTH = 1;
 

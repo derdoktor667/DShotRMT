@@ -65,7 +65,7 @@ void setup()
     USB_SERIAL.println("DShotRMT Web Client Demo Starting...");
 
     motor01.begin();
-    printCpuInfo(USB_SERIAL);
+    DShotRMT::printCpuInfo(USB_SERIAL);
 
     // Connect to WiFi network
     USB_SERIAL.println("\nConnecting to WiFi network...");
@@ -153,13 +153,13 @@ void loop()
     // Print motor stats every 3 seconds in continuous mode
     if ((esp_timer_get_time() - last_serial_update >= MOTOR_STATS_UPDATE_INTERVAL_US))
     {
-        printDShotInfo(motor01, USB_SERIAL);
+        motor01.printDShotInfo(USB_SERIAL);
 
         // Get Motor RPM if bidirectional and armed
         if (IS_BIDIRECTIONAL && isArmed)
         {
             dshot_result_t telem_result = motor01.getTelemetry();
-            printDShotResult(telem_result);
+            motor01.printDShotResult(telem_result, USB_SERIAL);
         }
 
         USB_SERIAL.println("Type 'help' to show Menu");
@@ -428,7 +428,7 @@ void handleSerialInput(const String &input)
 
     if (input == SerialCmd::INFO)
     {
-        printDShotInfo(motor01, USB_SERIAL);
+        motor01.printDShotInfo(USB_SERIAL);
         USB_SERIAL.println(" ");
         USB_SERIAL.printf("Arming Status: %s\n", isArmed ? "ARMED" : "DISARMED");
         return;
@@ -476,7 +476,7 @@ void handleSerialInput(const String &input)
         if (isArmed)
         {
             dshot_result_t result = motor01.getTelemetry();
-            printDShotResult(result);
+            motor01.printDShotResult(result, USB_SERIAL);
         }
         else
         {
@@ -501,7 +501,7 @@ void handleSerialInput(const String &input)
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
-            printDShotResult(result);
+            motor01.printDShotResult(result, USB_SERIAL);
         }
         else
         {
@@ -562,7 +562,7 @@ void handleSerialInput(const String &input)
         throttle = 0;
         continuous_throttle = false;
         dshot_result_t result = motor01.sendCommand(DSHOT_CMD_MOTOR_STOP);
-        printDShotResult(result);
+        motor01.printDShotResult(result, USB_SERIAL);
         return;
     }
 

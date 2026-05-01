@@ -20,15 +20,15 @@ static constexpr gpio_num_t MOTOR01_PIN = GPIO_NUM_27;
 static constexpr dshot_mode_t DSHOT_MODE = DSHOT300;
 
 // BiDirectional DShot Support (default: false)
-// Note: Bidirectional DShot is currently not officially supported 
+// Note: Bidirectional DShot is currently not officially supported
 // due to instability and external hardware requirements.
-static constexpr auto IS_BIDIRECTIONAL = false; 
+static constexpr auto IS_BIDIRECTIONAL = true;
 
 // Motor magnet count for RPM calculation
-static constexpr auto MOTOR01_MAGNET_COUNT = 14;
+// static constexpr auto MOTOR01_MAGNET_COUNT = 14;
 
 // Creates the motor instance
-DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL, DEFAULT_MOTOR_MAGNET_COUNT);
+DShotRMT motor01(MOTOR01_PIN, DSHOT_MODE, IS_BIDIRECTIONAL);
 
 // Forward declaration
 void handleSerialInput(const String &input);
@@ -44,7 +44,7 @@ void setup()
     motor01.begin();
 
     // Print CPU Info
-    printCpuInfo(USB_SERIAL);
+    DShotRMT::printCpuInfo(USB_SERIAL);
 
     //
     printMenu();
@@ -94,16 +94,16 @@ void handleSerialInput(const String &input)
     {
         // Stop motor
         dshot_result_t result = motor01.sendThrottlePercent(0.0f);
-        printDShotResult(result);
+        motor01.printDShotResult(result, USB_SERIAL);
     }
     else if (input == "info")
     {
-        printDShotInfo(motor01, USB_SERIAL);
+        motor01.printDShotInfo(USB_SERIAL);
     }
     else if (input == "rpm" && IS_BIDIRECTIONAL)
     {
         dshot_result_t result = motor01.getTelemetry();
-        printDShotResult(result);
+        motor01.printDShotResult(result, USB_SERIAL);
     }
     else if (input.startsWith("cmd "))
     {
@@ -113,7 +113,7 @@ void handleSerialInput(const String &input)
         if (cmd_num >= DSHOT_CMD_MOTOR_STOP && cmd_num <= DSHOT_CMD_MAX)
         {
             dshot_result_t result = motor01.sendCommand(cmd_num);
-            printDShotResult(result);
+            motor01.printDShotResult(result, USB_SERIAL);
         }
         else
         {
@@ -132,7 +132,7 @@ void handleSerialInput(const String &input)
         if (throttle_percent >= 0.0f && throttle_percent <= 100.0f)
         {
             dshot_result_t result = motor01.sendThrottlePercent(throttle_percent);
-            printDShotResult(result);
+            motor01.printDShotResult(result, USB_SERIAL);
         }
         else
         {

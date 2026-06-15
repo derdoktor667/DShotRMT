@@ -7,6 +7,10 @@
 #######################################
 
 DShotRMT	KEYWORD1
+dshot_mode_t	KEYWORD1
+dshot_result_t	KEYWORD1
+dshot_telemetry_data_t	KEYWORD1
+dshotCommands_e	KEYWORD1
 
 #######################################
 # Methods (KEYWORD2)
@@ -20,6 +24,13 @@ sendCustomCommand	KEYWORD2
 getTelemetry	KEYWORD2
 setMotorSpinDirection	KEYWORD2
 saveESCSettings	KEYWORD2
+getMode	KEYWORD2
+isBidirectional	KEYWORD2
+getThrottleValue	KEYWORD2
+getEncodedFrameValue	KEYWORD2
+printDShotResult	KEYWORD2
+printDShotInfo	KEYWORD2
+printCpuInfo	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

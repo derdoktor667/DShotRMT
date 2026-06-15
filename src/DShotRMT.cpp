@@ -279,13 +279,13 @@ uint16_t DShotRMT::_buildDShotFrameValue(const dshot_packet_t &packet) const
 {
     // Combine throttle, telemetry bit, and CRC into a single 16-bit frame.
     uint16_t data_and_telemetry = (packet.throttle_value << 1) | packet.telemetric_request;
-    return (data_and_telemetry << 4) | packet.checksum;
+    return (data_and_telemetry << DSHOT_CRC_BIT_SHIFT) | packet.checksum;
 }
 
 uint16_t DShotRMT::_calculateCRC(const uint16_t &data) const
 {
     // Standard DShot CRC calculation using XOR.
-    uint16_t crc = (data ^ (data >> 4) ^ (data >> 8)) & DSHOT_CRC_MASK;
+    uint16_t crc = (data ^ (data >> DSHOT_CRC_BIT_SHIFT) ^ (data >> 8)) & DSHOT_CRC_MASK;
 
     // For bidirectional DShot, the CRC is inverted per specification.
     if (_is_bidirectional)
@@ -314,6 +314,30 @@ uint8_t DShotRMT::_calculateTelemetryCRC(const uint8_t *data, size_t len) const
         }
     }
     return crc;
+}
+
+uint8_t DShotRMT::_decodeGCR5B4B(uint8_t gcr) const
+{
+    switch (gcr)
+    {
+    case 0x19: return 0x0; // 0b11001
+    case 0x1B: return 0x1; // 0b11011
+    case 0x12: return 0x2; // 0b10010
+    case 0x13: return 0x3; // 0b10011
+    case 0x1D: return 0x4; // 0b11101
+    case 0x15: return 0x5; // 0b10101
+    case 0x16: return 0x6; // 0b10110
+    case 0x17: return 0x7; // 0b10111
+    case 0x1A: return 0x8; // 0b11010
+    case 0x09: return 0x9; // 0b01001
+    case 0x0A: return 0xA; // 0b01010
+    case 0x0B: return 0xB; // 0b01011
+    case 0x1E: return 0xC; // 0b11110
+    case 0x0D: return 0xD; // 0b01101
+    case 0x0E: return 0xE; // 0b01110
+    case 0x0F: return 0xF; // 0b01111
+    default:   return 0xFF; // Invalid
+    }
 }
 
 void DShotRMT::_extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const
@@ -426,23 +450,30 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
 {
     uint32_t gcr_value = 0;
 
-    // Decode RMT symbols into a 21-bit GCR (Group Code Recording) value.
-    // The ESC sends back a signal where the duration of high vs. low determines the bit value.
-    for (size_t i = 0; i < DSHOT_ERPM_FRAME_GCR_BITS; ++i)
+    // Decode RMT symbols into a 20-bit GCR value (skipping the first start bit).
+    for (size_t i = 1; i < DSHOT_ERPM_FRAME_GCR_BITS; ++i)
     {
         bool bit_is_one = symbols[i].duration0 > symbols[i].duration1;
         gcr_value = (gcr_value << 1) | bit_is_one;
     }
 
-    // Perform GCR decoding (GCR = Value ^ (Value >> 1)).
-    uint32_t decoded_frame = gcr_value ^ (gcr_value >> 1);
-
-    // Extract the 16-bit DShot-like frame from the decoded data.
-    uint16_t data_and_crc = (decoded_frame & DSHOT_FULL_PACKET);
+    // Decode the four 5-bit GCR symbols to four 4-bit nibbles (16 bits total).
+    uint16_t decoded_frame = 0;
+    for (int i = 0; i <= GCR_MAX_SYMBOL_INDEX; ++i)
+    {
+        uint8_t shift_bits = (GCR_MAX_SYMBOL_INDEX - i) * GCR_BITS_PER_SYMBOL;
+        uint8_t gcr_symbol = (gcr_value >> shift_bits) & GCR_SYMBOL_MASK;
+        uint8_t nibble = _decodeGCR5B4B(gcr_symbol);
+        if (nibble == 0xFF)
+        {
+            return DSHOT_NULL_PACKET; // Invalid symbol
+        }
+        decoded_frame = (decoded_frame << 4) | nibble;
+    }
 
     // The eRPM telemetry frame consists of 12 data bits and 4 CRC bits.
-    uint16_t received_data = data_and_crc >> DSHOT_CRC_BIT_SHIFT;
-    uint16_t received_crc = data_and_crc & DSHOT_CRC_MASK;
+    uint16_t received_data = decoded_frame >> DSHOT_CRC_BIT_SHIFT;
+    uint16_t received_crc = decoded_frame & DSHOT_CRC_MASK;
 
     // Calculate and validate the CRC for the received data.
     uint16_t calculated_crc = _calculateCRC(received_data);
@@ -451,8 +482,20 @@ uint16_t IRAM_ATTR DShotRMT::_decodeDShotFrame(const rmt_symbol_word_t *symbols)
         return DSHOT_NULL_PACKET;
     }
 
-    // Return the eRPM value (the first 11 bits of the data).
-    return received_data & DSHOT_THROTTLE_MAX;
+    // Convert commutation period (eeem mmmm mmmm) to eRPM.
+    uint16_t mantissa = received_data & DSHOT_TELEMETRY_MANTISSA_MASK;
+    uint16_t exponent = received_data >> DSHOT_TELEMETRY_EXPONENT_SHIFT;
+    uint32_t period = mantissa << exponent;
+
+    if (period == 0)
+    {
+        return DSHOT_NULL_PACKET;
+    }
+
+    // eRPM = 60,000,000 / period (in microseconds)
+    uint32_t erpm = DSHOT_ERPM_CONVERSION_SCALE / period;
+
+    return (erpm > 0xFFFF) ? 0xFFFF : static_cast<uint16_t>(erpm);
 }
 
 // Timing Control Functions
@@ -482,11 +525,15 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
     uint8_t gcr_decoded_bytes[DSHOT_TELEMETRY_FRAME_LENGTH_BYTES + 1]; // 10 data bytes + 1 CRC byte.
     memset(gcr_decoded_bytes, 0, sizeof(gcr_decoded_bytes));
 
+    static constexpr int BITS_PER_BYTE = 8;
+    static constexpr int BITS_PER_NIBBLE = 4;
+    static constexpr int KISS_TELEMETRY_RPM_SCALE = 100;
+
     uint8_t data_bit_idx = 0;
-    for (size_t i = 0; i < DSHOT_TELEMETRY_FULL_GCR_BITS; i += 5)
+    for (size_t i = 0; i < DSHOT_TELEMETRY_FULL_GCR_BITS; i += GCR_BITS_PER_SYMBOL)
     {
         uint8_t gcr_group_5bits = 0;
-        for (size_t j = 0; j < 5; ++j)
+        for (size_t j = 0; j < GCR_BITS_PER_SYMBOL; ++j)
         {
             if (i + j < DSHOT_TELEMETRY_FULL_GCR_BITS)
             {
@@ -494,38 +541,22 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
             }
         }
 
-        uint8_t decoded_nibble; // 4 data bits.
-        switch (gcr_group_5bits)
+        uint8_t decoded_nibble = _decodeGCR5B4B(gcr_group_5bits);
+        if (decoded_nibble == 0xFF)
         {
-        case 0b11110: decoded_nibble = 0b0000; break;
-        case 0b01001: decoded_nibble = 0b0001; break;
-        case 0b10100: decoded_nibble = 0b0010; break;
-        case 0b10101: decoded_nibble = 0b0011; break;
-        case 0b01010: decoded_nibble = 0b0100; break;
-        case 0b01011: decoded_nibble = 0b0101; break;
-        case 0b01110: decoded_nibble = 0b0110; break;
-        case 0b01111: decoded_nibble = 0b0111; break;
-        case 0b10010: decoded_nibble = 0b1000; break;
-        case 0b10011: decoded_nibble = 0b1001; break;
-        case 0b10110: decoded_nibble = 0b1010; break;
-        case 0b10111: decoded_nibble = 0b1011; break;
-        case 0b11010: decoded_nibble = 0b1100; break;
-        case 0b11011: decoded_nibble = 0b1101; break;
-        case 0b11100: decoded_nibble = 0b1110; break;
-        case 0b11101: decoded_nibble = 0b1111; break;
-        default: return; // Invalid GCR group, discard frame.
+            return; // Invalid GCR group, discard frame.
         }
 
         // Place the 4 decoded bits into the data_bytes array.
-        for (int k = 3; k >= 0; --k)
+        for (int k = BITS_PER_NIBBLE - 1; k >= 0; --k)
         {
             if (data_bit_idx < (DSHOT_TELEMETRY_FRAME_LENGTH_BITS + DSHOT_TELEMETRY_CRC_LENGTH_BITS))
             {
-                size_t byte_idx = data_bit_idx / 8;
-                size_t bit_pos = data_bit_idx % 8;
+                size_t byte_idx = data_bit_idx / BITS_PER_BYTE;
+                size_t bit_pos = data_bit_idx % BITS_PER_BYTE;
                 if (byte_idx < sizeof(gcr_decoded_bytes))
                 {
-                    gcr_decoded_bytes[byte_idx] |= ((decoded_nibble >> k) & 1) << (7 - bit_pos);
+                    gcr_decoded_bytes[byte_idx] |= ((decoded_nibble >> k) & 1) << ((BITS_PER_BYTE - 1) - bit_pos);
                 }
                 data_bit_idx++;
             }
@@ -542,6 +573,9 @@ void IRAM_ATTR DShotRMT::_processFullTelemetryFrame(const rmt_symbol_word_t *sym
         dshot_telemetry_data_t telemetry_data;
         // Extract from the first 10 bytes (excluding the CRC byte).
         _extractTelemetryData(gcr_decoded_bytes, telemetry_data);
+
+        // Apply KISS protocol RPM scaling (multiply raw value by 100).
+        telemetry_data.rpm *= KISS_TELEMETRY_RPM_SCALE;
 
         _last_telemetry_data_atomic.store(telemetry_data);
         _full_telemetry_ready_flag_atomic.store(true);

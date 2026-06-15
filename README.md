@@ -25,7 +25,7 @@ Here's an example of the output from the `dshot300` example sketch, now showing 
 ## 🚀 Core Features
 
 - **Multiple DShot Modes:** Supports DSHOT150, DSHOT300, DSHOT600, and DSHOT1200.
-- **Robust Bidirectional DShot Support:** Now features full GCR-dekodierte telemetry data (temperature, voltage, current, consumption, and RPM) from the ESC. The library automatically differentiates between eRPM-only and full telemetry frames. This significantly enhances feedback capabilities for advanced applications.
+- **Robust Bidirectional DShot Support:** Features full GCR-decoded telemetry data (temperature, voltage, current, consumption, and RPM) from the ESC. The library automatically differentiates between eRPM-only and full telemetry frames. This significantly enhances feedback capabilities for advanced applications.
 - **Hardware-Timed Signals:** Precise signal generation using the ESP32 RMT peripheral, ensuring stable and reliable motor control.
 - **Simple API:** Easy-to-use C++ class with intuitive methods like `sendThrottlePercent()`.
 - **Enhanced Error Handling:** Provides detailed feedback on operation success or failure via an enhanced `dshot_result_t` struct, now including specific error codes, eRPM data, and a `dshot_telemetry_data_t` struct for full GCR-decoded telemetry.
@@ -132,7 +132,7 @@ The main class is `DShotRMT`. Here are the most important methods:
 - `sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us)`: Sends a DShot command to the ESC with a specified repeat count and delay. This is a blocking function.
 - `sendCommand(uint16_t command_value)`: Sends a DShot command to the ESC by accepting an integer value. It validates the input and then calls `sendCommand(dshotCommands_e command)`.
 - `sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us)`: Sends a custom DShot command to the ESC. Advanced feature, use with caution.
-- `getTelemetry()`: Retrieves telemetry data from the ESC. If bidirectional DShot is enabled, this function now returns a comprehensive `dshot_result_t` containing both eRPM and a fully GCR-decoded `dshot_telemetry_data_t` struct (temperature, voltage, current, consumption, RPM) if available.
+- `getTelemetry()`: Retrieves telemetry data from the ESC. If bidirectional DShot is enabled, this function returns a comprehensive `dshot_result_t` containing both eRPM and a fully GCR-decoded `dshot_telemetry_data_t` struct (temperature, voltage, current, consumption, RPM) if available. All RPM and eRPM fields are stored as 32-bit integers (`uint32_t`) to prevent overflow at high motor speeds.
 - `setMotorSpinDirection(bool reversed)`: Sets the motor spin direction. `true` for reversed, `false` for normal.
 - `saveESCSettings()`: Sends a command to the ESC to save its current settings. Use with caution as this writes to ESC's non-volatile memory.
 - `getMode()`: Gets the current DShot mode.

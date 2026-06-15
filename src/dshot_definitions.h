@@ -47,6 +47,14 @@ static constexpr uint16_t SETTINGS_COMMAND_DELAY_US = 5;
 // --- GCR Frame Structure ---
 static constexpr uint16_t DSHOT_ERPM_FRAME_GCR_BITS = 21;      // GCR bits in a DShot answer frame for eRPM
 static constexpr uint16_t DSHOT_TELEMETRY_FULL_GCR_BITS = 110; // GCR bits for a full 10-byte telemetry frame (80 data bits + 8 CRC bits = 88 bits, 88 * 5/4 = 110 GCR bits)
+static constexpr uint8_t GCR_BITS_PER_SYMBOL = 5;
+static constexpr uint8_t GCR_SYMBOL_MASK = 0x1F;
+static constexpr uint8_t GCR_MAX_SYMBOL_INDEX = 3;
+
+// --- Telemetry eRPM Structure ---
+static constexpr uint16_t DSHOT_TELEMETRY_MANTISSA_MASK = 0x1FF;
+static constexpr uint16_t DSHOT_TELEMETRY_EXPONENT_SHIFT = 9;
+static constexpr uint32_t DSHOT_ERPM_CONVERSION_SCALE = 60000000;
 
 // --- Telemetry Payload Structure ---
 static constexpr uint16_t DSHOT_TELEMETRY_FRAME_LENGTH_BITS = 80; // 10 bytes * 8 bits/byte
@@ -135,7 +143,7 @@ typedef struct dshot_packet
 // Structure for decoded DShot telemetry data (from ESC)
 typedef struct dshot_telemetry_data
 {
-    uint16_t rpm;         // Motor RPM
+    uint32_t rpm;         // Motor RPM (electrical RPM)
     uint16_t voltage;     // Voltage in mV
     uint16_t current;     // Current in mA
     uint16_t consumption; // Consumption in mAh
@@ -179,8 +187,8 @@ typedef struct dshot_result
 {
     bool success;
     dshot_msg_code_t result_code;          // Specific error or success code.
-    uint16_t erpm;                         // Electrical RPM (eRPM) if telemetry is successful.
-    uint16_t motor_rpm;                    // Motor RPM if telemetry is successful and magnet count is known.
+    uint32_t erpm;                         // Electrical RPM (eRPM) if telemetry is successful.
+    uint32_t motor_rpm;                    // Motor RPM if telemetry is successful and magnet count is known.
     dshot_telemetry_data_t telemetry_data; // Full telemetry data if available
     bool telemetry_available;              // Flag to indicate if telemetry_data is valid
 } dshot_result_t;

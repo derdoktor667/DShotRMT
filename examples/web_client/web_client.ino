@@ -19,9 +19,9 @@
 #include <DShotRMT.h>
 #include <WiFi.h>
 #include <Update.h>
-#include "../web_utilities/ota_update.h"
-#include "../web_utilities/web_content.h"
-#include "../web_utilities/web_constants.h"
+#include "ota_update.h"
+#include "web_content.h"
+#include "web_constants.h"
 
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>

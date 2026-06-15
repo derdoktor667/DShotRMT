@@ -21,40 +21,82 @@
 // DShotRMT Library Version
 static constexpr uint8_t DSHOTRMT_MAJOR_VERSION = 0;
 static constexpr uint8_t DSHOTRMT_MINOR_VERSION = 9;
-static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 5;
+static constexpr uint8_t DSHOTRMT_PATCH_VERSION = 6;
 
 // DShot Protocol Constants
 static constexpr auto DSHOT_THROTTLE_FAILSAFE = 0;
 
-// DShotRMT class for generating DShot signals and receiving telemetry.
+/**
+ * @class DShotRMT
+ * @brief Main class for generating DShot signals and receiving telemetry using ESP32 RMT.
+ */
 class DShotRMT
 {
 public:
-    // Constructs a new DShotRMT object using a GPIO pin.
+    /**
+     * @brief Constructs a new DShotRMT object using a GPIO pin.
+     * @param gpio GPIO pin number (using gpio_num_t enum).
+     * @param mode DShot mode (DSHOT150, DSHOT300, DSHOT600, DSHOT1200). Default is DSHOT300.
+     * @param is_bidirectional Enable bidirectional DShot telemetry. Default is false.
+     * @param magnet_count Number of motor magnets for RPM calculation. Default is 14.
+     */
     DShotRMT(gpio_num_t gpio, dshot_mode_t mode = DSHOT300, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
-    // Constructs a new DShotRMT object using an Arduino-style integer pin number.
+    /**
+     * @brief Constructs a new DShotRMT object using an Arduino-style integer pin number.
+     * @param pin_nr Arduino pin number.
+     * @param mode DShot mode (DSHOT150, DSHOT300, DSHOT600, DSHOT1200).
+     * @param is_bidirectional Enable bidirectional DShot telemetry. Default is false.
+     * @param magnet_count Number of motor magnets for RPM calculation. Default is 14.
+     */
     DShotRMT(uint16_t pin_nr, dshot_mode_t mode, bool is_bidirectional = false, uint16_t magnet_count = DEFAULT_MOTOR_MAGNET_COUNT);
 
-    // Destructor
+    /**
+     * @brief Destructor. Cleans up RMT resources.
+     */
     ~DShotRMT();
 
-    // Initialize DShotRMT
+    /**
+     * @brief Initialize DShotRMT hardware resources (RMT channels and encoders).
+     * @return dshot_result_t Status of initialization.
+     */
     dshot_result_t begin();
 
-    // Sends a raw throttle value to the ESC.
+    /**
+     * @brief Sends a raw throttle value to the ESC.
+     * @param throttle Raw throttle value (48-2047). 0 is motor stop.
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t sendThrottle(uint16_t throttle);
 
-    // Sends a throttle value as a percentage to the ESC.
+    /**
+     * @brief Sends a throttle value as a percentage to the ESC.
+     * @param percent Throttle percentage (0.0 - 100.0).
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t sendThrottlePercent(float percent);
 
-    // Sends a DShot command to the ESC by accepting an integer value.
+    /**
+     * @brief Sends a DShot command to the ESC by accepting an integer value.
+     * @param command_value Integer command value (0-47).
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t sendCommand(uint16_t command_value);
 
-    // Sends a DShot command to the ESC.
+    /**
+     * @brief Sends a DShot command to the ESC using the enum.
+     * @param command Command from dshotCommands_e.
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t sendCommand(dshotCommands_e command);
 
-    // Sends a DShot command to the ESC with a specified repeat count and delay.
+    /**
+     * @brief Sends a DShot command to the ESC with a specified repeat count and delay.
+     * @param command Command from dshotCommands_e.
+     * @param repeat_count Number of times to repeat the command.
+     * @param delay_us Delay between repeats in microseconds.
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t sendCommand(dshotCommands_e command, uint16_t repeat_count, uint16_t delay_us);
 
     /**
@@ -66,19 +108,48 @@ public:
      */
     dshot_result_t sendCustomCommand(uint16_t command_value, uint16_t repeat_count, uint16_t delay_us);
 
-    // Retrieves telemetry data from the ESC.
+    /**
+     * @brief Retrieves the latest telemetry data from the ESC.
+     * @note Only functional if bidirectional DShot was enabled in the constructor.
+     * @return dshot_result_t Result containing eRPM and full telemetry if available.
+     */
     dshot_result_t getTelemetry();
 
-    // Sets the motor spin direction.
+    /**
+     * @brief Sets the motor spin direction.
+     * @param reversed true for reversed direction, false for normal.
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t setMotorSpinDirection(bool reversed);
 
-    // Sends a command to the ESC to save its current settings.
+    /**
+     * @brief Sends a command to the ESC to save its current settings to non-volatile memory.
+     * @return dshot_result_t Result of the operation.
+     */
     dshot_result_t saveESCSettings();
 
-    // Getters for DShot info
+    /**
+     * @brief Gets the current DShot mode.
+     * @return dshot_mode_t Current mode.
+     */
     dshot_mode_t getMode() const { return _mode; }
+
+    /**
+     * @brief Checks if bidirectional DShot is enabled.
+     * @return true if enabled, false otherwise.
+     */
     bool isBidirectional() const { return _is_bidirectional; }
+
+    /**
+     * @brief Gets the last transmitted throttle value.
+     * @return uint16_t Last throttle value.
+     */
     uint16_t getThrottleValue() const { return _last_throttle; }
+
+    /**
+     * @brief Gets the last encoded 16-bit DShot frame value.
+     * @return uint16_t Encoded frame.
+     */
     uint16_t getEncodedFrameValue() const { return _encoded_frame_value; }
 
 private:
@@ -109,7 +180,7 @@ private:
     uint16_t _encoded_frame_value = 0;       // Last encoded 16-bit DShot frame value
 
     // Telemetry Related Variables
-    std::atomic<uint16_t> _last_erpm_atomic = 0;                          // Atomically stored last received eRPM value
+    std::atomic<uint32_t> _last_erpm_atomic = 0;                          // Atomically stored last received eRPM value
     std::atomic<bool> _telemetry_ready_flag_atomic = false;               // Atomically stored flag indicating new telemetry data
     std::atomic<dshot_telemetry_data_t> _last_telemetry_data_atomic = {}; // Atomically stored last received full telemetry data
     std::atomic<bool> _full_telemetry_ready_flag_atomic = false;          // Atomically stored flag indicating new full telemetry data
@@ -124,6 +195,7 @@ private:
     uint16_t _buildDShotFrameValue(const dshot_packet_t &packet) const;                                           // Combines packet data into a 16-bit DShot frame value
     uint16_t _calculateCRC(const uint16_t &data) const;                                                           // Calculates the 4-bit CRC for a DShot frame
     uint8_t _calculateTelemetryCRC(const uint8_t *data, size_t len) const;                                        // Calculates the 8-bit CRC for telemetry data
+    uint8_t _decodeGCR5B4B(uint8_t gcr) const;                                                                    // Translates 5-bit GCR code to 4-bit nibble
     void _extractTelemetryData(const uint8_t *raw_telemetry_bytes, dshot_telemetry_data_t &telemetry_data) const; // Extracts telemetry data from raw bytes
     void _preCalculateRMTTicks();                                                                                 // Pre-calculates RMT timing ticks for the selected DShot mode
     dshot_result_t _sendPacket(const dshot_packet_t &packet);                                                     // Sends a DShot frame via RMT TX channel
